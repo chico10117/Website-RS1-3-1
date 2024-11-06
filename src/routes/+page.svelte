@@ -1,249 +1,175 @@
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Checkbox } from "$lib/components/ui/checkbox";
-  import { Card, CardContent } from "$lib/components/ui/card";
-  import Modal from "$lib/components/ui/modal/modal.svelte";
-  import { DollarSign, Globe, Shield, Play, Twitter, Instagram, Linkedin, Check } from "lucide-svelte";
-  import { onMount } from 'svelte';
+  import { X } from "lucide-svelte";
 
-  let showModal = false;
-  let mounted = false;
+  interface Dish {
+    title: string;
+    imageUrl: string;
+    price: string;
+    description: string;
+  }
 
-  onMount(() => {
-    mounted = true;
-    console.log('Component mounted');
-  });
+  interface Category {
+    name: string;
+    dishes: Dish[];
+  }
 
-  $: {
-    if (mounted) {
-      console.log('showModal changed:', showModal);
+  let categories: Category[] = [];
+  let newCategory = '';
+  let selectedCategory: number | null = null;
+  let newDish: Dish = { title: '', imageUrl: '', price: '', description: '' };
+
+  function addCategory() {
+    if (newCategory.trim()) {
+      categories = [...categories, { name: newCategory, dishes: [] }];
+      newCategory = '';
     }
   }
 
-  let name = '';
-  let email = '';
-  let whatsapp = '';
-  let newsletter = false;
+  function addDish() {
+    if (selectedCategory !== null && newDish.title.trim()) {
+      categories[selectedCategory].dishes = [...categories[selectedCategory].dishes, { ...newDish }];
+      categories = categories;
+      newDish = { title: '', imageUrl: '', price: '', description: '' };
+    }
+  }
 
-  function handleSubmit(e: SubmitEvent) {
-    e.preventDefault();
-    console.log({ name, email, whatsapp, newsletter });
-    showModal = false;
+  function removeCategory(index: number) {
+    categories = categories.filter((_, i) => i !== index);
+    if (selectedCategory === index) {
+      selectedCategory = null;
+    }
+  }
+
+  function removeDish(categoryIndex: number, dishIndex: number) {
+    categories[categoryIndex].dishes = categories[categoryIndex].dishes.filter((_, i) => i !== dishIndex);
+    categories = categories;
+  }
+
+  function handleImageUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      newDish.imageUrl = URL.createObjectURL(file);
+      newDish = newDish;
+    }
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-blue-50 to-white text-gray-900">
-  <header class="relative bg-black text-white min-h-[80vh]">
-    <div class="absolute inset-0 z-0">
-      <img
-        src="https://media.fashionnetwork.com/cdn-cgi/image/format=auto/m/26fe/feb9/7ddc/56d4/f480/443f/deb7/a804/5bae/268b/268b.jpg"
-        alt="Background"
-        class="object-cover w-full h-full opacity-40"
-        style="object-position: center 30%;"
+<div class="container mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
+  
+  <div class="bg-white rounded-lg shadow p-4 mb-4">
+    <h2 class="text-xl font-semibold mb-4">Add Category</h2>
+    <div class="flex items-center space-x-2">
+      <input
+        type="text"
+        class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Category name"
+        bind:value={newCategory}
       />
+      <button 
+        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        on:click={addCategory}
+      >
+        Add
+      </button>
     </div>
-    <div class="relative z-10 container mx-auto px-4 py-24 md:py-32 min-h-[80vh] flex items-center">
-      <div class="max-w-4xl mx-auto text-center space-y-8">
-        <h1 class="text-4xl md:text-6xl font-bold tracking-tight">
-          Revoluciona tu Presencia Digital con <span class="bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-red-600">ConectArte</span>
-        </h1>
-        <p class="text-xl md:text-2xl text-gray-200">
-          Únete a una comunidad donde tu contenido brilla y se conecta globalmente.
-        </p>
-        <div class="flex justify-center">
-          <button 
-            class="bg-red-700 hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-md text-lg"
-            on:click={() => {
-              console.log('Opening modal...');
-              showModal = true;
-            }}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow p-4">
+      <h2 class="text-xl font-semibold mb-4">Categories</h2>
+      {#each categories as category, index}
+        <div class="flex items-center justify-between mb-2">
+          <button
+            class="flex-1 px-4 py-2 text-left {selectedCategory === index ? 'bg-blue-100' : 'bg-gray-100'} rounded-lg mr-2"
+            on:click={() => selectedCategory = index}
           >
-            Únete a la Lista de Espera Ahora
+            {category.name}
+          </button>
+          <button 
+            class="p-2 text-gray-500 hover:text-red-500 rounded-lg"
+            on:click={() => removeCategory(index)}
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+      {/each}
+    </div>
+
+    {#if selectedCategory !== null}
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-xl font-semibold mb-4">Add Dish to {categories[selectedCategory].name}</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Title</label>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              bind:value={newDish.title}
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              class="w-full"
+              on:change={handleImageUpload}
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Price</label>
+            <input
+              type="text"
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              bind:value={newDish.price}
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Description</label>
+            <textarea
+              class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              bind:value={newDish.description}
+            />
+          </div>
+          <button 
+            class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            on:click={addDish}
+          >
+            Add Dish
           </button>
         </div>
       </div>
-    </div>
-    <div class="absolute inset-0 bg-gradient-to-b from-black/20 to-black/50 z-[1]"></div>
-  </header>
+    {/if}
+  </div>
 
-  <main>
-    <section class="container mx-auto px-4 py-16">
-      <h2 class="text-3xl font-bold text-center mb-12">Características Clave</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <Card>
-          <CardContent class="flex flex-col items-center p-6">
-            <DollarSign class="w-12 h-12 text-red-600 mb-4" />
-            <h3 class="text-xl font-semibold mb-2">Sin Comisiones</h3>
-            <p class="text-center">Quédate con el 100% de tus ganancias</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent class="flex flex-col items-center p-6">
-            <Globe class="w-12 h-12 text-red-600 mb-4" />
-            <h3 class="text-xl font-semibold mb-2">Alcance Global</h3>
-            <p class="text-center">Conéctate con una audiencia mundial</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent class="flex flex-col items-center p-6">
-            <Shield class="w-12 h-12 text-red-600 mb-4" />
-            <h3 class="text-xl font-semibold mb-2">Seguro y Privado</h3>
-            <p class="text-center">Tu seguridad es nuestra prioridad</p>
-          </CardContent>
-        </Card>
+  <div class="bg-white rounded-lg shadow p-4 mt-4">
+    <h2 class="text-xl font-semibold mb-4">Menu Preview</h2>
+    {#each categories as category, categoryIndex}
+      <div class="mb-4">
+        <h3 class="text-xl font-semibold mb-2">{category.name}</h3>
+        {#each category.dishes as dish, dishIndex}
+          <div class="mb-2 p-2 border rounded-lg">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4 class="font-medium">{dish.title}</h4>
+                <p class="text-sm text-gray-600">{dish.description}</p>
+                <p class="font-bold">{dish.price}</p>
+              </div>
+              {#if dish.imageUrl}
+                <img src={dish.imageUrl} alt={dish.title} class="w-20 h-20 object-cover rounded-lg" />
+              {/if}
+              <button 
+                class="p-2 text-gray-500 hover:text-red-500"
+                on:click={() => removeDish(categoryIndex, dishIndex)}
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        {/each}
       </div>
-    </section>
-
-    <!-- Video section -->
-    <section class="bg-black text-white py-16">
-      <div class="container mx-auto px-4">
-        <h2 class="text-3xl font-bold text-center mb-8">Mira Cómo Funciona</h2>
-        <div class="relative aspect-video max-w-3xl mx-auto">
-          <iframe
-            src="https://www.youtube.com/embed/kmD9Y8w887k"
-            title="ConectArte Video"
-            class="w-full h-full rounded-lg"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-          ></iframe>
-        </div>
-      </div>
-    </section>
-
-    <!-- Benefits section -->
-    <section class="container mx-auto px-4 py-16 pb-8">
-      <h2 class="text-3xl font-bold text-center mb-8">Beneficios Exclusivos de Prelanzamiento</h2>
-      <ul class="max-w-2xl mx-auto space-y-4 text-lg">
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          50% de descuento en tu primera suscripción anual
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Acceso anticipado a funciones premium
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Sesión de incorporación personalizada con nuestro equipo
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Talleres exclusivos de creación de contenido y marketing digital
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Perfil verificado y distintivo especial de miembro fundador
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Prioridad en el soporte técnico 24/7
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Acceso a eventos y networking exclusivos de la comunidad
-        </li>
-        <li class="flex items-center">
-          <Check class="w-6 h-6 text-red-600 mr-2 flex-shrink-0" />
-          Herramientas premium de análisis y métricas de audiencia
-        </li>
-      </ul>
-    </section>
-
-    <!-- Form section -->
-    <section class="container mx-auto px-4 py-8">
-      <h2 class="text-3xl font-bold text-center mb-8">Únete a la Lista de Espera</h2>
-      <form on:submit={handleSubmit} class="max-w-md mx-auto space-y-4">
-        <Input
-          type="text"
-          placeholder="Tu Nombre"
-          bind:value={name}
-          required
-        />
-        <Input
-          type="email"
-          placeholder="Tu Email"
-          bind:value={email}
-          required
-        />
-        <Input
-          type="tel"
-          placeholder="Tu WhatsApp"
-          bind:value={whatsapp}
-          required
-        />
-        <div class="flex items-center space-x-2">
-          <Checkbox
-            id="newsletter"
-            bind:checked={newsletter}
-          />
-          <label for="newsletter" class="text-sm">
-            Suscríbete a nuestro boletín para recibir actualizaciones
-          </label>
-        </div>
-        <Button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-semibold">
-          Unirse a la Lista de Espera
-        </Button>
-      </form>
-    </section>
-  </main>
-
-  <footer class="bg-black text-white py-8">
-    <div class="container mx-auto px-4">
-      <div class="flex flex-col md:flex-row justify-between items-center">
-        <nav class="space-x-4 mb-4 md:mb-0">
-          <a href="/privacy" class="hover:text-red-400">Política de Privacidad</a>
-          <a href="/terms" class="hover:text-red-400">Términos de Servicio</a>
-          <a href="/contact" class="hover:text-red-400">Contáctanos</a>
-        </nav>
-        <div class="flex space-x-4">
-          <a href="https://twitter.com/conectarte" aria-label="Twitter">
-            <Twitter class="w-6 h-6" />
-          </a>
-          <a href="https://instagram.com/conectarte" aria-label="Instagram">
-            <Instagram class="w-6 h-6" />
-          </a>
-          <a href="https://linkedin.com/company/conectarte" aria-label="LinkedIn">
-            <Linkedin class="w-6 h-6" />
-          </a>
-        </div>
-      </div>
-      <p class="text-center mt-8">&copy; {new Date().getFullYear()} ConectArte. Todos los derechos reservados.</p>
-    </div>
-  </footer>
-
-  <Modal bind:showModal>
-    <form on:submit={handleSubmit} class="space-y-4">
-      <Input
-        type="text"
-        placeholder="Tu Nombre"
-        bind:value={name}
-        required
-      />
-      <Input
-        type="email"
-        placeholder="Tu Email"
-        bind:value={email}
-        required
-      />
-      <Input
-        type="tel"
-        placeholder="Tu WhatsApp"
-        bind:value={whatsapp}
-        required
-      />
-      <div class="flex items-center space-x-2">
-        <Checkbox
-          id="newsletter-modal"
-          bind:checked={newsletter}
-        />
-        <label for="newsletter-modal" class="text-sm">
-          Suscríbete a nuestro boletín para recibir actualizaciones
-        </label>
-      </div>
-      <Button type="submit" class="w-full bg-red-700 hover:bg-red-800 text-white font-semibold">
-        Unirse a la Lista de Espera
-      </Button>
-    </form>
-  </Modal>
+    {/each}
+  </div>
 </div> 
