@@ -14,7 +14,10 @@
   "dependencies": {
     "bits-ui": "^0.21.16",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.5",
     "lucide-svelte": "^0.454.0",
+    "mongodb": "^6.10.0",
+    "mongoose": "^8.8.1",
     "tailwind-merge": "^2.5.4",
     "tailwind-variants": "^0.2.1"
   },

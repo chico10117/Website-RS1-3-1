@@ -26,6 +26,7 @@
  * ```
  */
 declare module '$env/static/private' {
+	export const MONGODB_URI: string;
 	export const LESSOPEN: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
@@ -43,6 +44,7 @@ declare module '$env/static/private' {
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const npm_package_scripts_check: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
+	export const npm_package_dependencies_dotenv: string;
 	export const COLORTERM: string;
 	export const WSL_DISTRO_NAME: string;
 	export const npm_package_dependencies_tailwind_variants: string;
@@ -62,6 +64,7 @@ declare module '$env/static/private' {
 	export const npm_package_scripts_lint: string;
 	export const npm_config_registry: string;
 	export const TERM: string;
+	export const npm_package_dependencies_mongodb: string;
 	export const npm_package_dependencies_tailwind_merge: string;
 	export const npm_config_node_gyp: string;
 	export const PATH: string;
@@ -85,6 +88,7 @@ declare module '$env/static/private' {
 	export const npm_package_devDependencies_svelte: string;
 	export const LESSCLOSE: string;
 	export const npm_package_dependencies_clsx: string;
+	export const npm_package_dependencies_mongoose: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const npm_package_scripts_format: string;
 	export const PWD: string;
@@ -132,6 +136,7 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
+		MONGODB_URI: string;
 		LESSOPEN: string;
 		USER: string;
 		npm_config_user_agent: string;
@@ -149,6 +154,7 @@ declare module '$env/dynamic/private' {
 		VSCODE_GIT_ASKPASS_NODE: string;
 		npm_package_scripts_check: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
+		npm_package_dependencies_dotenv: string;
 		COLORTERM: string;
 		WSL_DISTRO_NAME: string;
 		npm_package_dependencies_tailwind_variants: string;
@@ -168,6 +174,7 @@ declare module '$env/dynamic/private' {
 		npm_package_scripts_lint: string;
 		npm_config_registry: string;
 		TERM: string;
+		npm_package_dependencies_mongodb: string;
 		npm_package_dependencies_tailwind_merge: string;
 		npm_config_node_gyp: string;
 		PATH: string;
@@ -191,6 +198,7 @@ declare module '$env/dynamic/private' {
 		npm_package_devDependencies_svelte: string;
 		LESSCLOSE: string;
 		npm_package_dependencies_clsx: string;
+		npm_package_dependencies_mongoose: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		npm_package_scripts_format: string;
 		PWD: string;

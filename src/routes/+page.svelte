@@ -21,7 +21,11 @@
   let editingDishIndex: number | null = null;
   let isEditing = false;
 
-  // Add new state variables for category editing
+  // Add new state variables for menu details
+  let menuName = '';
+  let menuLogo = '';
+
+  // Add these variables for category editing
   let editingCategoryIndex: number | null = null;
   let editingCategoryName = '';
 
@@ -93,6 +97,14 @@
   function handleDishKeyPress(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       addDish();
+    }
+  }
+
+  function handleLogoUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      menuLogo = URL.createObjectURL(file);
     }
   }
 
@@ -257,8 +269,63 @@
     {/if}
   </div>
 
+  <!-- Add this section before Menu Preview -->
+  <div class="bg-white rounded-lg shadow p-4 mt-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Logo Upload Section -->
+      <div class="space-y-2">
+        <label class="block text-sm font-medium mb-1">Menu Logo</label>
+        <div class="relative">
+          <button 
+            class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
+            onclick="document.getElementById('logo-input').click()"
+          >
+            <span class="text-xs text-gray-500">Change logo</span>
+          </button>
+          <input
+            id="logo-input"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            on:change={handleLogoUpload}
+          />
+        </div>
+      </div>
+
+      <!-- Menu Name Section -->
+      <div class="space-y-2">
+        <label class="block text-sm font-medium mb-1">Menu Name</label>
+        <input
+          type="text"
+          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter menu name"
+          bind:value={menuName}
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu Preview section -->
   <div class="bg-white rounded-lg shadow p-4 mt-4">
     <h2 class="text-xl font-semibold mb-4">Menu Preview</h2>
+    
+    <!-- Logo and Menu Name Preview -->
+    <div class="flex items-center justify-between mb-6 border-b pb-4">
+      <div class="flex items-center gap-4">
+        {#if menuLogo}
+          <img 
+            src={menuLogo} 
+            alt="Menu logo" 
+            class="w-16 h-16 object-contain"
+          />
+        {/if}
+        {#if menuName}
+          <h1 class="text-2xl font-bold">{menuName}</h1>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Rest of your menu preview content -->
     {#each categories as category, categoryIndex}
       <div class="mb-4">
         <h3 class="text-xl font-semibold mb-2">{category.name}</h3>
