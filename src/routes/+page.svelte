@@ -8,6 +8,7 @@
     description: string;
   }
 
+  
   interface Category {
     name: string;
     dishes: Dish[];
@@ -29,9 +30,56 @@
   let editingCategoryIndex: number | null = null;
   let editingCategoryName = '';
 
+  // Función para guardar categoría
+  async function saveCategory(newCategory: string) {
+    try {
+      console.log('Guardando categoría:', newCategory);
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCategory })
+      });
+      const data = await response.json();
+      console.log('Respuesta del servidor:', data);
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+      
+      alert('Categoría guardada exitosamente!');
+    } catch (error) {
+      console.error('Error al guardar categoría:', error);
+      alert('Error al guardar categoría: ' + error.message);
+    }
+  }
+
+  // Función para guardar plato
+  async function saveDish(categoryIndex: number, dish: Dish) {
+    try {
+      console.log('Guardando plato:', dish, 'en categoría:', categoryIndex);
+      const response = await fetch(`/api/categories/${categoryIndex}/dishes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dish)
+      });
+      const data = await response.json();
+      console.log('Respuesta del servidor:', data);
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+      
+      alert('Plato guardado exitosamente!');
+    } catch (error) {
+      console.error('Error al guardar plato:', error);
+      alert('Error al guardar plato: ' + error.message);
+    }
+  }
+
   function addCategory() {
     if (newCategory.trim()) {
       categories = [...categories, { name: newCategory, dishes: [] }];
+      saveCategory(newCategory);
       newCategory = '';
     }
   }

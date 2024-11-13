@@ -1,6 +1,12 @@
 {
 	"/": [],
+	"/api/categories": [
+		"src/routes/api/categories/+server.ts"
+	],
 	"/api/ejemplos": [
 		"src/routes/api/ejemplos/+server.ts"
+	],
+	"/api/menu": [
+		"src/routes/api/menu/+server.ts"
 	]
 }
