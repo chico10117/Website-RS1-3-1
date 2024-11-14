@@ -3,6 +3,12 @@
 	"/api/categories": [
 		"src/routes/api/categories/+server.ts"
 	],
+	"/api/categories/dishes": [
+		"src/routes/api/categories/dishes/+server.ts"
+	],
+	"/api/dishes": [
+		"src/routes/api/dishes/+server.ts"
+	],
 	"/api/ejemplos": [
 		"src/routes/api/ejemplos/+server.ts"
 	],

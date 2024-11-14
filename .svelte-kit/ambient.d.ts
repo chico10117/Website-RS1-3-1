@@ -27,6 +27,7 @@
  */
 declare module '$env/static/private' {
 	export const MONGODB_URI: string;
+	export const MONGODB_DB_NAME: string;
 	export const LESSOPEN: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
@@ -35,7 +36,6 @@ declare module '$env/static/private' {
 	export const npm_package_devDependencies_vite: string;
 	export const npm_node_execpath: string;
 	export const SHLVL: string;
-	export const MOTD_SHOWN: string;
 	export const HOME: string;
 	export const TERM_PROGRAM_VERSION: string;
 	export const VSCODE_IPC_HOOK_CLI: string;
@@ -137,6 +137,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		MONGODB_URI: string;
+		MONGODB_DB_NAME: string;
 		LESSOPEN: string;
 		USER: string;
 		npm_config_user_agent: string;
@@ -145,7 +146,6 @@ declare module '$env/dynamic/private' {
 		npm_package_devDependencies_vite: string;
 		npm_node_execpath: string;
 		SHLVL: string;
-		MOTD_SHOWN: string;
 		HOME: string;
 		TERM_PROGRAM_VERSION: string;
 		VSCODE_IPC_HOOK_CLI: string;
