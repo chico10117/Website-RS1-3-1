@@ -1,5 +1,6 @@
 <script lang="ts">
   import { X } from "lucide-svelte";
+  import { onMount } from 'svelte';
 
   interface Dish {
     title: string;
@@ -10,6 +11,7 @@
 
   
   interface Category {
+    _id: string;
     name: string;
     dishes: Dish[];
   }
@@ -31,56 +33,73 @@
   let editingCategoryName = '';
 
   // Función para guardar categoría
-  async function saveCategory(newCategory: string) {
+  async function saveCategory(categoryName: string) {
     try {
-      console.log('Guardando categoría:', newCategory);
       const response = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCategory })
+        body: JSON.stringify({ name: categoryName })
       });
+
       const data = await response.json();
-      console.log('Respuesta del servidor:', data);
       
       if (!data.success) {
         throw new Error(data.error);
       }
+
+      // Agregar la nueva categoría al array existente
+      categories = [...categories, data.data];
+      console.log('Updated categories after save:', categories);
       
-      alert('Categoría guardada exitosamente!');
+      return data.data;
     } catch (error) {
-      console.error('Error al guardar categoría:', error);
-      alert('Error al guardar categoría: ' + error.message);
+      console.error('Error saving category:', error);
+      alert('Error saving category: ' + error.message);
+      throw error;
     }
   }
 
-  // Función para guardar plato
-  async function saveDish(categoryIndex: number, dish: Dish) {
+  // Función para guardar plato en la base de datos
+  async function saveDish(category: Category, dish: Dish) {
     try {
-      console.log('Guardando plato:', dish, 'en categoría:', categoryIndex);
-      const response = await fetch(`/api/categories/${categoryIndex}/dishes`, {
+      if (!category._id) {
+        console.error('Category without ID:', category);
+        throw new Error('Category ID is missing');
+      }
+
+      console.log('Saving dish:', {
+        categoryId: category._id,
+        dish: dish
+      });
+
+      const response = await fetch(`/api/categories/${category._id}/dishes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dish)
       });
+
       const data = await response.json();
-      console.log('Respuesta del servidor:', data);
+      console.log('Server response:', data);
       
       if (!data.success) {
-        throw new Error(data.error);
+        throw new Error(data.error || 'Error saving dish');
       }
       
-      alert('Plato guardado exitosamente!');
+      return data.data;
     } catch (error) {
-      console.error('Error al guardar plato:', error);
-      alert('Error al guardar plato: ' + error.message);
+      console.error('Error saving dish:', error);
+      throw error;
     }
   }
 
-  function addCategory() {
+  async function addCategory() {
     if (newCategory.trim()) {
-      categories = [...categories, { name: newCategory, dishes: [] }];
-      saveCategory(newCategory);
-      newCategory = '';
+      try {
+        await saveCategory(newCategory);
+        newCategory = '';
+      } catch (error) {
+        console.error('Error adding category:', error);
+      }
     }
   }
 
@@ -90,11 +109,29 @@
     }
   }
 
-  function addDish() {
+  // Función para agregar plato (combina la funcionalidad local y la persistencia)
+  async function addDish() {
     if (selectedCategory !== null && newDish.title.trim()) {
-      categories[selectedCategory].dishes = [...categories[selectedCategory].dishes, { ...newDish }];
-      categories = categories;
-      newDish = { title: '', imageUrl: '', price: '', description: '' };
+      try {
+        const category = categories[selectedCategory];
+        
+        // Primero actualizamos la base de datos
+        const updatedCategory = await saveDish(category, { ...newDish });
+        
+        // Luego actualizamos el estado local
+        categories[selectedCategory] = updatedCategory;
+        categories = [...categories]; // Trigger reactivity
+        
+        // Reset form
+        newDish = { title: '', imageUrl: '', price: '', description: '' };
+        
+        alert('Plato guardado exitosamente!');
+      } catch (error) {
+        console.error('Error adding dish:', error);
+        alert('Error al guardar plato: ' + error.message);
+      }
+    } else {
+      alert('Por favor selecciona una categoría y completa al menos el título del plato');
     }
   }
 
@@ -181,6 +218,29 @@
       cancelEditingCategory();
     }
   }
+
+  // Función para manejar la selección de categoría
+  function handleCategorySelect(index: number) {
+    selectedCategory = index;
+    console.log('Categoría seleccionada:', categories[index]);
+  }
+
+  onMount(async () => {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      
+      if (data.success) {
+        categories = data.data;
+        console.log('Loaded categories:', categories);
+      } else {
+        throw new Error(data.error || 'Failed to load categories');
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      alert('Error loading categories: ' + error.message);
+    }
+  });
 </script>
 
 <div class="container mx-auto p-4">

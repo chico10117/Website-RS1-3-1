@@ -6,9 +6,21 @@ import { Category } from '$lib/server/models/menu';
 export async function GET() {
   try {
     await connectDB();
-    const categories = await Category.find({});
-    return json({ success: true, data: categories });
+    const categories = await Category.find({}).lean();
+    
+    // Log para debug
+    console.log('Categories from DB:', categories);
+    
+    return json({ 
+      success: true, 
+      data: categories.map(cat => ({
+        _id: cat._id.toString(), // Aseguramos que el ID se serializa correctamente
+        name: cat.name,
+        dishes: cat.dishes || []
+      }))
+    });
   } catch (error) {
+    console.error('GET categories error:', error);
     return json({ success: false, error: error.message }, { status: 500 });
   }
 }
