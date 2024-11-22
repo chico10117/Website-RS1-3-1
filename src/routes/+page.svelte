@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
 
   interface Dish {
+    _id?: string;
     title: string;
     imageUrl: string;
     price: string;
@@ -135,11 +136,52 @@
     }
   }
 
-  function updateDish() {
+  // Add this new function to handle dish updates in the database
+  async function updateDishInDB(categoryId: string, dishId: string, dish: Dish) {
+    try {
+      const response = await fetch(`/api/categories/${categoryId}/dishes/${dishId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dish)
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Error updating dish');
+      }
+      
+      return data.data;
+    } catch (error) {
+      console.error('Error updating dish:', error);
+      throw error;
+    }
+  }
+
+  // Update the existing updateDish function
+  async function updateDish() {
     if (selectedCategory !== null && editingDishIndex !== null) {
-      categories[selectedCategory].dishes[editingDishIndex] = { ...editingDish };
-      categories = categories;
-      resetEditForm();
+      try {
+        const category = categories[selectedCategory];
+        const dish = category.dishes[editingDishIndex];
+        
+        // Update the dish in the database
+        const updatedCategory = await updateDishInDB(
+          category._id,
+          dish._id, // You'll need to ensure dishes have _id field
+          { ...editingDish }
+        );
+        
+        // Update local state with the response from server
+        categories[selectedCategory] = updatedCategory;
+        categories = [...categories]; // Trigger reactivity
+        
+        resetEditForm();
+        alert('Dish updated successfully!');
+      } catch (error) {
+        console.error('Error updating dish:', error);
+        alert('Error updating dish: ' + error.message);
+      }
     }
   }
 
