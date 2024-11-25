@@ -88,8 +88,6 @@ export const DELETE: RequestHandler = async ({ params }) => {
     try {
         const { id } = params;
         
-        console.log('Deleting category with ID:', id);
-        
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return json({
                 success: false,

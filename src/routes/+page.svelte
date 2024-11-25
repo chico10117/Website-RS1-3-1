@@ -1,9 +1,6 @@
 <script lang="ts">
   import { X } from "lucide-svelte";
   import { onMount } from 'svelte';
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import type { Category } from "$lib/types";
 
   interface Dish {
     _id?: string;
@@ -35,9 +32,6 @@
   // Add these variables for category editing
   let editingCategoryIndex: number | null = null;
   let editingCategoryName = '';
-
-  let editingCategory: Category | null = null;
-  let editingName = "";
 
   // Función para guardar categoría
   async function saveCategory(categoryName: string) {
@@ -400,6 +394,25 @@
       alert('Error loading categories: ' + error.message);
     }
   });
+
+  async function deleteCategory(categoryId: string) {
+    try {
+      const response = await fetch(`/api/categories/${categoryId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        categories = categories.filter(cat => cat._id !== categoryId);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      alert('Error deleting category: ' + error.message);
+    }
+  }
 </script>
 
 <div class="container mx-auto p-4">
@@ -476,7 +489,7 @@
               </button>
               <button 
                 class="p-2 text-gray-500 hover:text-red-500"
-                on:click={() => removeCategory(index)}
+                on:click={() => deleteCategory(category._id)}
               >
                 <X class="h-4 w-4" />
               </button>
