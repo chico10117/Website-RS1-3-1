@@ -1,6 +1,9 @@
 <script lang="ts">
   import { X } from "lucide-svelte";
   import { onMount } from 'svelte';
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import type { Category } from "$lib/types";
 
   interface Dish {
     _id?: string;
@@ -32,6 +35,9 @@
   // Add these variables for category editing
   let editingCategoryIndex: number | null = null;
   let editingCategoryName = '';
+
+  let editingCategory: Category | null = null;
+  let editingName = "";
 
   // Función para guardar categoría
   async function saveCategory(categoryName: string) {
@@ -240,10 +246,82 @@
     editingCategoryName = categories[index].name;
   }
 
-  function updateCategoryName() {
+  // Add new function to update category in database
+  async function updateCategoryInDB(categoryId: string, name: string) {
+    try {
+      console.log('Attempting to update category:', { categoryId, name });
+
+      const response = await fetch(`/api/categories/${categoryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      console.log('Server response status:', response.status);
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          console.error('Server error response:', errorData);
+          throw new Error(errorData.error || 'Failed to update category');
+        } else {
+          const textError = await response.text();
+          console.error('Non-JSON error response:', textError);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      }
+
+      const data = await response.json();
+      console.log('Server success response:', data);
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Error updating category');
+      }
+      
+      return data.data;
+    } catch (error) {
+      console.error('Error in updateCategoryInDB:', error);
+      throw error;
+    }
+  }
+
+  // Update the updateCategoryName function to include more logging
+  async function updateCategoryName() {
     if (editingCategoryIndex !== null && editingCategoryName.trim()) {
-      categories[editingCategoryIndex].name = editingCategoryName;
-      categories = categories;
+      try {
+        console.log('Starting category update process...');
+        const category = categories[editingCategoryIndex];
+        
+        console.log('Current category:', category);
+        console.log('New category name:', editingCategoryName);
+
+        // Update category in database
+        const updatedCategory = await updateCategoryInDB(
+          category._id,
+          editingCategoryName
+        );
+        
+        console.log('Successfully updated category:', updatedCategory);
+
+        // Update local state with response from server
+        categories[editingCategoryIndex] = updatedCategory;
+        categories = [...categories]; // Trigger reactivity
+        
+        cancelEditingCategory();
+        alert('Category updated successfully!');
+      } catch (error) {
+        console.error('Error in updateCategoryName:', error);
+        alert('Error updating category: ' + error.message);
+      }
+    }
+  }
+
+  // Update the handleCategoryEditKeyPress function to handle async operation
+  async function handleCategoryEditKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      await updateCategoryName();
+    } else if (event.key === 'Escape') {
       cancelEditingCategory();
     }
   }
@@ -253,18 +331,57 @@
     editingCategoryName = '';
   }
 
-  function handleCategoryEditKeyPress(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      updateCategoryName();
-    } else if (event.key === 'Escape') {
-      cancelEditingCategory();
-    }
-  }
-
   // Función para manejar la selección de categoría
   function handleCategorySelect(index: number) {
     selectedCategory = index;
     console.log('Categoría seleccionada:', categories[index]);
+  }
+
+  // Función para iniciar la edición
+  function startEditing(category: Category) {
+    editingCategory = category;
+    editingName = category.name;
+  }
+
+  // Función para guardar la edición
+  async function saveEdit() {
+    if (!editingCategory) return;
+
+    try {
+      const response = await fetch(`/api/categories/${editingCategory._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: editingName })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Actualizar la lista local de categorías
+        categories = categories.map(cat => 
+          cat._id === editingCategory?._id 
+            ? { ...cat, name: editingName }
+            : cat
+        );
+        
+        // Resetear el estado de edición
+        editingCategory = null;
+        editingName = "";
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      alert('Error updating category: ' + error.message);
+    }
+  }
+
+  // Función para cancelar la edición
+  function cancelEdit() {
+    editingCategory = null;
+    editingName = "";
   }
 
   onMount(async () => {

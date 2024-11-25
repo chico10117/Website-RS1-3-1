@@ -6,6 +6,9 @@
 	"/api/categories/dishes": [
 		"src/routes/api/categories/dishes/+server.ts"
 	],
+	"/api/categories/[id]": [
+		"src/routes/api/categories/[id]/+server.ts"
+	],
 	"/api/categories/[categoryId]/dishes": [
 		"src/routes/api/categories/[categoryId]/dishes/+server.ts"
 	],
