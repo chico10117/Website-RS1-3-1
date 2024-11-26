@@ -32,4 +32,25 @@ export async function PUT({ params, request }: RequestEvent) {
     console.error('PUT dish error:', error);
     return json({ success: false, error: error.message }, { status: 500 });
   }
+}
+
+export async function DELETE({ params }) {
+  try {
+    await connectDB();
+    const { categoryId, dishId } = params;
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return json({ success: false, error: 'Category not found' }, { status: 404 });
+    }
+
+    // Remove the dish from the category's dishes array
+    category.dishes = category.dishes.filter(dish => dish._id.toString() !== dishId);
+    await category.save();
+
+    return json({ success: true, data: category });
+  } catch (error) {
+    console.error('Error deleting dish:', error);
+    return json({ success: false, error: error.message }, { status: 500 });
+  }
 } 

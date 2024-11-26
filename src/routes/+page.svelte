@@ -207,9 +207,29 @@
     }
   }
 
-  function removeDish(categoryIndex: number, dishIndex: number) {
-    categories[categoryIndex].dishes = categories[categoryIndex].dishes.filter((_, i) => i !== dishIndex);
-    categories = categories;
+  async function removeDish(categoryIndex: number, dishIndex: number) {
+    try {
+      const category = categories[categoryIndex];
+      const dish = category.dishes[dishIndex];
+
+      const response = await fetch(`/api/categories/${category._id}/dishes/${dish._id}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update local state
+        categories[categoryIndex].dishes = categories[categoryIndex].dishes.filter((_, i) => i !== dishIndex);
+        categories = [...categories]; // Trigger reactivity
+        alert('Dish deleted successfully!');
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting dish:', error);
+      alert('Error deleting dish: ' + error.message);
+    }
   }
 
   function handleImageUpload(e: Event) {
