@@ -434,13 +434,39 @@
     }
   }
 </script>
-
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
-  
-  <div class="bg-white rounded-lg shadow p-4 mb-4">
-    <h2 class="text-xl font-semibold mb-4">Add Category</h2>
-    <div class="flex items-center space-x-2">
+   <!-- Logo Upload Section -->
+   <div class="space-y-2">
+    <label class="block text-sm font-medium mb-1">Menu Logo</label>
+    <div class="relative">
+      <button 
+        class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
+        onclick="document.getElementById('logo-input').click()"
+      >
+        <span class="text-xs text-gray-500">Change logo</span>
+      </button>
+      <input
+        id="logo-input"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        on:change={handleLogoUpload}
+      />
+    </div>
+   <!-- Menu Name Section -->
+   <div class="space-y-2">
+    <label class="block text-sm font-medium mb-1">Restaurant Name</label>
+    <input
+      type="text"
+      class=" px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      placeholder="Enter menu name"
+      bind:value={menuName}
+    />
+  </div>
+  <div class="shadow p-0 mb-3 space-y-3">
+    <h2 class="shadow p-1 block text-sm font-medium mb-1">Category</h2>
+    <div class="">
       <input
         type="text"
         class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -449,7 +475,7 @@
         on:keydown={handleKeyPress}
       />
       <button 
-        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
         on:click={addCategory}
       >
         Add
@@ -458,13 +484,13 @@
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div class="bg-white rounded-lg shadow p-4">
-      <h2 class="text-xl font-semibold mb-4">Categories</h2>
+    <div class="bg-white rounded-lg shadow p-0">
+      <h2 class="shadow p-1 block text-sm font-medium mb-1">Categories</h2>
       {#each categories as category, index}
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between p-2">
           {#if editingCategoryIndex === index}
             <!-- Edit mode -->
-            <div class="flex-1 flex items-center space-x-2 mr-2">
+            <div class="flex-1 flex items-center space-x-2">
               <input
                 type="text"
                 class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -492,27 +518,29 @@
             </div>
           {:else}
             <!-- Display mode -->
-            <button
-              class="flex-1 px-4 py-2 text-left {selectedCategory === index ? 'bg-blue-100' : 'bg-gray-100'} rounded-lg mr-2"
-              on:click={() => selectedCategory = index}
-            >
-              {category.name}
-            </button>
-            <div class="flex space-x-2">
-              <button 
-                class="p-2 text-gray-500 hover:text-blue-500"
-                on:click={() => startEditingCategory(index)}
+            <div class="flex items-center gap-2">
+              <button
+                class="shadow p-2 font-medium {selectedCategory === index ? 'bg-blue-100' : 'bg-gray-100'} rounded-lg"
+                on:click={() => selectedCategory = index}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                </svg>
+                {category.name}
               </button>
-              <button 
-                class="p-2 text-gray-500 hover:text-red-500"
-                on:click={() => deleteCategory(category._id)}
-              >
-                <X class="h-4 w-4" />
-              </button>
+              <div class="flex gap-1">
+                <button 
+                  class="p-1 text-gray-500 hover:text-blue-500"
+                  on:click={() => startEditingCategory(index)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                  </svg>
+                </button>
+                <button 
+                  class="p-1 text-gray-500 hover:text-red-500"
+                  on:click={() => deleteCategory(category._id)}
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </div>
             </div>
           {/if}
         </div>
@@ -572,41 +600,13 @@
   <!-- Add this section before Menu Preview -->
   <div class="bg-white rounded-lg shadow p-4 mt-4">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Logo Upload Section -->
-      <div class="space-y-2">
-        <label class="block text-sm font-medium mb-1">Menu Logo</label>
-        <div class="relative">
-          <button 
-            class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
-            onclick="document.getElementById('logo-input').click()"
-          >
-            <span class="text-xs text-gray-500">Change logo</span>
-          </button>
-          <input
-            id="logo-input"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            on:change={handleLogoUpload}
-          />
-        </div>
-      </div>
-
-      <!-- Menu Name Section -->
-      <div class="space-y-2">
-        <label class="block text-sm font-medium mb-1">Menu Name</label>
-        <input
-          type="text"
-          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter menu name"
-          bind:value={menuName}
-        />
+     
       </div>
     </div>
   </div>
 
   <!-- Menu Preview section -->
-  <div class="bg-white rounded-lg shadow p-4 mt-4">
+  <div class="bg-white rounded-lg shadow p-1 mt-1">
     <h2 class="text-xl font-semibold mb-4">Menu Preview</h2>
     
     <!-- Logo and Menu Name Preview -->
@@ -715,6 +715,10 @@
             {/if}
           </div>
         {/each}
+        <!-- Add divider line except for the last category -->
+        {#if categoryIndex !== categories.length - 1}
+          <div class="border-b border-gray-200 my-4"></div>
+        {/if}
       </div>
     {/each}
   </div>
