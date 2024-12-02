@@ -23,5 +23,23 @@
 	],
 	"/api/menu": [
 		"src/routes/api/menu/+server.ts"
+	],
+	"/api/menu/[menuId]/categories": [
+		"src/routes/api/menu/[menuId]/categories/+server.ts"
+	],
+	"/api/restaurants": [
+		"src/routes/api/restaurants/+server.ts"
+	],
+	"/api/restaurants/[restaurantId]/categories": [
+		"src/routes/api/restaurants/[restaurantId]/categories/+server.ts"
+	],
+	"/api/restaurants/[restaurantId]/categories/[categoryId]": [
+		"src/routes/api/restaurants/[restaurantId]/categories/[categoryId]/+server.ts"
+	],
+	"/api/restaurants/[restaurantId]/categories/[categoryId]/dishes": [
+		"src/routes/api/restaurants/[restaurantId]/categories/[categoryId]/dishes/+server.ts"
+	],
+	"/api/restaurants/[restaurantId]/categories/[categoryId]/dishes/[dishId]": [
+		"src/routes/api/restaurants/[restaurantId]/categories/[categoryId]/dishes/[dishId]/+server.ts"
 	]
 }

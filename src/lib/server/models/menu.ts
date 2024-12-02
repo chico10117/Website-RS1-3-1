@@ -10,8 +10,13 @@ const dishSchema = new mongoose.Schema({
 const categorySchema = new mongoose.Schema({
   name: { type: String, required: true },
   dishes: [dishSchema]
+});
+
+const restaurantSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  categories: [categorySchema]
 }, {
   timestamps: true
 });
 
-export const Category = mongoose.models.Category || mongoose.model('Category', categorySchema); 
+export const Restaurant = mongoose.models.Restaurant || mongoose.model('Restaurant', restaurantSchema); 

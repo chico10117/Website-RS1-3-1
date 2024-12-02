@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X } from "lucide-svelte";
   import { onMount } from 'svelte';
+  import type { Restaurant, Category, Dish } from '$lib/types';
 
   interface Dish {
     _id?: string;
@@ -17,6 +18,8 @@
     dishes: Dish[];
   }
 
+  let restaurants: Restaurant[] = [];
+  let selectedRestaurant: string | null = null;
   let categories: Category[] = [];
   let newCategory = '';
   let selectedCategory: number | null = null;
@@ -33,10 +36,22 @@
   let editingCategoryIndex: number | null = null;
   let editingCategoryName = '';
 
+  let restaurantName = '';
+
   // Función para guardar categoría
   async function saveCategory(categoryName: string) {
     try {
-      const response = await fetch('/api/categories', {
+      if (!restaurantName) {
+        throw new Error('Please enter a restaurant name first');
+      }
+
+      // Si no hay restaurante seleccionado, crear uno nuevo
+      if (!selectedRestaurant) {
+        const restaurant = await saveRestaurant();
+        selectedRestaurant = restaurant._id;
+      }
+
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: categoryName })
@@ -48,10 +63,8 @@
         throw new Error(data.error);
       }
 
-      // Agregar la nueva categoría al array existente
-      categories = [...categories, data.data];
-      console.log('Updated categories after save:', categories);
-      
+      // Actualizar las categorías
+      categories = data.data.categories;
       return data.data;
     } catch (error) {
       console.error('Error saving category:', error);
@@ -60,36 +73,36 @@
     }
   }
 
-  // Función para guardar plato en la base de datos
+  // Modificar la función saveDish
   async function saveDish(category: Category, dish: Dish) {
     try {
-      if (!category._id) {
-        console.error('Category without ID:', category);
-        throw new Error('Category ID is missing');
+      if (!selectedRestaurant) {
+        throw new Error('Restaurant ID is required');
       }
 
-      console.log('Saving dish:', {
-        categoryId: category._id,
-        dish: dish
-      });
-
-      const response = await fetch(`/api/categories/${category._id}/dishes`, {
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories/${category._id}/dishes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dish)
       });
 
       const data = await response.json();
-      console.log('Server response:', data);
       
       if (!data.success) {
-        throw new Error(data.error || 'Error saving dish');
+        throw new Error(data.error);
       }
-      
-      return data.data;
+
+      // Actualizar las categorías localmente
+      const restaurantIndex = restaurants.findIndex(r => r._id === selectedRestaurant);
+      if (restaurantIndex !== -1) {
+        restaurants[restaurantIndex] = data.data;
+        categories = restaurants[restaurantIndex].categories;
+      }
+
+      return data.data.categories.find((c: Category) => c._id === category._id);
     } catch (error) {
       console.error('Error saving dish:', error);
-      throw error;
+      throw new Error('Error saving dish: ' + error.message);
     }
   }
 
@@ -120,8 +133,10 @@
         const updatedCategory = await saveDish(category, { ...newDish });
         
         // Luego actualizamos el estado local
-        categories[selectedCategory] = updatedCategory;
-        categories = [...categories]; // Trigger reactivity
+        if (updatedCategory) {
+          categories[selectedCategory] = updatedCategory;
+          categories = [...categories]; // Trigger reactivity
+        }
         
         // Reset form
         newDish = { title: '', imageUrl: '', price: '', description: '' };
@@ -159,29 +174,62 @@
   }
 
   // Update the existing updateDish function
-  async function updateDish() {
-    if (selectedCategory !== null && editingDishIndex !== null) {
-      try {
-        const category = categories[selectedCategory];
-        const dish = category.dishes[editingDishIndex];
-        
-        // Update the dish in the database
-        const updatedCategory = await updateDishInDB(
-          category._id,
-          dish._id, // You'll need to ensure dishes have _id field
-          { ...editingDish }
-        );
-        
-        // Update local state with the response from server
-        categories[selectedCategory] = updatedCategory;
-        categories = [...categories]; // Trigger reactivity
-        
-        resetEditForm();
-        alert('Dish updated successfully!');
-      } catch (error) {
-        console.error('Error updating dish:', error);
-        alert('Error updating dish: ' + error.message);
+  async function updateDish(categoryIndex: number, dish: Dish) {
+    try {
+      if (!selectedRestaurant) {
+        throw new Error('Restaurant ID is required');
       }
+
+      const category = categories[categoryIndex];
+      if (!category || !dish._id) {
+        throw new Error('Category or dish not found');
+      }
+
+      // Asegurarnos de enviar todos los campos del plato
+      const updatedDish = {
+        _id: dish._id,
+        title: dish.title,
+        imageUrl: dish.imageUrl,
+        price: dish.price,
+        description: dish.description
+      };
+
+      const response = await fetch(
+        `/api/restaurants/${selectedRestaurant}/categories/${category._id}/dishes/${dish._id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedDish)
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      // Actualizar el estado local inmediatamente con todos los campos
+      const updatedCategory = data.data.categories.find((c: Category) => c._id === category._id);
+      if (updatedCategory) {
+        // Asegurarnos de que todos los platos tengan sus campos actualizados
+        const updatedDishes = updatedCategory.dishes.map(d => ({
+          _id: d._id,
+          title: d.title,
+          imageUrl: d.imageUrl,
+          price: d.price,
+          description: d.description
+        }));
+        
+        updatedCategory.dishes = updatedDishes;
+        categories[categoryIndex] = updatedCategory;
+        categories = [...categories]; // Forzar la reactividad
+      }
+
+      return data.data;
+    } catch (error) {
+      console.error('Error updating dish:', error);
+      throw new Error('Error updating dish: ' + error.message);
     }
   }
 
@@ -433,6 +481,78 @@
       alert('Error deleting category: ' + error.message);
     }
   }
+
+  // Función onMount para cargar los restaurantes al iniciar
+  onMount(async () => {
+    try {
+      const response = await fetch('/api/restaurants');
+      const data = await response.json();
+      
+      if (data.success) {
+        restaurants = data.data;
+        console.log('Loaded restaurants:', restaurants);
+      } else {
+        throw new Error(data.error || 'Failed to load restaurants');
+      }
+    } catch (error) {
+      console.error('Error loading restaurants:', error);
+      alert('Error loading restaurants: ' + error.message);
+    }
+  });
+
+  // Agregar esta función para manejar la selección del restaurante
+  async function handleRestaurantCreated(restaurant: Restaurant) {
+    selectedRestaurant = restaurant._id;
+    categories = restaurant.categories;
+    console.log('Selected restaurant:', selectedRestaurant);
+  }
+
+  // Modificar la función saveRestaurant existente
+  async function saveRestaurant() {
+    try {
+      const response = await fetch('/api/restaurants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: restaurantName
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      return data.data;
+    } catch (error) {
+      console.error('Error saving restaurant:', error);
+      alert('Error saving restaurant: ' + error.message);
+      throw error;
+    }
+  }
+
+  // Función para manejar la edición de un plato
+  async function handleEditDish(categoryIndex: number | null, dish: Dish) {
+    if (categoryIndex === null) {
+      alert('Por favor selecciona una categoría');
+      return;
+    }
+    
+    try {
+      await updateDish(categoryIndex, dish);
+      
+      // Forzar una actualización de la vista
+      categories = [...categories];
+      
+      // Limpiar el formulario de edición
+      editingDish = { title: '', imageUrl: '', price: '', description: '' };
+      alert('Plato actualizado exitosamente!');
+    } catch (error) {
+      console.error('Error updating dish:', error);
+      alert('Error al actualizar plato: ' + error.message);
+    }
+  }
 </script>
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
@@ -459,9 +579,9 @@
     <label class="block text-sm font-medium mb-1">Restaurant Name</label>
     <input
       type="text"
-      class=" px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      bind:value={restaurantName}
       placeholder="Enter menu name"
-      bind:value={menuName}
+      class="w-full p-2 border rounded"
     />
   </div>
   <div class="shadow p-0 mb-3 space-y-3">
@@ -668,8 +788,8 @@
                 </div>
                 <div class="flex space-x-2">
                   <button 
-                    class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    on:click={updateDish}
+                    on:click={() => handleEditDish(selectedCategory, editingDish)}
+                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                   >
                     Update Dish
                   </button>
