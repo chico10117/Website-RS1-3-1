@@ -352,28 +352,35 @@
   async function updateCategoryName() {
     if (editingCategoryIndex !== null && editingCategoryName.trim()) {
       try {
-        console.log('Starting category update process...');
+        if (!selectedRestaurant) {
+          throw new Error('Restaurant ID is required');
+        }
+
         const category = categories[editingCategoryIndex];
         
-        console.log('Current category:', category);
-        console.log('New category name:', editingCategoryName);
-
-        // Update category in database
-        const updatedCategory = await updateCategoryInDB(
-          category._id,
-          editingCategoryName
+        const response = await fetch(
+          `/api/restaurants/${selectedRestaurant}/categories/${category._id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: editingCategoryName })
+          }
         );
+
+        const data = await response.json();
         
-        console.log('Successfully updated category:', updatedCategory);
+        if (!data.success) {
+          throw new Error(data.error);
+        }
 
         // Update local state with response from server
-        categories[editingCategoryIndex] = updatedCategory;
-        categories = [...categories]; // Trigger reactivity
+        categories = data.data.categories;
         
+        // Reset editing state
         cancelEditingCategory();
         alert('Category updated successfully!');
       } catch (error) {
-        console.error('Error in updateCategoryName:', error);
+        console.error('Error updating category:', error);
         alert('Error updating category: ' + error.message);
       }
     }
