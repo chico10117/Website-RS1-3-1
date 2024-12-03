@@ -28,3 +28,27 @@ export async function PUT({ params, request }: RequestEvent) {
     return json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE({ params }: RequestEvent) {
+  try {
+    await connectDB();
+    const { restaurantId, categoryId } = params;
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    }
+
+    // Remove the category from the restaurant's categories array
+    restaurant.categories = restaurant.categories.filter(
+      cat => cat._id.toString() !== categoryId
+    );
+    
+    await restaurant.save();
+
+    return json({ success: true, data: restaurant });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    return json({ success: false, error: error.message }, { status: 500 });
+  }
+}

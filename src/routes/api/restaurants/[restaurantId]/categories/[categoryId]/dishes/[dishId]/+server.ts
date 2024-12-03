@@ -50,7 +50,7 @@ export async function DELETE({ params }: RequestEvent) {
       return json({ success: false, error: 'Category not found' }, { status: 404 });
     }
 
-    // Eliminar el plato
+    // Remove the dish from the category's dishes array
     category.dishes = category.dishes.filter(dish => dish._id.toString() !== dishId);
     await restaurant.save();
 

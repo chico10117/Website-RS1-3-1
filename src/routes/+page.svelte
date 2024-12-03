@@ -471,21 +471,44 @@
   });
 
   async function deleteCategory(categoryId: string) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'DELETE'
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        categories = categories.filter(cat => cat._id !== categoryId);
-      } else {
-        throw new Error(result.error);
+      if (!selectedRestaurant) {
+        throw new Error('Restaurant ID is required');
       }
+
+      const response = await fetch(
+        `/api/restaurants/${selectedRestaurant}/categories/${categoryId}`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      // Actualizar el estado local con la respuesta del servidor
+      categories = data.data.categories;
+      
+      // Si la categoría eliminada era la seleccionada, deseleccionar
+      if (selectedCategory !== null) {
+        const deletedIndex = categories.findIndex(cat => cat._id === categoryId);
+        if (selectedCategory === deletedIndex) {
+          selectedCategory = null;
+        }
+      }
+
+      alert('Categoría eliminada exitosamente!');
     } catch (error) {
       console.error('Error deleting category:', error);
-      alert('Error deleting category: ' + error.message);
+      alert('Error al eliminar categoría: ' + error.message);
     }
   }
 
@@ -558,6 +581,40 @@
     } catch (error) {
       console.error('Error updating dish:', error);
       alert('Error al actualizar plato: ' + error.message);
+    }
+  }
+
+  async function deleteDish(categoryId: string, dishId: string) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este plato?')) {
+      return;
+    }
+
+    try {
+      if (!selectedRestaurant) {
+        throw new Error('Restaurant ID is required');
+      }
+
+      const response = await fetch(
+        `/api/restaurants/${selectedRestaurant}/categories/${categoryId}/dishes/${dishId}`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      // Actualizar el estado local con la respuesta del servidor
+      categories = data.data.categories;
+      
+      alert('Plato eliminado exitosamente!');
+    } catch (error) {
+      console.error('Error deleting dish:', error);
+      alert('Error al eliminar plato: ' + error.message);
     }
   }
 </script>
@@ -833,7 +890,7 @@
                   </button>
                   <button 
                     class="p-2 text-gray-500 hover:text-red-500"
-                    on:click={() => removeDish(categoryIndex, dishIndex)}
+                    on:click={() => deleteDish(category._id, dish._id)}
                   >
                     <X class="h-4 w-4" />
                   </button>
