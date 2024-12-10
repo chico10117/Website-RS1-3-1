@@ -7,30 +7,34 @@ export async function POST({ request }) {
     await connectDB();
     const data = await request.json();
     
+    console.log('Received restaurant data:', data); // Debug log
+
     if (!data.name) {
       return json({ success: false, error: 'Restaurant name is required' }, { status: 400 });
     }
 
-    // Check if restaurant already exists
-    const existingRestaurant = await Restaurant.findOne({ name: data.name });
-    if (existingRestaurant) {
-      return json({ 
-        success: false, 
-        error: 'Restaurant with this name already exists' 
-      }, { status: 400 });
-    }
-
-    const restaurant = new Restaurant({
+    const newRestaurant = new Restaurant({
       name: data.name,
-      logo: data.logo,
+      logo: data.logo, // Aseguramos que el logo se guarde en la base de datos
       categories: []
     });
 
-    await restaurant.save();
-    return json({ success: true, data: restaurant });
+    console.log('Saving restaurant:', newRestaurant); // Debug log
+    
+    await newRestaurant.save();
+    
+    return json({ 
+      success: true, 
+      data: newRestaurant,
+      message: 'Restaurant created successfully'
+    });
   } catch (error) {
     console.error('Error creating restaurant:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error.message,
+      details: error 
+    }, { status: 500 });
   }
 }
 

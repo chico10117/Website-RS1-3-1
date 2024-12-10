@@ -38,6 +38,8 @@
 
   let restaurantName = '';
 
+  let isUploading = false;
+
   // Función para guardar categoría
   async function saveCategory(categoryName: string) {
     try {
@@ -295,11 +297,70 @@
     }
   }
 
-  function handleLogoUpload(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (file) {
-      menuLogo = URL.createObjectURL(file);
+  async function handleLogoUpload(event: Event) {
+    try {
+      isUploading = true;
+      const input = event.target as HTMLInputElement;
+      const file = input.files?.[0];
+      
+      if (!file) {
+        menuLogo = 'Add logo';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      console.log('Uploading file...'); // Debug log
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+      console.log('Upload response:', uploadResult); // Debug log
+      
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error);
+      }
+
+      menuLogo = uploadResult.url;
+      console.log('Logo URL saved:', menuLogo); // Debug log
+
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Error uploading logo: ' + error.message);
+      menuLogo = 'Add logo';
+    } finally {
+      isUploading = false;
+    }
+  }
+
+  async function updateRestaurantLogo(restaurantId: string, logoUrl: string) {
+    try {
+      const response = await fetch(`/api/restaurants/${restaurantId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logo: logoUrl })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      // Update local state if needed
+      const restaurantIndex = restaurants.findIndex(r => r._id === restaurantId);
+      if (restaurantIndex !== -1) {
+        restaurants[restaurantIndex].logo = logoUrl;
+        restaurants = [...restaurants];
+      }
+
+    } catch (error) {
+      console.error('Error updating restaurant logo:', error);
+      throw error;
     }
   }
 
@@ -540,20 +601,31 @@
   // Modificar la función saveRestaurant existente
   async function saveRestaurant() {
     try {
+      if (!restaurantName) {
+        throw new Error('Restaurant name is required');
+      }
+
+      const restaurantData = {
+        name: restaurantName,
+        logo: menuLogo || '' // Aseguramos que siempre haya un valor para logo
+      };
+
+      console.log('Saving restaurant with data:', restaurantData); // Debug log
+
       const response = await fetch('/api/restaurants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: restaurantName
-        })
+        body: JSON.stringify(restaurantData)
       });
 
       const data = await response.json();
+      console.log('Save response:', data); // Debug log
       
       if (!data.success) {
         throw new Error(data.error);
       }
 
+      selectedRestaurant = data.data._id;
       return data.data;
     } catch (error) {
       console.error('Error saving restaurant:', error);
@@ -620,24 +692,6 @@
 </script>
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
-   <!-- Logo Upload Section -->
-   <div class="space-y-2">
-    <label class="block text-sm font-medium mb-1">Menu Logo</label>
-    <div class="relative">
-      <button 
-        class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
-        onclick="document.getElementById('logo-input').click()"
-      >
-        <span class="text-xs text-gray-500">Change logo</span>
-      </button>
-      <input
-        id="logo-input"
-        type="file"
-        accept="image/*"
-        class="hidden"
-        on:change={handleLogoUpload}
-      />
-    </div>
    <!-- Menu Name Section -->
    <div class="space-y-2">
     <label class="block text-sm font-medium mb-1">Restaurant Name</label>
@@ -647,6 +701,31 @@
       placeholder="Enter menu name"
       class="w-full p-2 border rounded"
     />
+    <div class="space-y-2">
+      <label class="block text-sm font-medium mb-1">Menu Logo</label>
+      <div class="relative">
+        <button 
+          class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
+          onclick="document.getElementById('logo-input').click()"
+        >
+          {#if menuLogo}
+            <img 
+              src={menuLogo} 
+              alt="Menu logo" 
+              class="w-full h-full object-cover rounded-lg"
+            />
+          {:else}
+            <span class="text-xs text-gray-500">Add logo</span>
+          {/if}
+        </button>
+        <input
+          id="logo-input"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          on:change={handleLogoUpload}
+        />
+      </div>
   </div>
   <div class="shadow p-0 mb-3 space-y-3">
     <h2 class="shadow p-1 block text-sm font-medium mb-1">Category</h2>
