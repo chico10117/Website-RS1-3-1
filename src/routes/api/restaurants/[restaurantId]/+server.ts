@@ -29,4 +29,21 @@ export async function PUT({ params, request }: RequestEvent) {
     console.error('Error updating restaurant:', error);
     return json({ success: false, error: error.message }, { status: 500 });
   }
+}
+
+export async function DELETE({ params }: RequestEvent) {
+  try {
+    await connectDB();
+    const { restaurantId } = params;
+
+    const restaurant = await Restaurant.findByIdAndDelete(restaurantId);
+    if (!restaurant) {
+      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    }
+
+    return json({ success: true, data: restaurant });
+  } catch (error) {
+    console.error('Error deleting restaurant:', error);
+    return json({ success: false, error: error.message }, { status: 500 });
+  }
 } 

@@ -40,6 +40,9 @@
 
   let isUploading = false;
 
+  let isEditingRestaurant = false;
+  let editingRestaurantName = '';
+
   // Función para guardar categoría
   async function saveCategory(categoryName: string) {
     try {
@@ -689,20 +692,151 @@
       alert('Error al eliminar plato: ' + error.message);
     }
   }
+
+  async function startEditingRestaurant() {
+    isEditingRestaurant = true;
+    editingRestaurantName = restaurantName;
+  }
+
+  async function updateRestaurantName() {
+    if (!selectedRestaurant || !editingRestaurantName.trim()) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingRestaurantName })
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      restaurantName = editingRestaurantName;
+      isEditingRestaurant = false;
+      
+      // Update local state
+      const restaurantIndex = restaurants.findIndex(r => r._id === selectedRestaurant);
+      if (restaurantIndex !== -1) {
+        restaurants[restaurantIndex].name = editingRestaurantName;
+        restaurants = [...restaurants];
+      }
+
+      alert('Restaurant name updated successfully!');
+    } catch (error) {
+      console.error('Error updating restaurant name:', error);
+      alert('Error updating restaurant name: ' + error.message);
+    }
+  }
+
+  async function deleteRestaurant() {
+    if (!selectedRestaurant || !confirm('Are you sure you want to delete this restaurant?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      // Update local state
+      restaurants = restaurants.filter(r => r._id !== selectedRestaurant);
+      selectedRestaurant = null;
+      restaurantName = '';
+      categories = [];
+
+      alert('Restaurant deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting restaurant:', error);
+      alert('Error deleting restaurant: ' + error.message);
+    }
+  }
+
+  function cancelEditingRestaurant() {
+    isEditingRestaurant = false;
+    editingRestaurantName = '';
+  }
+
+  async function handleRestaurantEditKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      await updateRestaurantName();
+    } else if (event.key === 'Escape') {
+      cancelEditingRestaurant();
+    }
+  }
 </script>
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
    <!-- Menu Name Section -->
    <div class="space-y-2">
     <label class="block text-sm font-medium mb-1">Restaurant Name</label>
-    <input
-      type="text"
-      bind:value={restaurantName}
-      placeholder="Enter menu name"
-      class="w-full p-2 border rounded"
-    />
-    <div class="space-y-2">
-      <label class="block text-sm font-medium mb-1">Menu Logo</label>
+    {#if isEditingRestaurant}
+      <div class="flex items-center space-x-2">
+        <input
+          type="text"
+          bind:value={editingRestaurantName}
+          placeholder="Enter restaurant name"
+          class="flex-1 p-2 border rounded"
+        />
+        <button 
+          class="p-2 text-green-500 hover:text-green-600"
+          on:click={updateRestaurantName}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+        <button 
+          class="p-2 text-gray-500 hover:text-gray-600"
+          on:click={cancelEditingRestaurant}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    {:else}
+      <div class="">
+        <input
+          type="text"
+          bind:value={restaurantName}
+          placeholder="Enter restaurant name"
+          class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={selectedRestaurant}
+        />
+        {#if restaurantName}
+          <button 
+            class="p-2 text-gray-500 hover:text-blue-500"
+            on:click={startEditingRestaurant}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+            </svg>
+          </button>
+          <button 
+            class="p-2 text-gray-500 hover:text-red-500"
+            on:click={deleteRestaurant}
+          >
+            <X class="h-4 w-4" />
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
+  <div class="space-y-2">
+    <label class="block text-sm font-medium mb-1">Menu Logo</label>
+    <div class="flex items-center space-x-2">
       <div class="relative">
         <button 
           class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
@@ -726,6 +860,27 @@
           on:change={handleLogoUpload}
         />
       </div>
+      {#if menuLogo}
+        <div class="flex gap-1">
+          <button 
+            class="p-2 text-gray-500 hover:text-blue-500"
+            on:click={() => document.getElementById('logo-input').click()}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+            </svg>
+          </button>
+          <button 
+            class="p-2 text-gray-500 hover:text-red-500"
+            on:click={() => {
+              menuLogo = '';
+            }}
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
   <div class="shadow p-0 mb-3 space-y-3">
     <h2 class="shadow p-1 block text-sm font-medium mb-1">Category</h2>
@@ -863,8 +1018,7 @@
   <!-- Add this section before Menu Preview -->
   <div class="bg-white rounded-lg shadow p-4 mt-4">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-     
-      </div>
+      <!-- Content goes here if needed -->
     </div>
   </div>
 
