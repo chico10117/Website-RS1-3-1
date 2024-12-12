@@ -145,6 +145,8 @@
         
         // Reset form
         newDish = { title: '', imageUrl: '', price: '', description: '' };
+        // Deseleccionar la categoría para cerrar el formulario
+        selectedCategory = null;
         
         alert('Plato guardado exitosamente!');
       } catch (error) {
@@ -285,12 +287,46 @@
     }
   }
 
-  function handleImageUpload(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (file) {
-      newDish.imageUrl = URL.createObjectURL(file);
-      newDish = newDish;
+  async function handleImageUpload(e: Event) {
+    try {
+      const input = e.target as HTMLInputElement;
+      const file = input.files?.[0];
+      
+      if (!file) {
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      console.log('Uploading dish image...'); // Debug log
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+      console.log('Upload response:', uploadResult); // Debug log
+      
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error);
+      }
+
+      // Update the dish image URL
+      if (isEditing && editingDish) {
+        editingDish.imageUrl = uploadResult.url;
+        editingDish = editingDish; // Trigger reactivity
+      } else {
+        newDish.imageUrl = uploadResult.url;
+        newDish = newDish; // Trigger reactivity
+      }
+
+      console.log('Image URL saved:', uploadResult.url); // Debug log
+
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Error uploading image: ' + error.message);
     }
   }
 
@@ -328,10 +364,45 @@
         throw new Error(uploadResult.error);
       }
 
+      // If we don't have a restaurant yet, create one
+      if (!selectedRestaurant) {
+        const createResponse = await fetch('/api/restaurants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: restaurantName || 'New Restaurant',
+            logo: uploadResult.url
+          })
+        });
+
+        const createResult = await createResponse.json();
+        if (!createResult.success) {
+          throw new Error(createResult.error);
+        }
+
+        selectedRestaurant = createResult.data._id;
+        if (!restaurantName) {
+          restaurantName = 'New Restaurant';
+        }
+      } else {
+        // Update existing restaurant with new logo
+        const updateResponse = await fetch(`/api/restaurants/${selectedRestaurant}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logo: uploadResult.url })
+        });
+
+        const updateResult = await updateResponse.json();
+        if (!updateResult.success) {
+          throw new Error(updateResult.error);
+        }
+      }
+
       menuLogo = uploadResult.url;
       console.log('Logo URL saved:', menuLogo); // Debug log
+      alert('Logo updated successfully!');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading logo:', error);
       alert('Error uploading logo: ' + error.message);
       menuLogo = 'Add logo';
@@ -650,8 +721,10 @@
       // Forzar una actualización de la vista
       categories = [...categories];
       
-      // Limpiar el formulario de edición
+      // Limpiar el formulario de edición y cerrar la vista de edición
       editingDish = { title: '', imageUrl: '', price: '', description: '' };
+      editingDishIndex = null;
+      isEditing = false;
       alert('Plato actualizado exitosamente!');
     } catch (error) {
       console.error('Error updating dish:', error);
@@ -872,8 +945,27 @@
           </button>
           <button 
             class="p-2 text-gray-500 hover:text-red-500"
-            on:click={() => {
-              menuLogo = '';
+            on:click={async () => {
+              try {
+                if (selectedRestaurant) {
+                  const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ logo: '' })
+                  });
+
+                  const data = await response.json();
+                  if (!data.success) {
+                    throw new Error(data.error);
+                  }
+                }
+
+                menuLogo = '';
+                alert('Logo deleted successfully!');
+              } catch (error) {
+                console.error('Error deleting logo:', error);
+                alert('Error deleting logo: ' + error.message);
+              }
             }}
           >
             <X class="h-4 w-4" />
