@@ -1114,121 +1114,120 @@
     </div>
   </div>
 
-  <!-- Menu Preview section -->
+  <!-- Menu Preview Section -->
   <div class="bg-white rounded-lg shadow p-1 mt-1">
     <h2 class="text-xl font-semibold mb-4">Menu Preview</h2>
     
-    <!-- Logo and Menu Name Preview -->
-    <div class="flex items-center justify-between mb-6 border-b pb-4">
-      <div class="flex items-center gap-4">
-        {#if menuLogo}
-          <img 
-            src={menuLogo} 
-            alt="Menu logo" 
-            class="w-16 h-16 object-contain"
-          />
-        {/if}
-        {#if menuName}
-          <h1 class="text-2xl font-bold">{menuName}</h1>
-        {/if}
-      </div>
+    <!-- Logo and Restaurant Name Preview -->
+    <div class="flex items-center gap-4 mb-6 border-b pb-4">
+      {#if menuLogo}
+        <img 
+          src={menuLogo} 
+          alt="Menu logo" 
+          class="w-16 h-16 object-contain"
+        />
+      {/if}
+      {#if restaurantName}
+        <h3 class="text-2xl font-semibold text-gray-800">{restaurantName}</h3>
+      {/if}
     </div>
 
-    <!-- Rest of your menu preview content -->
-    {#each categories as category, categoryIndex}
-      <div class="mb-4">
-        <h3 class="text-xl font-semibold mb-2">{category.name}</h3>
-        {#each category.dishes as dish, dishIndex}
-          <div class="mb-2 p-2 border rounded-lg">
-            {#if isEditing && editingDishIndex === dishIndex && selectedCategory === categoryIndex}
-              <!-- Edit Form -->
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Title</label>
-                  <input
-                    type="text"
-                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    bind:value={editingDish.title}
-                  />
+    <div class="space-y-6">
+      {#each categories as category, categoryIndex}
+        <div class="mb-4">
+          <h3 class="text-xl font-semibold mb-2">{category.name}</h3>
+          {#each category.dishes as dish, dishIndex}
+            <div class="mb-2 p-2 border rounded-lg">
+              {#if isEditing && editingDishIndex === dishIndex && selectedCategory === categoryIndex}
+                <!-- Edit Form -->
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium mb-1">Title</label>
+                    <input
+                      type="text"
+                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      bind:value={editingDish.title}
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-1">Image</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      class="w-full"
+                      on:change={handleImageUpload}
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-1">Price</label>
+                    <input
+                      type="text"
+                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      bind:value={editingDish.price}
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium mb-1">Description</label>
+                    <textarea
+                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      bind:value={editingDish.description}
+                    />
+                  </div>
+                  <div class="flex space-x-2">
+                    <button 
+                      on:click={() => handleEditDish(selectedCategory, editingDish)}
+                      class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    >
+                      Update Dish
+                    </button>
+                    <button 
+                      class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                      on:click={resetEditForm}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Image</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    class="w-full"
-                    on:change={handleImageUpload}
-                  />
+              {:else}
+                <!-- Dish Display -->
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h4 class="font-medium">{dish.title}</h4>
+                    <p class="text-sm text-gray-600">{dish.description}</p>
+                    <p class="font-bold">{dish.price}</p>
+                  </div>
+                  {#if dish.imageUrl}
+                    <img src={dish.imageUrl} alt={dish.title} class="w-20 h-20 object-cover rounded-lg" />
+                  {/if}
+                  <div class="flex space-x-2">
+                    <button 
+                      class="p-2 text-gray-500 hover:text-blue-500"
+                      on:click={() => {
+                        selectedCategory = categoryIndex;
+                        editDish(dishIndex);
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                      </svg>
+                    </button>
+                    <button 
+                      class="p-2 text-gray-500 hover:text-red-500"
+                      on:click={() => deleteDish(category._id, dish._id)}
+                    >
+                      <X class="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Price</label>
-                  <input
-                    type="text"
-                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    bind:value={editingDish.price}
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Description</label>
-                  <textarea
-                    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    bind:value={editingDish.description}
-                  />
-                </div>
-                <div class="flex space-x-2">
-                  <button 
-                    on:click={() => handleEditDish(selectedCategory, editingDish)}
-                    class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                  >
-                    Update Dish
-                  </button>
-                  <button 
-                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                    on:click={resetEditForm}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            {:else}
-              <!-- Dish Display -->
-              <div class="flex justify-between items-start">
-                <div>
-                  <h4 class="font-medium">{dish.title}</h4>
-                  <p class="text-sm text-gray-600">{dish.description}</p>
-                  <p class="font-bold">{dish.price}</p>
-                </div>
-                {#if dish.imageUrl}
-                  <img src={dish.imageUrl} alt={dish.title} class="w-20 h-20 object-cover rounded-lg" />
-                {/if}
-                <div class="flex space-x-2">
-                  <button 
-                    class="p-2 text-gray-500 hover:text-blue-500"
-                    on:click={() => {
-                      selectedCategory = categoryIndex;
-                      editDish(dishIndex);
-                    }}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                    </svg>
-                  </button>
-                  <button 
-                    class="p-2 text-gray-500 hover:text-red-500"
-                    on:click={() => deleteDish(category._id, dish._id)}
-                  >
-                    <X class="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            {/if}
-          </div>
-        {/each}
-        <!-- Add divider line except for the last category -->
-        {#if categoryIndex !== categories.length - 1}
-          <div class="border-b border-gray-200 my-4"></div>
-        {/if}
-      </div>
-    {/each}
+              {/if}
+            </div>
+          {/each}
+          <!-- Add divider line except for the last category -->
+          {#if categoryIndex !== categories.length - 1}
+            <div class="border-b border-gray-200 my-4"></div>
+          {/if}
+        </div>
+      {/each}
+    </div>
   </div>
 </div> 
