@@ -1,45 +1,112 @@
-// Importaciones necesarias
-import mongoose from 'mongoose';
-import { MONGODB_URI } from '$env/static/private';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+import * as dotenv from 'dotenv';
+import * as schema from './schema';
+import { eq } from 'drizzle-orm';
 
-// Variable para mantener la conexión en caché
-let cached = global.mongoose;
+// Cargar variables de entorno
+dotenv.config();
 
-// Inicialización del objeto cache si no existe
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error('DATABASE_URL is not defined');
 }
 
+// Configuración de la conexión usando el cliente HTTP de Neon
+const sql = neon(DATABASE_URL);
+
+// Crear la instancia de Drizzle con el schema
+export const db = drizzle(sql, { schema });
+
+// Función para verificar la conexión
 export async function connectDB() {
-  // Si ya existe una conexión, la retornamos
-  if (cached.conn) {
-    console.log('Using cached connection');
-    return cached.conn;
-  }
-
-  if (!cached.promise) {
-    console.log('Connecting to MongoDB...', MONGODB_URI);
-    const opts = {
-      bufferCommands: false,
-    };
-
-    // Creamos la promesa de conexión
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      console.log('Connected to MongoDB!');
-      return mongoose;
-    });
-  }
-
   try {
-    // Esperamos a que se resuelva la promesa y guardamos la conexión
-    cached.conn = await cached.promise;
-  } catch (e) {
-    console.error('Error connecting to MongoDB:', e);
-    cached.promise = null;
-    throw e;
+    // Verificar la conexión realizando una consulta simple
+    const result = await sql`SELECT NOW()`;
+    console.log('Connected to Neon PostgreSQL database!');
+    return db;
+  } catch (error) {
+    console.error('Error connecting to database:', error);
+    throw error;
   }
+}
 
-  // Retornamos la conexión establecida
-  // Retornamos la conexión establecida
-  return cached.conn;
+// Funciones helper para consultas relacionadas
+export async function getRestaurantWithRelations(restaurantId: string) {
+  const restaurant = await db.select().from(schema.restaurants)
+    .where(eq(schema.restaurants.id, restaurantId))
+    .execute();
+
+  if (!restaurant.length) return null;
+
+  const categories = await db.select().from(schema.categories)
+    .where(eq(schema.categories.restaurantId, restaurantId))
+    .execute();
+
+  const categoryIds = categories.map(cat => cat.id);
+  
+  const dishes = await db.select().from(schema.dishes)
+    .where(
+      eq(schema.dishes.categoryId, categoryIds[0]) // TODO: Implement IN operator
+    )
+    .execute();
+
+  return {
+    ...restaurant[0],
+    categories: categories.map(category => ({
+      ...category,
+      dishes: dishes.filter(dish => dish.categoryId === category.id)
+    }))
+  };
+}
+
+// Función para crear un restaurante con sus relaciones
+export async function createRestaurantWithRelations(data: {
+  name: string;
+  logo?: string;
+  categories: Array<{
+    name: string;
+    dishes?: Array<{
+      title: string;
+      imageUrl?: string;
+      price?: string;
+      description?: string;
+    }>;
+  }>;
+}) {
+  const [restaurant] = await db.insert(schema.restaurants)
+    .values({
+      name: data.name,
+      logo: data.logo
+    })
+    .returning();
+
+  const categoriesPromises = data.categories.map(async (category) => {
+    const [newCategory] = await db.insert(schema.categories)
+      .values({
+        name: category.name,
+        restaurantId: restaurant.id
+      })
+      .returning();
+
+    if (category.dishes?.length) {
+      await db.insert(schema.dishes)
+        .values(
+          category.dishes.map(dish => ({
+            ...dish,
+            categoryId: newCategory.id
+          }))
+        );
+    }
+
+    return newCategory;
+  });
+
+  const categories = await Promise.all(categoriesPromises);
+
+  return {
+    ...restaurant,
+    categories
+  };
 } 

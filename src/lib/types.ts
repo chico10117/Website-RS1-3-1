@@ -1,20 +1,24 @@
 export interface Restaurant {
-  _id: string;
+  id: string;
   name: string;
-  logo?: string;
-  categories: Category[];
+  logo: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  categories?: Category[];
 }
 
 export interface Category {
-  _id: string;
+  id: string;
   name: string;
-  dishes: Dish[];
+  restaurantId: string;
+  dishes?: Dish[];
 }
 
 export interface Dish {
-  _id?: string;
+  id: string;
   title: string;
   imageUrl: string;
   price: string;
   description: string;
+  categoryId: string;
 } 

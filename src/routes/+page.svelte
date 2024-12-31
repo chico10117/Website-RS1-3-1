@@ -3,43 +3,36 @@
   import { onMount } from 'svelte';
   import type { Restaurant, Category, Dish } from '$lib/types';
 
-  interface Dish {
-    _id?: string;
-    title: string;
-    imageUrl: string;
-    price: string;
-    description: string;
-  }
-
-  
-  interface Category {
-    _id: string;
-    name: string;
-    dishes: Dish[];
-  }
-
   let restaurants: Restaurant[] = [];
   let selectedRestaurant: string | null = null;
   let categories: Category[] = [];
   let newCategory = '';
   let selectedCategory: number | null = null;
-  let newDish: Dish = { title: '', imageUrl: '', price: '', description: '' };
-  let editingDish: Dish = { title: '', imageUrl: '', price: '', description: '' };
+  let newDish: Dish = { 
+    id: '',
+    title: '', 
+    imageUrl: '', 
+    price: '', 
+    description: '', 
+    categoryId: '' 
+  };
+  let editingDish: Dish = { 
+    id: '',
+    title: '', 
+    imageUrl: '', 
+    price: '', 
+    description: '', 
+    categoryId: '' 
+  };
   let editingDishIndex: number | null = null;
   let isEditing = false;
 
-  // Add new state variables for menu details
   let menuName = '';
   let menuLogo = '';
-
-  // Add these variables for category editing
   let editingCategoryIndex: number | null = null;
   let editingCategoryName = '';
-
   let restaurantName = '';
-
   let isUploading = false;
-
   let isEditingRestaurant = false;
   let editingRestaurantName = '';
 
@@ -53,7 +46,15 @@
       // Si no hay restaurante seleccionado, crear uno nuevo
       if (!selectedRestaurant) {
         const restaurant = await saveRestaurant();
-        selectedRestaurant = restaurant._id;
+        selectedRestaurant = restaurant.id;
+      }
+
+      console.log('Saving category for restaurant:', selectedRestaurant);
+
+      // Verificar si la categoría ya existe
+      const categoryExists = categories.some(cat => cat.name === categoryName);
+      if (categoryExists) {
+        throw new Error('Category already exists');
       }
 
       const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories`, {
@@ -68,12 +69,27 @@
         throw new Error(data.error);
       }
 
-      // Actualizar las categorías
-      categories = data.data.categories;
       return data.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving category:', error);
       alert('Error saving category: ' + error.message);
+      throw error;
+    }
+  }
+
+  // Función para obtener un restaurante con sus categorías
+  async function getRestaurantWithCategories(restaurantId: string) {
+    try {
+      const response = await fetch(`/api/restaurants?id=${restaurantId}`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+      
+      return data.data;
+    } catch (error: any) {
+      console.error('Error getting restaurant:', error);
       throw error;
     }
   }
@@ -85,10 +101,15 @@
         throw new Error('Restaurant ID is required');
       }
 
-      const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories/${category._id}/dishes`, {
+      const dishData = {
+        ...dish,
+        categoryId: category.id
+      };
+
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories/${category.id}/dishes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dish)
+        body: JSON.stringify(dishData)
       });
 
       const data = await response.json();
@@ -97,15 +118,14 @@
         throw new Error(data.error);
       }
 
-      // Actualizar las categorías localmente
-      const restaurantIndex = restaurants.findIndex(r => r._id === selectedRestaurant);
-      if (restaurantIndex !== -1) {
-        restaurants[restaurantIndex] = data.data;
-        categories = restaurants[restaurantIndex].categories;
+      // Actualizar las categorías
+      const updatedRestaurant = await getRestaurantWithCategories(selectedRestaurant);
+      if (updatedRestaurant) {
+        categories = updatedRestaurant.categories || [];
       }
 
-      return data.data.categories.find((c: Category) => c._id === category._id);
-    } catch (error) {
+      return data.data;
+    } catch (error: any) {
       console.error('Error saving dish:', error);
       throw new Error('Error saving dish: ' + error.message);
     }
@@ -114,10 +134,18 @@
   async function addCategory() {
     if (newCategory.trim()) {
       try {
-        await saveCategory(newCategory);
-        newCategory = '';
-      } catch (error) {
+        const savedCategory = await saveCategory(newCategory);
+        if (savedCategory) {
+          // Actualizar las categorías sin duplicar
+          const categoryExists = categories.some(cat => cat.name === savedCategory.name);
+          if (!categoryExists) {
+            categories = [...categories, { ...savedCategory, dishes: [] }];
+          }
+          newCategory = ''; // Limpiar el input después de guardar
+        }
+      } catch (error: any) {
         console.error('Error adding category:', error);
+        alert('Error adding category: ' + error.message);
       }
     }
   }
@@ -128,28 +156,29 @@
     }
   }
 
-  // Función para agregar plato (combina la funcionalidad local y la persistencia)
+  // Función para agregar plato
   async function addDish() {
     if (selectedCategory !== null && newDish.title.trim()) {
       try {
         const category = categories[selectedCategory];
         
         // Primero actualizamos la base de datos
-        const updatedCategory = await saveDish(category, { ...newDish });
-        
-        // Luego actualizamos el estado local
-        if (updatedCategory) {
-          categories[selectedCategory] = updatedCategory;
-          categories = [...categories]; // Trigger reactivity
-        }
+        await saveDish(category, newDish);
         
         // Reset form
-        newDish = { title: '', imageUrl: '', price: '', description: '' };
+        newDish = { 
+          id: '',
+          title: '', 
+          imageUrl: '', 
+          price: '', 
+          description: '', 
+          categoryId: '' 
+        };
         // Deseleccionar la categoría para cerrar el formulario
         selectedCategory = null;
         
         alert('Plato guardado exitosamente!');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error adding dish:', error);
         alert('Error al guardar plato: ' + error.message);
       }
@@ -188,21 +217,22 @@
       }
 
       const category = categories[categoryIndex];
-      if (!category || !dish._id) {
+      if (!category || !dish.id) {
         throw new Error('Category or dish not found');
       }
 
       // Asegurarnos de enviar todos los campos del plato
       const updatedDish = {
-        _id: dish._id,
+        id: dish.id,
         title: dish.title,
         imageUrl: dish.imageUrl,
         price: dish.price,
-        description: dish.description
+        description: dish.description,
+        categoryId: category.id
       };
 
       const response = await fetch(
-        `/api/restaurants/${selectedRestaurant}/categories/${category._id}/dishes/${dish._id}`,
+        `/api/restaurants/${selectedRestaurant}/categories/${category.id}/dishes/${dish.id}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -216,41 +246,60 @@
         throw new Error(data.error);
       }
 
-      // Actualizar el estado local inmediatamente con todos los campos
-      const updatedCategory = data.data.categories.find((c: Category) => c._id === category._id);
-      if (updatedCategory) {
-        // Asegurarnos de que todos los platos tengan sus campos actualizados
-        const updatedDishes = updatedCategory.dishes.map(d => ({
-          _id: d._id,
-          title: d.title,
-          imageUrl: d.imageUrl,
-          price: d.price,
-          description: d.description
-        }));
-        
-        updatedCategory.dishes = updatedDishes;
-        categories[categoryIndex] = updatedCategory;
-        categories = [...categories]; // Forzar la reactividad
+      // Actualizar las categorías
+      const updatedRestaurant = await getRestaurantWithCategories(selectedRestaurant);
+      if (updatedRestaurant) {
+        categories = updatedRestaurant.categories || [];
       }
 
       return data.data;
     } catch (error) {
       console.error('Error updating dish:', error);
-      throw new Error('Error updating dish: ' + error.message);
+      if (error instanceof Error) {
+        throw new Error('Error updating dish: ' + error.message);
+      }
+      throw new Error('Error updating dish');
     }
   }
 
   function editDish(dishIndex: number) {
-    if (selectedCategory !== null) {
+    if (selectedCategory !== null && categories[selectedCategory]?.dishes) {
       const dish = categories[selectedCategory].dishes[dishIndex];
-      editingDish = { ...dish };
-      editingDishIndex = dishIndex;
-      isEditing = true;
+      if (dish) {
+        // Copiar los datos del plato al formulario de edición
+        editingDish = { 
+          id: dish.id,
+          title: dish.title, 
+          imageUrl: dish.imageUrl || '', 
+          price: dish.price, 
+          description: dish.description,
+          categoryId: dish.categoryId
+        };
+        editingDishIndex = dishIndex;
+        isEditing = true;
+        // Asegurarse de que la categoría correcta esté seleccionada
+        selectedCategory = selectedCategory;
+        
+        // Hacer scroll al formulario de edición
+        setTimeout(() => {
+          const editForm = document.querySelector('.edit-dish-form');
+          if (editForm) {
+            editForm.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      }
     }
   }
 
   function resetEditForm() {
-    editingDish = { title: '', imageUrl: '', price: '', description: '' };
+    editingDish = { 
+      id: '',
+      title: '', 
+      imageUrl: '', 
+      price: '', 
+      description: '', 
+      categoryId: '' 
+    };
     editingDishIndex = null;
     isEditing = false;
   }
@@ -265,25 +314,34 @@
   async function removeDish(categoryIndex: number, dishIndex: number) {
     try {
       const category = categories[categoryIndex];
+      if (!category?.dishes) return;
+      
       const dish = category.dishes[dishIndex];
+      if (!dish) return;
 
-      const response = await fetch(`/api/categories/${category._id}/dishes/${dish._id}`, {
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories/${category.id}/dishes/${dish.id}`, {
         method: 'DELETE'
       });
 
-      const result = await response.json();
+      const data = await response.json();
       
-      if (result.success) {
-        // Update local state
-        categories[categoryIndex].dishes = categories[categoryIndex].dishes.filter((_, i) => i !== dishIndex);
-        categories = [...categories]; // Trigger reactivity
-        alert('Dish deleted successfully!');
-      } else {
-        throw new Error(result.error);
+      if (!data.success) {
+        throw new Error(data.error);
       }
+
+      // Actualizar las categorías
+      const updatedRestaurant = await getRestaurantWithCategories(selectedRestaurant);
+      if (updatedRestaurant) {
+        categories = updatedRestaurant.categories || [];
+      }
+
+      return data.data;
     } catch (error) {
-      console.error('Error deleting dish:', error);
-      alert('Error deleting dish: ' + error.message);
+      console.error('Error removing dish:', error);
+      if (error instanceof Error) {
+        throw new Error('Error removing dish: ' + error.message);
+      }
+      throw new Error('Error removing dish');
     }
   }
 
@@ -590,18 +648,18 @@
 
   onMount(async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/restaurants');
       const data = await response.json();
       
       if (data.success) {
-        categories = data.data;
-        console.log('Loaded categories:', categories);
+        restaurants = data.data;
+        console.log('Loaded restaurants:', restaurants);
       } else {
-        throw new Error(data.error || 'Failed to load categories');
+        throw new Error(data.error || 'Failed to load restaurants');
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
-      alert('Error loading categories: ' + error.message);
+      console.error('Error loading restaurants:', error);
+      alert('Error loading restaurants: ' + error.message);
     }
   });
 
@@ -647,28 +705,10 @@
     }
   }
 
-  // Función onMount para cargar los restaurantes al iniciar
-  onMount(async () => {
-    try {
-      const response = await fetch('/api/restaurants');
-      const data = await response.json();
-      
-      if (data.success) {
-        restaurants = data.data;
-        console.log('Loaded restaurants:', restaurants);
-      } else {
-        throw new Error(data.error || 'Failed to load restaurants');
-      }
-    } catch (error) {
-      console.error('Error loading restaurants:', error);
-      alert('Error loading restaurants: ' + error.message);
-    }
-  });
-
   // Agregar esta función para manejar la selección del restaurante
   async function handleRestaurantCreated(restaurant: Restaurant) {
-    selectedRestaurant = restaurant._id;
-    categories = restaurant.categories;
+    selectedRestaurant = restaurant.id;
+    categories = restaurant.categories || [];
     console.log('Selected restaurant:', selectedRestaurant);
   }
 
@@ -681,10 +721,10 @@
 
       const restaurantData = {
         name: restaurantName,
-        logo: menuLogo || '' // Aseguramos que siempre haya un valor para logo
+        logo: menuLogo || null
       };
 
-      console.log('Saving restaurant with data:', restaurantData); // Debug log
+      console.log('Saving restaurant with data:', restaurantData);
 
       const response = await fetch('/api/restaurants', {
         method: 'POST',
@@ -693,15 +733,16 @@
       });
 
       const data = await response.json();
-      console.log('Save response:', data); // Debug log
+      console.log('Save response:', data);
       
       if (!data.success) {
         throw new Error(data.error);
       }
 
-      selectedRestaurant = data.data._id;
+      selectedRestaurant = data.data.id;
+      categories = []; // Inicializar categorías vacías para el nuevo restaurante
       return data.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving restaurant:', error);
       alert('Error saving restaurant: ' + error.message);
       throw error;
@@ -722,7 +763,14 @@
       categories = [...categories];
       
       // Limpiar el formulario de edición y cerrar la vista de edición
-      editingDish = { title: '', imageUrl: '', price: '', description: '' };
+      editingDish = { 
+        id: '',
+        title: '', 
+        imageUrl: '', 
+        price: '', 
+        description: '', 
+        categoryId: '' 
+      };
       editingDishIndex = null;
       isEditing = false;
       alert('Plato actualizado exitosamente!');
@@ -855,79 +903,59 @@
       selectedCategory = index; // Si es una categoría diferente, la seleccionamos
     }
   }
+
+  // Función para cancelar la edición
+  function cancelEditDish() {
+    editingDish = { 
+      id: '',
+      title: '', 
+      imageUrl: '', 
+      price: '', 
+      description: '', 
+      categoryId: '' 
+    };
+    editingDishIndex = null;
+    isEditing = false;
+  }
+
+  // Función para guardar los cambios del plato
+  async function saveDishChanges() {
+    if (selectedCategory === null) return;
+    
+    try {
+      await handleEditDish(selectedCategory, editingDish);
+      cancelEditDish(); // Limpiar el formulario después de guardar
+    } catch (error) {
+      console.error('Error saving dish changes:', error);
+      alert('Error saving changes: ' + error.message);
+    }
+  }
 </script>
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
   
   <div class="flex gap-8">
-    <!-- Left Section - Editor -->
-    <div class="flex-1 max-w-2xl">
+    <!-- Left Section - Menu Editor -->
+    <div class="flex-1 p-8">
       <!-- Restaurant Name Section -->
-      <div class="space-y-2">
+      <div class="mb-6">
         <label class="block text-sm font-medium mb-1">Restaurant Name</label>
-        {#if isEditingRestaurant}
-          <div class="flex items-center space-x-2">
-            <input
-              type="text"
-              bind:value={editingRestaurantName}
-              placeholder="Enter restaurant name"
-              class="flex-1 p-2 border rounded"
-            />
-            <button 
-              class="p-2 text-green-500 hover:text-green-600"
-              on:click={updateRestaurantName}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </button>
-            <button 
-              class="p-2 text-gray-500 hover:text-gray-600"
-              on:click={cancelEditingRestaurant}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-        {:else}
-          <div class="">
-            <input
-              type="text"
-              bind:value={restaurantName}
-              placeholder="Enter restaurant name"
-              class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={selectedRestaurant}
-            />
-            {#if restaurantName}
-              <button 
-                class="p-2 text-gray-500 hover:text-blue-500"
-                on:click={startEditingRestaurant}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                </svg>
-              </button>
-              <button 
-                class="p-2 text-gray-500 hover:text-red-500"
-                on:click={deleteRestaurant}
-              >
-                <X class="h-4 w-4" />
-              </button>
-            {/if}
-          </div>
-        {/if}
+        <input
+          type="text"
+          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter restaurant name"
+          bind:value={restaurantName}
+        />
       </div>
 
       <!-- Menu Logo Section -->
-      <div class="space-y-2">
+      <div class="mb-6">
         <label class="block text-sm font-medium mb-1">Menu Logo</label>
         <div class="flex items-center space-x-2">
           <div class="relative">
             <button 
               class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors"
-              onclick="document.getElementById('logo-input').click()"
+              on:click={() => document.getElementById('logo-input').click()}
             >
               {#if menuLogo}
                 <img 
@@ -948,74 +976,41 @@
             />
           </div>
           {#if menuLogo}
-            <div class="flex gap-1">
-              <button 
-                class="p-2 text-gray-500 hover:text-blue-500"
-                on:click={() => document.getElementById('logo-input').click()}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                </svg>
-              </button>
-              <button 
-                class="p-2 text-gray-500 hover:text-red-500"
-                on:click={async () => {
-                  try {
-                    if (selectedRestaurant) {
-                      const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ logo: '' })
-                      });
-
-                      const data = await response.json();
-                      if (!data.success) {
-                        throw new Error(data.error);
-                      }
-                    }
-
-                    menuLogo = '';
-                    alert('Logo deleted successfully!');
-                  } catch (error) {
-                    console.error('Error deleting logo:', error);
-                    alert('Error deleting logo: ' + error.message);
-                  }
-                }}
-              >
-                <X class="h-4 w-4" />
-              </button>
-            </div>
+            <button 
+              class="p-2 text-red-500 hover:text-red-700"
+              on:click={() => menuLogo = ''}
+            >
+              <X size={20} />
+            </button>
           {/if}
         </div>
       </div>
 
       <!-- Categories Section -->
-      <div class="mt-8">
-        <div class="shadow p-0 mb-3 space-y-3">
-          <h2 class="shadow p-1 block text-sm font-medium mb-1">Category</h2>
-          <div class="">
-            <input
-              type="text"
-              class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Category name"
-              bind:value={newCategory}
-              on:keydown={handleKeyPress}
-            />
-            <button 
-              class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              on:click={addCategory}
-            >
-              Add
-            </button>
-          </div>
+      <div class="shadow p-0 mb-3 space-y-3">
+        <h2 class="shadow p-1 block text-sm font-medium mb-1">Category</h2>
+        <div class="">
+          <input
+            type="text"
+            class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Category name"
+            bind:value={newCategory}
+            on:keydown={handleKeyPress}
+          />
+          <button 
+            class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            on:click={addCategory}
+          >
+            Add
+          </button>
         </div>
 
         <!-- Categories List -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="bg-white rounded-lg shadow p-0">
-            <h2 class="shadow p-1 block text-sm font-medium mb-1">Categories</h2>
-            {#each categories as category, index}
-              <div class="flex items-center justify-between p-2">
+        <div class="bg-white rounded-lg shadow p-0">
+          <h2 class="shadow p-1 block text-sm font-medium mb-1">Categories</h2>
+          {#each categories as category, index}
+            <div class="flex flex-col p-2">
+              <div class="flex items-center justify-between">
                 {#if editingCategoryIndex === index}
                   <!-- Edit mode -->
                   <div class="flex-1 flex items-center space-x-2">
@@ -1062,111 +1057,113 @@
                     </button>
                     <button 
                       class="p-1 text-gray-500 hover:text-red-500"
-                      on:click={() => deleteCategory(category._id)}
+                      on:click={() => deleteCategory(category.id)}
                     >
                       <X class="h-4 w-4" />
                     </button>
                   </div>
                 {/if}
               </div>
-            {/each}
-          </div>
-        </div>
 
-        <!-- Add Dish Form -->
-        {#if selectedCategory !== null && !isEditing}
-          <div class="bg-white rounded shadow p-1.5">
-            <div class="text-sm font-medium mb-1">Add Dish to {categories[selectedCategory].name}</div>
-            <div class="space-y-1">
-              <div class="flex flex-col gap-0.5">
-                <label class="text-sm">Title</label>
-                <input
-                  type="text"
-                  class="w-full px-1.5 py-0.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  bind:value={newDish.title}
-                />
-              </div>
-              <div class="flex flex-col gap-0.5">
-                <label class="text-sm">Image</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  class="w-full text-sm"
-                  on:change={handleImageUpload}
-                />
-              </div>
-              <div class="flex flex-col gap-0.5">
-                <label class="text-sm">Price</label>
-                <input
-                  type="text"
-                  class="w-full px-1.5 py-0.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  bind:value={newDish.price}
-                />
-              </div>
-              <div class="flex flex-col gap-0.5">
-                <label class="text-sm">Description</label>
-                <textarea
-                  class="w-full px-1.5 py-0.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 h-8"
-                  bind:value={newDish.description}
-                />
-              </div>
-              <button 
-                class="w-full px-2 py-0.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-                on:click={addDish}
-              >
-                Add Dish
-              </button>
+              <!-- Platos section -->
+              {#if category.dishes && category.dishes.length > 0}
+                <div class="ml-4 mt-2">
+                  <h3 class="text-sm font-medium text-gray-600 mb-2">Platos</h3>
+                  {#each category.dishes as dish, dishIndex}
+                    <div class="flex items-center justify-between py-1 px-2 hover:bg-gray-50 rounded">
+                      <span class="text-sm">{dish.title}</span>
+                      <button 
+                        class="p-1 text-gray-500 hover:text-blue-500"
+                        on:click={() => editDish(dishIndex)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
             </div>
-          </div>
-        {/if}
+          {/each}
+        </div>
       </div>
-    </div>
 
-    <!-- Vertical Divider -->
-    <div class="w-px bg-gray-200 mx-8"></div>
-
-    <!-- Right Section - Preview -->
-    <div class="flex-1">
-      <!-- Menu Preview section -->
-      <div class="bg-white rounded-lg shadow p-1">
-        <h2 class="text-xl font-semibold mb-4">Menu Preview</h2>
-        
-        <!-- Logo and Menu Name Preview -->
-        <div class="flex items-center justify-between mb-6 border-b pb-4">
-          <div class="flex items-center gap-4">
-            {#if menuLogo}
-              <img 
-                src={menuLogo} 
-                alt="Menu logo" 
-                class="w-16 h-16 object-contain"
+      <!-- Add Dish Form -->
+      {#if selectedCategory !== null && !isEditing}
+        <div class="bg-white rounded shadow p-1.5">
+          <div class="text-sm font-medium mb-1">Add Dish to {categories[selectedCategory].name}</div>
+          <div class="space-y-1">
+            <div class="flex flex-col gap-0.5">
+              <label class="text-sm">Title</label>
+              <input
+                type="text"
+                class="w-full px-1.5 py-0.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                bind:value={newDish.title}
               />
-            {/if}
-            {#if restaurantName}
-              <h1 class="text-2xl font-bold">{restaurantName}</h1>
-            {/if}
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <label class="text-sm">Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                class="w-full text-sm"
+                on:change={handleImageUpload}
+              />
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <label class="text-sm">Price</label>
+              <input
+                type="text"
+                class="w-full px-1.5 py-0.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                bind:value={newDish.price}
+              />
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <label class="text-sm">Description</label>
+              <textarea
+                class="w-full px-1.5 py-0.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 h-8"
+                bind:value={newDish.description}
+              />
+            </div>
+            <button
+              class="w-full px-2 py-0.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+              on:click={addDish}
+            >
+              Add Dish
+            </button>
           </div>
         </div>
+      {/if}
 
-        <!-- Categories and Dishes -->
-        <div class="space-y-6">
-          {#each categories as category, categoryIndex}
-            <div class="mb-4">
-              <h3 class="text-lg font-semibold mb-2">{category.name}</h3>
+      <!-- Display Dishes -->
+      {#each categories as category, categoryIndex}
+        {#if category.dishes && category.dishes.length > 0}
+          <div class="mt-4">
+            <h3 class="text-lg font-semibold mb-2">{category.name}</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {#each category.dishes as dish, dishIndex}
-                <div class="mb-2 p-2 border rounded-lg">
-                  {#if isEditing && editingDishIndex === dishIndex && selectedCategory === categoryIndex}
+                <div class="bg-white rounded-lg shadow p-4">
+                  {#if isEditing && editingDishIndex === dishIndex}
                     <!-- Edit Form -->
                     <div class="space-y-4">
-                      <div>
-                        <label class="block text-sm font-medium mb-1">Title</label>
+                      <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium">Title</label>
                         <input
                           type="text"
                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           bind:value={editingDish.title}
                         />
                       </div>
-                      <div>
-                        <label class="block text-sm font-medium mb-1">Image</label>
+                      <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium">Image</label>
+                        {#if editingDish.imageUrl}
+                          <img 
+                            src={editingDish.imageUrl} 
+                            alt={editingDish.title}
+                            class="w-32 h-32 object-cover rounded-lg mb-2"
+                          />
+                        {/if}
                         <input
                           type="file"
                           accept="image/*"
@@ -1174,76 +1171,121 @@
                           on:change={handleImageUpload}
                         />
                       </div>
-                      <div>
-                        <label class="block text-sm font-medium mb-1">Price</label>
+                      <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium">Price</label>
                         <input
                           type="text"
                           class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           bind:value={editingDish.price}
                         />
                       </div>
-                      <div>
-                        <label class="block text-sm font-medium mb-1">Description</label>
+                      <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium">Description</label>
                         <textarea
-                          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
                           bind:value={editingDish.description}
                         />
                       </div>
-                      <div class="flex space-x-2">
-                        <button 
-                          on:click={() => handleEditDish(selectedCategory, editingDish)}
-                          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                        >
-                          Update Dish
-                        </button>
-                        <button 
-                          class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                          on:click={resetEditForm}
+                      <div class="flex justify-end space-x-3">
+                        <button
+                          class="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                          on:click={cancelEditDish}
                         >
                           Cancel
+                        </button>
+                        <button
+                          class="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                          on:click={saveDishChanges}
+                        >
+                          Save Changes
                         </button>
                       </div>
                     </div>
                   {:else}
-                    <!-- Dish Display -->
-                    <div class="flex justify-between items-start">
-                      <div>
-                        <h4 class="font-medium">{dish.title}</h4>
-                        <p class="text-sm text-gray-600">{dish.description}</p>
-                        <p class="font-bold">{dish.price}</p>
-                      </div>
-                      {#if dish.imageUrl}
-                        <img src={dish.imageUrl} alt={dish.title} class="w-20 h-20 object-cover rounded-lg" />
-                      {/if}
-                      <div class="flex space-x-2">
-                        <button 
-                          class="p-2 text-gray-500 hover:text-blue-500"
-                          on:click={() => {
-                            selectedCategory = categoryIndex;
-                            editDish(dishIndex);
-                          }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                          </svg>
-                        </button>
-                        <button 
-                          class="p-2 text-gray-500 hover:text-red-500"
-                          on:click={() => deleteDish(category._id, dish._id)}
-                        >
-                          <X class="h-4 w-4" />
-                        </button>
-                      </div>
+                    <!-- Display Dish -->
+                    {#if dish.imageUrl}
+                      <img 
+                        src={dish.imageUrl} 
+                        alt={dish.title}
+                        class="w-full h-48 object-cover rounded-lg mb-4"
+                      />
+                    {/if}
+                    <h4 class="text-lg font-semibold">{dish.title}</h4>
+                    <p class="text-gray-600 mt-1">{dish.description}</p>
+                    <p class="text-lg font-bold mt-2">${dish.price}</p>
+                    <div class="flex justify-end mt-4 space-x-2">
+                      <button
+                        class="px-3 py-1 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                        on:click={() => editDish(dishIndex)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                        on:click={() => removeDish(categoryIndex, dishIndex)}
+                      >
+                        Delete
+                      </button>
                     </div>
                   {/if}
                 </div>
               {/each}
             </div>
-            {#if categoryIndex !== categories.length - 1}
-              <div class="border-b border-gray-200 my-4"></div>
-            {/if}
-          {/each}
+          </div>
+        {/if}
+      {/each}
+    </div>
+
+    <!-- Vertical Divider -->
+    <div class="w-px bg-gray-200 mx-8"></div>
+
+    <!-- Right Section - Preview -->
+    <div class="flex-1 p-8 bg-gray-50">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-2xl font-bold mb-6">Menu Preview</h2>
+        
+        <!-- Restaurant Info -->
+        <div class="flex items-center space-x-4 mb-8">
+          {#if menuLogo}
+            <img 
+              src={menuLogo} 
+              alt="Restaurant logo" 
+              class="w-16 h-16 object-cover rounded-lg"
+            />
+          {/if}
+          {#if restaurantName}
+            <h1 class="text-3xl font-bold">{restaurantName}</h1>
+          {/if}
         </div>
+
+        <!-- Categories and Dishes -->
+        {#each categories as category}
+          <div class="mb-8">
+            <h3 class="text-xl font-semibold mb-4">{category.name}</h3>
+            {#if category.dishes && category.dishes.length > 0}
+              <div class="space-y-4">
+                {#each category.dishes as dish}
+                  <div class="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+                    {#if dish.imageUrl}
+                      <img 
+                        src={dish.imageUrl} 
+                        alt={dish.title}
+                        class="w-24 h-24 object-cover rounded-lg"
+                      />
+                    {/if}
+                    <div class="flex-1">
+                      <div class="flex justify-between items-start">
+                        <h4 class="text-lg font-semibold">{dish.title}</h4>
+                        <p class="text-lg font-bold">${dish.price}</p>
+                      </div>
+                      <p class="text-gray-600 mt-1">{dish.description}</p>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
       </div>
     </div>
   </div>

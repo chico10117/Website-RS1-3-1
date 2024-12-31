@@ -1,86 +1,106 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Restaurant } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
-export async function POST({ params, request }: RequestEvent) {
+export async function POST({ request, params }: RequestEvent) {
   try {
-    await connectDB();
-    const { restaurantId, categoryId } = params;
-    const dishData = await request.json();
-
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    const data = await request.json();
+    const { categoryId } = params;
+    
+    if (!data.title) {
+      return json({ success: false, error: 'Dish title is required' }, { status: 400 });
     }
 
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
-    }
+    const [newDish] = await db.insert(dishes)
+      .values({
+        title: data.title,
+        imageUrl: data.imageUrl || null,
+        price: data.price || null,
+        description: data.description || null,
+        categoryId
+      })
+      .returning();
 
-    category.dishes.push(dishData);
-    await restaurant.save();
-
-    return json({ success: true, data: restaurant });
+    return json({ 
+      success: true, 
+      data: newDish,
+      message: 'Dish created successfully'
+    });
   } catch (error) {
-    console.error('Error adding dish:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    console.error('Error creating dish:', error);
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 });
+  }
+}
+
+export async function GET({ params }: RequestEvent) {
+  try {
+    const { categoryId } = params;
+    const categoryDishes = await db.select()
+      .from(dishes)
+      .where(eq(dishes.categoryId, categoryId));
+
+    return json({ success: true, data: categoryDishes });
+  } catch (error) {
+    console.error('Error getting dishes:', error);
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 });
   }
 }
 
 export async function PUT({ params, request }: RequestEvent) {
   try {
-    await connectDB();
-    const { restaurantId, categoryId } = params;
-    const { dishId, ...updatedDish } = await request.json();
+    const { dishId } = params;
+    const data = await request.json();
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
-    }
+    const [updatedDish] = await db.update(dishes)
+      .set({
+        title: data.title,
+        imageUrl: data.imageUrl || null,
+        price: data.price || null,
+        description: data.description || null,
+      })
+      .where(eq(dishes.id, dishId))
+      .returning();
 
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
-    }
-
-    const dish = category.dishes.id(dishId);
-    if (!dish) {
+    if (!updatedDish) {
       return json({ success: false, error: 'Dish not found' }, { status: 404 });
     }
 
-    Object.assign(dish, updatedDish);
-    await restaurant.save();
-
-    return json({ success: true, data: restaurant });
+    return json({ success: true, data: updatedDish });
   } catch (error) {
     console.error('Error updating dish:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 });
   }
 }
 
-export async function DELETE({ params }) {
+export async function DELETE({ params }: RequestEvent) {
   try {
-    await connectDB();
-    const { restaurantId, categoryId, dishId } = params;
+    const { dishId } = params;
+    
+    const [deletedDish] = await db.delete(dishes)
+      .where(eq(dishes.id, dishId))
+      .returning();
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    if (!deletedDish) {
+      return json({ success: false, error: 'Dish not found' }, { status: 404 });
     }
 
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
-    }
-
-    category.dishes = category.dishes.filter(dish => dish._id.toString() !== dishId);
-    await restaurant.save();
-
-    return json({ success: true, data: restaurant });
+    return json({ success: true, data: deletedDish });
   } catch (error) {
     console.error('Error deleting dish:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 });
   }
 }

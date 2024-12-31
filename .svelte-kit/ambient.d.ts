@@ -26,12 +26,13 @@
  * ```
  */
 declare module '$env/static/private' {
-	export const MONGODB_URI: string;
-	export const MONGODB_DB_NAME: string;
+	export const DATABASE_URL: string;
 	export const LESSOPEN: string;
+	export const npm_package_devDependencies_ts_node: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
 	export const GIT_ASKPASS: string;
+	export const npm_package_dependencies_drizzle_kit: string;
 	export const npm_package_devDependencies__sveltejs_vite_plugin_svelte: string;
 	export const npm_package_devDependencies_vite: string;
 	export const npm_node_execpath: string;
@@ -40,17 +41,19 @@ declare module '$env/static/private' {
 	export const HOME: string;
 	export const TERM_PROGRAM_VERSION: string;
 	export const VSCODE_IPC_HOOK_CLI: string;
+	export const npm_package_dependencies_postgres: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
 	export const npm_package_devDependencies_svelte_check: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const npm_package_scripts_check: string;
+	export const npm_package_dependencies_drizzle_orm: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
-	export const npm_package_dependencies_dotenv: string;
 	export const COLORTERM: string;
 	export const WSL_DISTRO_NAME: string;
 	export const npm_package_dependencies_tailwind_variants: string;
 	export const npm_package_devDependencies_tailwindcss: string;
 	export const npm_package_devDependencies_typescript: string;
+	export const npm_package_dependencies__types_pg: string;
 	export const WAYLAND_DISPLAY: string;
 	export const npm_package_scripts_dev: string;
 	export const LOGNAME: string;
@@ -65,7 +68,6 @@ declare module '$env/static/private' {
 	export const npm_package_scripts_lint: string;
 	export const npm_config_registry: string;
 	export const TERM: string;
-	export const npm_package_dependencies_mongodb: string;
 	export const npm_package_dependencies_tailwind_merge: string;
 	export const npm_config_node_gyp: string;
 	export const PATH: string;
@@ -78,6 +80,7 @@ declare module '$env/static/private' {
 	export const LS_COLORS: string;
 	export const VSCODE_GIT_IPC_HANDLE: string;
 	export const TERM_PROGRAM: string;
+	export const npm_package_devDependencies_dotenv: string;
 	export const npm_lifecycle_script: string;
 	export const npm_package_devDependencies__sveltejs_kit: string;
 	export const SHELL: string;
@@ -85,13 +88,14 @@ declare module '$env/static/private' {
 	export const npm_lifecycle_event: string;
 	export const NODE_PATH: string;
 	export const npm_package_scripts_build: string;
+	export const npm_package_dependencies__neondatabase_serverless: string;
 	export const npm_package_dependencies_bits_ui: string;
 	export const npm_package_devDependencies_svelte: string;
 	export const LESSCLOSE: string;
 	export const npm_package_dependencies_clsx: string;
-	export const npm_package_dependencies_mongoose: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const npm_package_scripts_format: string;
+	export const npm_package_devDependencies_tsx: string;
 	export const PWD: string;
 	export const npm_execpath: string;
 	export const XDG_DATA_DIRS: string;
@@ -104,6 +108,7 @@ declare module '$env/static/private' {
 	export const HOSTTYPE: string;
 	export const npm_package_dependencies_lucide_svelte: string;
 	export const WSLENV: string;
+	export const npm_package_dependencies_pg: string;
 	export const INIT_CWD: string;
 	export const NODE_ENV: string;
 }
@@ -137,12 +142,13 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
-		MONGODB_URI: string;
-		MONGODB_DB_NAME: string;
+		DATABASE_URL: string;
 		LESSOPEN: string;
+		npm_package_devDependencies_ts_node: string;
 		USER: string;
 		npm_config_user_agent: string;
 		GIT_ASKPASS: string;
+		npm_package_dependencies_drizzle_kit: string;
 		npm_package_devDependencies__sveltejs_vite_plugin_svelte: string;
 		npm_package_devDependencies_vite: string;
 		npm_node_execpath: string;
@@ -151,17 +157,19 @@ declare module '$env/dynamic/private' {
 		HOME: string;
 		TERM_PROGRAM_VERSION: string;
 		VSCODE_IPC_HOOK_CLI: string;
+		npm_package_dependencies_postgres: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;
 		npm_package_devDependencies_svelte_check: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		npm_package_scripts_check: string;
+		npm_package_dependencies_drizzle_orm: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
-		npm_package_dependencies_dotenv: string;
 		COLORTERM: string;
 		WSL_DISTRO_NAME: string;
 		npm_package_dependencies_tailwind_variants: string;
 		npm_package_devDependencies_tailwindcss: string;
 		npm_package_devDependencies_typescript: string;
+		npm_package_dependencies__types_pg: string;
 		WAYLAND_DISPLAY: string;
 		npm_package_scripts_dev: string;
 		LOGNAME: string;
@@ -176,7 +184,6 @@ declare module '$env/dynamic/private' {
 		npm_package_scripts_lint: string;
 		npm_config_registry: string;
 		TERM: string;
-		npm_package_dependencies_mongodb: string;
 		npm_package_dependencies_tailwind_merge: string;
 		npm_config_node_gyp: string;
 		PATH: string;
@@ -189,6 +196,7 @@ declare module '$env/dynamic/private' {
 		LS_COLORS: string;
 		VSCODE_GIT_IPC_HANDLE: string;
 		TERM_PROGRAM: string;
+		npm_package_devDependencies_dotenv: string;
 		npm_lifecycle_script: string;
 		npm_package_devDependencies__sveltejs_kit: string;
 		SHELL: string;
@@ -196,13 +204,14 @@ declare module '$env/dynamic/private' {
 		npm_lifecycle_event: string;
 		NODE_PATH: string;
 		npm_package_scripts_build: string;
+		npm_package_dependencies__neondatabase_serverless: string;
 		npm_package_dependencies_bits_ui: string;
 		npm_package_devDependencies_svelte: string;
 		LESSCLOSE: string;
 		npm_package_dependencies_clsx: string;
-		npm_package_dependencies_mongoose: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		npm_package_scripts_format: string;
+		npm_package_devDependencies_tsx: string;
 		PWD: string;
 		npm_execpath: string;
 		XDG_DATA_DIRS: string;
@@ -215,6 +224,7 @@ declare module '$env/dynamic/private' {
 		HOSTTYPE: string;
 		npm_package_dependencies_lucide_svelte: string;
 		WSLENV: string;
+		npm_package_dependencies_pg: string;
 		INIT_CWD: string;
 		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;

@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Restaurant } from '$lib/server/models/menu';
+import { db, createRestaurantWithRelations, getRestaurantWithRelations } from '$lib/server/database';
+import { restaurants } from '$lib/server/schema';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export async function POST({ request }) {
+export async function POST({ request }: RequestEvent) {
   try {
-    await connectDB();
     const data = await request.json();
     
     console.log('Received restaurant data:', data); // Debug log
@@ -13,15 +13,32 @@ export async function POST({ request }) {
       return json({ success: false, error: 'Restaurant name is required' }, { status: 400 });
     }
 
-    const newRestaurant = new Restaurant({
-      name: data.name,
-      logo: data.logo, // Aseguramos que el logo se guarde en la base de datos
-      categories: []
-    });
+    // Si el logo es "Add logo", lo establecemos como null
+    if (data.logo === 'Add logo') {
+      data.logo = null;
+    }
 
-    console.log('Saving restaurant:', newRestaurant); // Debug log
-    
-    await newRestaurant.save();
+    // Si hay categorías, usar createRestaurantWithRelations
+    if (data.categories?.length > 0) {
+      console.log('Creating restaurant with categories:', data); // Debug log
+      const newRestaurant = await createRestaurantWithRelations(data);
+      return json({ 
+        success: true, 
+        data: newRestaurant,
+        message: 'Restaurant created successfully with categories'
+      });
+    }
+
+    // Si no hay categorías, crear solo el restaurante
+    console.log('Creating restaurant without categories:', data); // Debug log
+    const [newRestaurant] = await db.insert(restaurants)
+      .values({
+        name: data.name,
+        logo: data.logo
+      })
+      .returning();
+
+    console.log('Created restaurant:', newRestaurant); // Debug log
     
     return json({ 
       success: true, 
@@ -30,73 +47,45 @@ export async function POST({ request }) {
     });
   } catch (error) {
     console.error('Error creating restaurant:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message, error.stack);
+    }
     return json({ 
       success: false, 
-      error: error.message,
-      details: error 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET({ url }: RequestEvent) {
   try {
-    await connectDB();
-    const restaurants = await Restaurant.find({}).lean();
-    return json({ success: true, data: restaurants });
-  } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
-  }
-}
-async function saveRestaurant() {
-  try {
-    const response = await fetch('/api/restaurants', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: restaurantName,
-        logo: restaurantLogo
-      })
-    });
-
-    const data = await response.json();
+    console.log('Fetching restaurants...'); // Debug log
     
-    if (!data.success) {
-      throw new Error(data.error);
-    }
-
-    restaurantId = data.data._id;
-    return data.data;
-  } catch (error) {
-    console.error('Error saving restaurant:', error);
-    alert('Error saving restaurant: ' + error.message);
-    throw error;
-  }
-}
-
-async function saveCategory(categoryName: string) {
-  try {
-    if (!restaurantId) {
-      const restaurant = await saveRestaurant();
-      restaurantId = restaurant._id;
-    }
-
-    const response = await fetch(`/api/restaurants/${restaurantId}/categories`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: categoryName })
-    });
-
-    const data = await response.json();
+    const restaurantId = url.searchParams.get('id');
     
-    if (!data.success) {
-      throw new Error(data.error);
+    if (restaurantId) {
+      // Si se proporciona un ID, obtener un restaurante específico con sus relaciones
+      const restaurant = await getRestaurantWithRelations(restaurantId);
+      if (!restaurant) {
+        return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+      }
+      return json({ success: true, data: restaurant });
     }
-
-    categories = data.data.categories;
-    return data.data;
+    
+    // Si no se proporciona ID, obtener todos los restaurantes (sin relaciones)
+    const allRestaurants = await db.select().from(restaurants);
+    console.log('Found restaurants:', allRestaurants); // Debug log
+    return json({ success: true, data: allRestaurants });
   } catch (error) {
-    console.error('Error saving category:', error);
-    alert('Error saving category: ' + error.message);
-    throw error;
+    console.error('Error fetching restaurants:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message, error.stack);
+    }
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 } 
