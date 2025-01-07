@@ -1,58 +1,52 @@
 import { json } from '@sveltejs/kit';
 import { db, createRestaurantWithRelations, getRestaurantWithRelations } from '$lib/server/database';
 import { restaurants } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function POST({ request }: RequestEvent) {
   try {
-    const data = await request.json();
-    
-    console.log('Received restaurant data:', data); // Debug log
+    const { name, logo } = await request.json();
 
-    if (!data.name) {
-      return json({ success: false, error: 'Restaurant name is required' }, { status: 400 });
-    }
-
-    // Si el logo es "Add logo", lo establecemos como null
-    if (data.logo === 'Add logo') {
-      data.logo = null;
-    }
-
-    // Si hay categorías, usar createRestaurantWithRelations
-    if (data.categories?.length > 0) {
-      console.log('Creating restaurant with categories:', data); // Debug log
-      const newRestaurant = await createRestaurantWithRelations(data);
+    if (!name) {
       return json({ 
-        success: true, 
-        data: newRestaurant,
-        message: 'Restaurant created successfully with categories'
-      });
+        success: false, 
+        error: 'Restaurant name is required' 
+      }, { status: 400 });
     }
 
-    // Si no hay categorías, crear solo el restaurante
-    console.log('Creating restaurant without categories:', data); // Debug log
+    // Check if a restaurant with this name already exists
+    const existingRestaurant = await db.select()
+      .from(restaurants)
+      .where(eq(restaurants.name, name))
+      .limit(1);
+
+    if (existingRestaurant.length > 0) {
+      return json({ 
+        success: false, 
+        error: 'A restaurant with this name already exists' 
+      }, { status: 400 });
+    }
+
+    // Create the new restaurant
     const [newRestaurant] = await db.insert(restaurants)
       .values({
-        name: data.name,
-        logo: data.logo
+        name,
+        logo: logo || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
       })
       .returning();
 
-    console.log('Created restaurant:', newRestaurant); // Debug log
-    
     return json({ 
       success: true, 
-      data: newRestaurant,
-      message: 'Restaurant created successfully'
+      data: newRestaurant 
     });
   } catch (error) {
     console.error('Error creating restaurant:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message, error.stack);
-    }
     return json({ 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : 'Failed to create restaurant',
       details: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
