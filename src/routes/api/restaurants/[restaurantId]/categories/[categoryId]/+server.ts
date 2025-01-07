@@ -1,54 +1,94 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Restaurant } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { categories, dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function PUT({ params, request }: RequestEvent) {
   try {
-    await connectDB();
     const { restaurantId, categoryId } = params;
     const { name } = await request.json();
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    if (!name || typeof name !== 'string') {
+      return json({ 
+        success: false, 
+        error: 'Category name is required and must be a string' 
+      }, { status: 400 });
     }
 
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
+    // Validate that categoryId exists
+    const existingCategory = await db.select()
+      .from(categories)
+      .where(eq(categories.id, categoryId as string))
+      .limit(1);
+
+    if (!existingCategory.length) {
+      return json({ 
+        success: false, 
+        error: 'Category not found' 
+      }, { status: 404 });
     }
 
-    category.name = name;
-    await restaurant.save();
+    // Update the category
+    const [updatedCategory] = await db.update(categories)
+      .set({ 
+        name,
+        updatedAt: new Date()
+      })
+      .where(eq(categories.id, categoryId as string))
+      .returning();
 
-    return json({ success: true, data: restaurant });
+    // Get all dishes for this category
+    const categoryDishes = await db.select()
+      .from(dishes)
+      .where(eq(dishes.categoryId, categoryId as string));
+
+    // Return the updated category with its dishes
+    return json({
+      success: true,
+      data: {
+        ...updatedCategory,
+        dishes: categoryDishes
+      }
+    });
+
   } catch (error) {
     console.error('Error updating category:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to update category',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }
 
 export async function DELETE({ params }: RequestEvent) {
   try {
-    await connectDB();
-    const { restaurantId, categoryId } = params;
+    const { categoryId } = params;
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    // Delete the category (dishes will be cascade deleted due to foreign key constraint)
+    const [deletedCategory] = await db.delete(categories)
+      .where(eq(categories.id, categoryId as string))
+      .returning();
+
+    if (!deletedCategory) {
+      return json({ 
+        success: false, 
+        error: 'Category not found' 
+      }, { status: 404 });
     }
 
-    // Remove the category from the restaurant's categories array
-    restaurant.categories = restaurant.categories.filter(
-      cat => cat._id.toString() !== categoryId
-    );
-    
-    await restaurant.save();
+    return json({
+      success: true,
+      data: deletedCategory
+    });
 
-    return json({ success: true, data: restaurant });
   } catch (error) {
     console.error('Error deleting category:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to delete category',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }

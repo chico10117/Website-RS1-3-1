@@ -549,9 +549,12 @@
         }
 
         const category = categories[editingCategoryIndex];
-        
+        if (!category || !category.id) {
+          throw new Error('Category not found');
+        }
+
         const response = await fetch(
-          `/api/restaurants/${selectedRestaurant}/categories/${category._id}`,
+          `/api/restaurants/${selectedRestaurant}/categories/${category.id}`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -565,12 +568,15 @@
           throw new Error(data.error);
         }
 
-        // Update local state with response from server
-        categories = data.data.categories;
+        // Update the local state with the updated category
+        categories = categories.map((cat, index) => 
+          index === editingCategoryIndex 
+            ? { ...cat, name: editingCategoryName }
+            : cat
+        );
         
         // Reset editing state
         cancelEditingCategory();
-        alert('Category updated successfully!');
       } catch (error) {
         console.error('Error updating category:', error);
         alert('Error updating category: ' + error.message);
