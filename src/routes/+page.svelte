@@ -914,10 +914,10 @@
         throw new Error('No category selected');
       }
 
-      const category = categories[currentCategoryIndex];
-      console.log('Selected category:', category);
+      const currentCategory = categories[currentCategoryIndex];
+      console.log('Selected category:', currentCategory);
 
-      const categoryId = category.id || category._id;
+      const categoryId = currentCategory.id || currentCategory._id;
       console.log('Category ID:', categoryId);
 
       if (!categoryId) {
@@ -933,71 +933,46 @@
         price: editingDish.price.trim(),
         description: editingDish.description.trim(),
         imageUrl: editingDish.imageUrl || '',
-        categoryId: categoryId // Añadimos el categoryId al payload
+        categoryId: categoryId
       };
-
-      console.log('Sending request with:', {
-        url: `/api/restaurants/${selectedRestaurant}/categories/${categoryId}/dishes/${editingDish.id}`,
-        method: 'PUT',
-        data: dishData
-      });
 
       const response = await fetch(
         `/api/restaurants/${selectedRestaurant}/categories/${categoryId}/dishes/${editingDish.id}`,
         {
           method: 'PUT',
           headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(dishData)
         }
       );
 
-      // Log de la respuesta completa
-      console.log('Response status:', response.status);
-      const responseText = await response.text();
-      console.log('Response text:', responseText);
-
-      // Intentar parsear la respuesta como JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Error parsing response:', e);
-        throw new Error('Invalid server response');
-      }
+      const data = await response.json();
 
       if (!data.success) {
-        console.error('Server returned error:', data);
         throw new Error(data.error || 'Failed to update dish');
       }
 
-      // Actualizar el estado local con los datos actualizados
-      if (data.data && data.data.categories) {
-        categories = data.data.categories;
-      } else {
-        // Si no recibimos las categorías actualizadas, actualizamos manualmente
-        const updatedCategories = [...categories];
-        const category = updatedCategories[currentCategoryIndex];
-        if (category && category.dishes) {
-          const dishIndex = category.dishes.findIndex(d => (d.id || d._id) === editingDish.id);
-          if (dishIndex !== -1) {
-            category.dishes[dishIndex] = {
-              ...category.dishes[dishIndex],
-              ...dishData
-            };
-          }
+      // Update the dish in the local state
+      const updatedCategories = [...categories];
+      const updatedCategory = updatedCategories[currentCategoryIndex];
+      if (updatedCategory && updatedCategory.dishes) {
+        const dishIndex = updatedCategory.dishes.findIndex(d => d.id === editingDish.id);
+        if (dishIndex !== -1) {
+          updatedCategory.dishes[dishIndex] = {
+            ...updatedCategory.dishes[dishIndex],
+            ...dishData
+          };
         }
-        categories = updatedCategories;
       }
+      categories = updatedCategories;
       
-      // Limpiar el formulario
+      // Clear the form
       cancelEditDish();
-      alert('Plato actualizado exitosamente!');
+      alert('Dish updated successfully!');
     } catch (error: any) {
       console.error('Error updating dish:', error);
-      alert('Error al actualizar plato: ' + (error.message || 'Error desconocido'));
+      alert('Error updating dish: ' + (error.message || 'Unknown error'));
     }
   }
 </script>

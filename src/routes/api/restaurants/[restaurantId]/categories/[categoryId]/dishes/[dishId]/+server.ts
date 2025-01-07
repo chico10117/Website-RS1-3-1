@@ -1,62 +1,125 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Restaurant } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { dishes, categories } from '$lib/server/schema';
+import { eq, and } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function PUT({ params, request }: RequestEvent) {
   try {
-    await connectDB();
-    const { restaurantId, categoryId, dishId } = params;
+    const { dishId, categoryId } = params;
     const updatedDish = await request.json();
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
-    }
+    console.log('Updating dish:', { dishId, categoryId, updatedDish }); // Debug log
 
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
-    }
+    // Primero verificamos si el plato existe
+    const existingDish = await db.select()
+      .from(dishes)
+      .where(eq(dishes.id, dishId))
+      .limit(1);
 
-    const dish = category.dishes.id(dishId);
-    if (!dish) {
+    if (!existingDish.length) {
       return json({ success: false, error: 'Dish not found' }, { status: 404 });
     }
 
-    // Actualizar el plato
-    Object.assign(dish, updatedDish);
-    await restaurant.save();
+    // Actualizamos el plato
+    const [dish] = await db.update(dishes)
+      .set({
+        title: updatedDish.title,
+        price: updatedDish.price,
+        description: updatedDish.description,
+        imageUrl: updatedDish.imageUrl,
+        categoryId: categoryId // Usamos el categoryId de los params
+      })
+      .where(eq(dishes.id, dishId))
+      .returning();
 
-    return json({ success: true, data: restaurant });
+    if (!dish) {
+      return json({ 
+        success: false, 
+        error: 'Failed to update dish'
+      }, { status: 500 });
+    }
+
+    // Obtenemos la categoría actualizada con sus platos
+    const updatedCategory = await db.select()
+      .from(categories)
+      .where(eq(categories.id, categoryId));
+
+    const categoryDishes = await db.select()
+      .from(dishes)
+      .where(eq(dishes.categoryId, categoryId));
+
+    const response = {
+      success: true,
+      data: {
+        dish,
+        category: {
+          ...updatedCategory[0],
+          dishes: categoryDishes
+        }
+      },
+      message: 'Dish updated successfully'
+    };
+
+    console.log('Response:', response); // Debug log
+    return json(response);
+
   } catch (error) {
     console.error('Error updating dish:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to update dish',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }
 
 export async function DELETE({ params }: RequestEvent) {
   try {
-    await connectDB();
-    const { restaurantId, categoryId, dishId } = params;
+    const { dishId, categoryId } = params;
+    
+    // Primero verificamos si el plato existe
+    const existingDish = await db.select()
+      .from(dishes)
+      .where(eq(dishes.id, dishId))
+      .limit(1);
 
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
+    if (!existingDish.length) {
+      return json({ success: false, error: 'Dish not found' }, { status: 404 });
     }
 
-    const category = restaurant.categories.id(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
-    }
+    // Eliminamos el plato
+    const [deletedDish] = await db.delete(dishes)
+      .where(eq(dishes.id, dishId))
+      .returning();
 
-    // Remove the dish from the category's dishes array
-    category.dishes = category.dishes.filter(dish => dish._id.toString() !== dishId);
-    await restaurant.save();
+    // Obtenemos la categoría actualizada con sus platos
+    const updatedCategory = await db.select()
+      .from(categories)
+      .where(eq(categories.id, categoryId));
 
-    return json({ success: true, data: restaurant });
+    const categoryDishes = await db.select()
+      .from(dishes)
+      .where(eq(dishes.categoryId, categoryId));
+
+    return json({ 
+      success: true, 
+      data: {
+        dish: deletedDish,
+        category: {
+          ...updatedCategory[0],
+          dishes: categoryDishes
+        }
+      },
+      message: 'Dish deleted successfully'
+    });
+
   } catch (error) {
     console.error('Error deleting dish:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to delete dish',
+      details: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 } 
