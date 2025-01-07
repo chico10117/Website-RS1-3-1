@@ -40,6 +40,8 @@
   let editingCategory: Category | null = null;
   let editingName = '';
 
+  let isCreatingRestaurant = false;
+
   // Función para guardar categoría
   async function saveCategory(categoryName: string) {
     try {
@@ -804,6 +806,8 @@
         throw new Error('Restaurant ID is required');
       }
 
+      console.log('Deleting dish:', { restaurantId: selectedRestaurant, categoryId, dishId });
+
       const response = await fetch(
         `/api/restaurants/${selectedRestaurant}/categories/${categoryId}/dishes/${dishId}`,
         {
@@ -815,16 +819,24 @@
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(data.error);
+        throw new Error(data.error || 'Failed to delete dish');
       }
 
-      // Actualizar el estado local con la respuesta del servidor
-      categories = data.data.categories;
+      // Actualizar el estado local
+      categories = categories.map(category => {
+        if (category.id === categoryId) {
+          return {
+            ...category,
+            dishes: category.dishes.filter(dish => dish.id !== dishId)
+          };
+        }
+        return category;
+      });
       
       alert('Plato eliminado exitosamente!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error deleting dish:', error);
-      alert('Error al eliminar plato: ' + error.message);
+      alert('Error al eliminar plato: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }
 
@@ -1009,6 +1021,20 @@
       logoInput.click();
     }
   }
+
+  async function handleRestaurantNameInput() {
+    if (restaurantName && !selectedRestaurant && !isCreatingRestaurant) {
+      isCreatingRestaurant = true;
+      try {
+        const restaurant = await saveRestaurant();
+        selectedRestaurant = restaurant.id;
+      } catch (error) {
+        // Error already handled in saveRestaurant
+      } finally {
+        isCreatingRestaurant = false;
+      }
+    }
+  }
 </script>
 <div class="container mx-auto p-4">
   <h1 class="text-2xl font-bold mb-4">QR Menu Creator</h1>
@@ -1051,10 +1077,12 @@
             <div class="flex-1 flex items-center justify-between">
               <input
                 type="text"
-                class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 {selectedRestaurant ? 'bg-gray-50' : ''}"
                 placeholder="Enter restaurant name"
                 bind:value={restaurantName}
+                on:blur={handleRestaurantNameInput}
                 readonly={selectedRestaurant}
+                disabled={selectedRestaurant}
               />
               {#if selectedRestaurant}
                 <button 
@@ -1103,8 +1131,10 @@
           </div>
           {#if menuLogo}
             <button 
-              class="p-2 text-red-500 hover:text-red-700"
+              class="p-1 text-gray-500 hover:text-red-500"
               on:click={() => {
+                if (!confirm('¿Estás seguro de que quieres eliminar el logo?')) return;
+                
                 const removeLogo = async () => {
                   try {
                     if (selectedRestaurant) {
@@ -1134,16 +1164,19 @@
                       }
                     }
                     menuLogo = '';
+                    alert('Logo eliminado exitosamente!');
                   } catch (error) {
                     console.error('Error removing logo:', error);
-                    alert('Error removing logo: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                    alert('Error al eliminar logo: ' + (error instanceof Error ? error.message : 'Unknown error'));
                   }
                 };
 
                 removeLogo();
               }}
             >
-              <X size={20} />
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
             </button>
           {/if}
         </div>
@@ -1172,8 +1205,12 @@
         <!-- Categories List -->
         <div class="bg-white rounded-lg shadow">
           {#each categories as category, categoryIndex}
-            <div class="border-b last:border-b-0">
-              <div class="flex items-center justify-between p-3">
+            <div class="flex flex-col p-2">
+              <!-- Category Header -->
+              <div 
+                class="flex items-center justify-between bg-gray-100 p-2 rounded cursor-pointer"
+                on:click={() => toggleCategory(categoryIndex)}
+              >
                 {#if editingCategoryIndex === categoryIndex}
                   <div class="flex-1 flex items-center space-x-2">
                     <input
@@ -1201,19 +1238,19 @@
                     </button>
                   </div>
                 {:else}
-                  <span class="flex-1">{category.name}</span>
-                  <div class="flex items-center space-x-2">
+                  <div class="flex-1 font-medium">{category.name}</div>
+                  <div class="flex space-x-1">
                     <button 
-                      class="p-2 text-gray-500 hover:text-blue-500"
-                      on:click={() => startEditingCategory(categoryIndex)}
+                      class="p-1 text-gray-500 hover:text-blue-500"
+                      on:click|stopPropagation={() => startEditingCategory(categoryIndex)}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                       </svg>
                     </button>
                     <button 
-                      class="p-2 text-gray-500 hover:text-red-500"
-                      on:click={() => deleteCategory(category.id)}
+                      class="p-1 text-gray-500 hover:text-red-500"
+                      on:click|stopPropagation={() => deleteCategory(category.id)}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -1222,6 +1259,178 @@
                   </div>
                 {/if}
               </div>
+
+              <!-- Dishes for this category -->
+              <div class="mt-2 space-y-2 pl-4">
+                {#if category.dishes && category.dishes.length > 0}
+                  {#each category.dishes as dish}
+                    <div class="space-y-2">
+                      <!-- Dish Display -->
+                      <div class="bg-black text-white p-4 rounded">
+                        <div class="flex items-center justify-between">
+                          <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                              <span class="text-lg">{dish.title}</span>
+                              <div class="flex items-center space-x-1">
+                                <button 
+                                  class="p-1 text-white hover:text-blue-300"
+                                  on:click={() => editDish(dish, category.id, categoryIndex)}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                  </svg>
+                                </button>
+                                <button 
+                                  class="p-1 text-white hover:text-red-300"
+                                  on:click|stopPropagation={() => deleteDish(category.id, dish.id)}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            {#if dish.price}
+                              <span class="text-sm">${dish.price}</span>
+                            {/if}
+                            {#if dish.description}
+                              <p class="text-sm text-gray-300 mt-1">{dish.description}</p>
+                            {/if}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Edit Form (appears when editing this specific dish) -->
+                      {#if isEditing && editingDish.id === dish.id}
+                        <div class="bg-white rounded shadow p-3">
+                          <div class="space-y-2">
+                            <div class="grid grid-cols-2 gap-2">
+                              <div>
+                                <label class="text-xs text-gray-600">Title *</label>
+                                <input
+                                  type="text"
+                                  class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  bind:value={editingDish.title}
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label class="text-xs text-gray-600">Price *</label>
+                                <input
+                                  type="text"
+                                  class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  bind:value={editingDish.price}
+                                  required
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label class="text-xs text-gray-600">Description</label>
+                              <textarea
+                                class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 h-16 resize-none"
+                                bind:value={editingDish.description}
+                              />
+                            </div>
+                            <div>
+                              <label class="text-xs text-gray-600">Image</label>
+                              <div class="flex items-center space-x-2">
+                                {#if editingDish.imageUrl}
+                                  <img 
+                                    src={editingDish.imageUrl} 
+                                    alt={editingDish.title}
+                                    class="w-16 h-16 object-cover rounded"
+                                  />
+                                {/if}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  class="text-sm"
+                                  on:change={handleImageUpload}
+                                />
+                              </div>
+                            </div>
+                            <div class="flex justify-end space-x-2 pt-2">
+                              <button
+                                class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                                on:click={cancelEditDish}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                                on:click={saveDishChanges}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      {/if}
+                    </div>
+                  {/each}
+                {/if}
+              </div>
+
+              <!-- Add Dish Form (shows only for selected category) -->
+              {#if selectedCategory === categoryIndex}
+                <div class="mt-4 bg-white rounded shadow p-3">
+                  <div class="space-y-2">
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="text-xs text-gray-600">Title *</label>
+                        <input
+                          type="text"
+                          class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          bind:value={newDish.title}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label class="text-xs text-gray-600">Price *</label>
+                        <input
+                          type="text"
+                          class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          bind:value={newDish.price}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-600">Description</label>
+                      <textarea
+                        class="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 h-16 resize-none"
+                        bind:value={newDish.description}
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-600">Image</label>
+                      <div class="flex items-center space-x-2">
+                        {#if newDish.imageUrl}
+                          <img 
+                            src={newDish.imageUrl} 
+                            alt="New dish"
+                            class="w-16 h-16 object-cover rounded"
+                          />
+                        {/if}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          class="text-sm"
+                          on:change={handleImageUpload}
+                        />
+                      </div>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                      <button
+                        class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                        on:click={addDish}
+                      >
+                        Add Dish
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
             </div>
           {/each}
         </div>
