@@ -45,12 +45,12 @@ declare module '$env/static/private' {
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
 	export const npm_package_devDependencies_svelte_check: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
-	export const npm_package_scripts_check: string;
 	export const npm_package_dependencies_drizzle_orm: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
 	export const COLORTERM: string;
 	export const WSL_DISTRO_NAME: string;
 	export const npm_package_dependencies_tailwind_variants: string;
+	export const npm_package_dependencies__sveltejs_kit: string;
 	export const npm_package_devDependencies_tailwindcss: string;
 	export const npm_package_devDependencies_typescript: string;
 	export const npm_package_dependencies__types_pg: string;
@@ -63,9 +63,7 @@ declare module '$env/static/private' {
 	export const PULSE_SERVER: string;
 	export const _: string;
 	export const npm_package_private: string;
-	export const npm_package_scripts_check_watch: string;
 	export const npm_package_devDependencies_autoprefixer: string;
-	export const npm_package_scripts_lint: string;
 	export const npm_config_registry: string;
 	export const TERM: string;
 	export const npm_package_dependencies_tailwind_merge: string;
@@ -82,6 +80,7 @@ declare module '$env/static/private' {
 	export const TERM_PROGRAM: string;
 	export const npm_package_devDependencies_dotenv: string;
 	export const npm_lifecycle_script: string;
+	export const npm_package_dependencies__sveltejs_adapter_vercel: string;
 	export const npm_package_devDependencies__sveltejs_kit: string;
 	export const SHELL: string;
 	export const npm_package_version: string;
@@ -94,7 +93,6 @@ declare module '$env/static/private' {
 	export const LESSCLOSE: string;
 	export const npm_package_dependencies_clsx: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
-	export const npm_package_scripts_format: string;
 	export const npm_package_devDependencies_tsx: string;
 	export const PWD: string;
 	export const npm_execpath: string;
@@ -161,12 +159,12 @@ declare module '$env/dynamic/private' {
 		VSCODE_GIT_ASKPASS_MAIN: string;
 		npm_package_devDependencies_svelte_check: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
-		npm_package_scripts_check: string;
 		npm_package_dependencies_drizzle_orm: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
 		COLORTERM: string;
 		WSL_DISTRO_NAME: string;
 		npm_package_dependencies_tailwind_variants: string;
+		npm_package_dependencies__sveltejs_kit: string;
 		npm_package_devDependencies_tailwindcss: string;
 		npm_package_devDependencies_typescript: string;
 		npm_package_dependencies__types_pg: string;
@@ -179,9 +177,7 @@ declare module '$env/dynamic/private' {
 		PULSE_SERVER: string;
 		_: string;
 		npm_package_private: string;
-		npm_package_scripts_check_watch: string;
 		npm_package_devDependencies_autoprefixer: string;
-		npm_package_scripts_lint: string;
 		npm_config_registry: string;
 		TERM: string;
 		npm_package_dependencies_tailwind_merge: string;
@@ -198,6 +194,7 @@ declare module '$env/dynamic/private' {
 		TERM_PROGRAM: string;
 		npm_package_devDependencies_dotenv: string;
 		npm_lifecycle_script: string;
+		npm_package_dependencies__sveltejs_adapter_vercel: string;
 		npm_package_devDependencies__sveltejs_kit: string;
 		SHELL: string;
 		npm_package_version: string;
@@ -210,7 +207,6 @@ declare module '$env/dynamic/private' {
 		LESSCLOSE: string;
 		npm_package_dependencies_clsx: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
-		npm_package_scripts_format: string;
 		npm_package_devDependencies_tsx: string;
 		PWD: string;
 		npm_execpath: string;

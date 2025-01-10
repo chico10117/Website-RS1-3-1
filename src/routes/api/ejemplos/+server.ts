@@ -1,30 +1,34 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Menu } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { restaurants } from '$lib/server/schema';
 
-// Crear nuevo menú
-export async function POST({ request }) {
+// Obtener todos los restaurantes
+export async function GET() {
   try {
-    await connectDB();
-    const menuData = await request.json();
-    
-    const newMenu = new Menu(menuData);
-    await newMenu.save();
-    
-    return json({ success: true, data: newMenu });
+    const allRestaurants = await db.select().from(restaurants);
+    return json({ success: true, data: allRestaurants });
   } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
-// Obtener todos los menús
-export async function GET() {
+// Crear nuevo restaurante
+export async function POST({ request }) {
   try {
-    await connectDB();
-    const menus = await Menu.find({});
+    const restaurantData = await request.json();
     
-    return json({ success: true, data: menus });
+    const [newRestaurant] = await db.insert(restaurants)
+      .values(restaurantData)
+      .returning();
+    
+    return json({ success: true, data: newRestaurant });
   } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }

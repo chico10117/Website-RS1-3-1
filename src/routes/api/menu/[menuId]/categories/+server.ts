@@ -1,39 +1,42 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Menu } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { categories } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 
 export async function POST({ params, request }) {
   try {
-    await connectDB();
     const { menuId } = params;
     const { name } = await request.json();
     
-    const menu = await Menu.findById(menuId);
-    if (!menu) {
-      return json({ success: false, error: 'Menu not found' }, { status: 404 });
-    }
-
-    menu.categories.push({ name, dishes: [] });
-    await menu.save();
+    const [newCategory] = await db.insert(categories)
+      .values({
+        name,
+        restaurantId: menuId // Asumiendo que menuId es el restaurantId
+      })
+      .returning();
     
-    return json({ success: true, data: menu });
+    return json({ success: true, data: newCategory });
   } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
 export async function GET({ params }) {
   try {
-    await connectDB();
     const { menuId } = params;
     
-    const menu = await Menu.findById(menuId);
-    if (!menu) {
-      return json({ success: false, error: 'Menu not found' }, { status: 404 });
-    }
+    const menuCategories = await db.select()
+      .from(categories)
+      .where(eq(categories.restaurantId, menuId));
     
-    return json({ success: true, data: menu.categories });
+    return json({ success: true, data: menuCategories });
   } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 } 
