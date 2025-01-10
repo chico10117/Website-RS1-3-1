@@ -42,6 +42,7 @@ declare module '$env/static/private' {
 	export const TERM_PROGRAM_VERSION: string;
 	export const VSCODE_IPC_HOOK_CLI: string;
 	export const npm_package_dependencies_postgres: string;
+	export const npm_package_engines_node: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
 	export const npm_package_devDependencies_svelte_check: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
@@ -156,6 +157,7 @@ declare module '$env/dynamic/private' {
 		TERM_PROGRAM_VERSION: string;
 		VSCODE_IPC_HOOK_CLI: string;
 		npm_package_dependencies_postgres: string;
+		npm_package_engines_node: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;
 		npm_package_devDependencies_svelte_check: string;
 		VSCODE_GIT_ASKPASS_NODE: string;

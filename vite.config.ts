@@ -6,7 +6,6 @@ export default defineConfig({
 	build: {
 		rollupOptions: {
 			external: [
-				// Añade aquí las dependencias que deberían ser externas
 				'pg',
 				'pg-native',
 				'postgres',

@@ -5,7 +5,6 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 export async function POST({ params, request }: RequestEvent) {
   try {
-    await connectDB();
     const { categoryId } = params;
     
     console.log('Received categoryId:', categoryId); // Debug log
@@ -27,23 +26,34 @@ export async function POST({ params, request }: RequestEvent) {
       }, { status: 400 });
     }
 
-    const category = await Category.findById(categoryId);
-    if (!category) {
+    const category = await db.select()
+      .from(categories)
+      .where(eq(categories.id, categoryId))
+      .limit(1);
+
+    if (!category.length) {
       return json({ 
         success: false, 
         error: `Category not found with id: ${categoryId}` 
       }, { status: 404 });
     }
 
-    category.dishes.push(dishData);
-    await category.save();
+    const [newDish] = await db.insert(dishes)
+      .values({
+        title: dishData.title,
+        price: dishData.price,
+        description: dishData.description,
+        imageUrl: dishData.imageUrl,
+        categoryId: categoryId
+      })
+      .returning();
 
-    return json({ success: true, data: category });
+    return json({ success: true, data: newDish });
   } catch (error) {
     console.error('POST dish error:', error);
     return json({ 
       success: false, 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       details: error 
     }, { status: 500 });
   }
