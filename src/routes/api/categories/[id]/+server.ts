@@ -18,7 +18,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
         }
 
         const [updatedCategory] = await db.update(categories)
-            .set({ name, updatedAt: new Date() })
+            .set({ 
+                name,
+                updatedAt: new Date()
+            })
             .where(eq(categories.id, id))
             .returning();
 
@@ -38,7 +41,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
         console.error('Error updating category:', error);
         return json({
             success: false,
-            error: error instanceof Error ? error.message : 'Internal server error'
+            error: error instanceof Error ? error.message : 'Unknown error'
         }, { status: 500 });
     }
 };
@@ -67,7 +70,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
         console.error('Error deleting category:', error);
         return json({
             success: false,
-            error: error instanceof Error ? error.message : 'Internal server error'
+            error: error instanceof Error ? error.message : 'Unknown error'
         }, { status: 500 });
     }
 }; 

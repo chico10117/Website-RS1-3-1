@@ -1,34 +1,66 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Category } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { dishes, categories } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
+import type { RequestHandler } from './$types';
 
-export async function POST({ request }) {
+export const GET: RequestHandler = async () => {
   try {
-    await connectDB();
-    const { categoryIndex, dish } = await request.json();
+    const allDishes = await db.select().from(dishes);
+    return json({ success: true, data: allDishes });
+  } catch (error) {
+    console.error('GET dishes error:', error);
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
+  }
+};
+
+export const POST: RequestHandler = async ({ request }) => {
+  try {
+    const data = await request.json();
     
-    if (categoryIndex === undefined || !dish) {
+    if (!data.title || !data.categoryId) {
       return json({ 
         success: false, 
-        error: 'Category index and dish data are required' 
+        error: 'Title and category ID are required' 
       }, { status: 400 });
     }
 
-    const categories = await Category.find({});
-    if (!categories[categoryIndex]) {
+    // Verificar si la categoría existe
+    const category = await db.select()
+      .from(categories)
+      .where(eq(categories.id, data.categoryId))
+      .limit(1);
+
+    if (!category.length) {
       return json({ 
         success: false, 
         error: 'Category not found' 
       }, { status: 404 });
     }
 
-    const category = categories[categoryIndex];
-    category.dishes.push(dish);
-    await category.save();
+    const [newDish] = await db.insert(dishes)
+      .values({
+        title: data.title,
+        price: data.price,
+        description: data.description,
+        imageUrl: data.imageUrl,
+        categoryId: data.categoryId
+      })
+      .returning();
 
-    return json({ success: true, data: category });
+    return json({ 
+      success: true, 
+      data: newDish,
+      message: 'Dish created successfully'
+    });
   } catch (error) {
     console.error('POST dish error:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
-}
+};

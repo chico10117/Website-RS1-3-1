@@ -1,38 +1,83 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Category } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { categories, dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
+import type { RequestEvent } from '@sveltejs/kit';
 
-// Obtener categorías
+// Obtener todos los platos
 export async function GET() {
   try {
-    await connectDB();
-    const categories = await Category.find({}).lean();
-    return json({ success: true, data: categories });
+    const allCategories = await db.select().from(categories);
+    
+    const categoriesWithDishes = await Promise.all(
+      allCategories.map(async (category) => {
+        const categoryDishes = await db.select()
+          .from(dishes)
+          .where(eq(dishes.categoryId, category.id));
+
+        return {
+          ...category,
+          dishes: categoryDishes
+        };
+      })
+    );
+
+    return json({ success: true, data: categoriesWithDishes });
   } catch (error) {
     console.error('GET categories error:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
-// Crear categoría
-export async function POST({ request }) {
+// Crear nuevo plato
+export async function POST({ request }: RequestEvent) {
   try {
-    await connectDB();
     const data = await request.json();
     
-    if (!data.name) {
-      return json({ success: false, error: 'Category name is required' }, { status: 400 });
+    if (!data.categoryId || !data.title) {
+      return json({ 
+        success: false, 
+        error: 'Category ID and title are required' 
+      }, { status: 400 });
     }
 
-    const category = new Category({
-      name: data.name,
-      dishes: []
-    });
+    // Verificar si la categoría existe
+    const category = await db.select()
+      .from(categories)
+      .where(eq(categories.id, data.categoryId))
+      .limit(1);
 
-    await category.save();
-    return json({ success: true, data: category });
+    if (!category.length) {
+      return json({ 
+        success: false, 
+        error: 'Category not found' 
+      }, { status: 404 });
+    }
+
+    // Crear nuevo plato
+    const [newDish] = await db.insert(dishes)
+      .values({
+        title: data.title,
+        price: data.price,
+        description: data.description,
+        imageUrl: data.imageUrl,
+        categoryId: data.categoryId
+      })
+      .returning();
+
+    return json({ 
+      success: true, 
+      data: newDish,
+      message: 'Dish created successfully'
+    });
   } catch (error) {
-    console.error('POST category error:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    console.error('Error creating dish:', error);
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }

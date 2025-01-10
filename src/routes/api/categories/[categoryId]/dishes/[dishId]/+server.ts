@@ -1,56 +1,71 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Category } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export async function PUT({ params, request }: RequestEvent) {
   try {
-    await connectDB();
-    const { categoryId, dishId } = params;
+    const { dishId } = params;
     const updatedDish = await request.json();
 
-    const category = await Category.findById(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
+    const [dish] = await db.update(dishes)
+      .set({
+        title: updatedDish.title,
+        price: updatedDish.price,
+        description: updatedDish.description,
+        imageUrl: updatedDish.imageUrl,
+        updatedAt: new Date()
+      })
+      .where(eq(dishes.id, dishId))
+      .returning();
+
+    if (!dish) {
+      return json({ 
+        success: false, 
+        error: 'Dish not found' 
+      }, { status: 404 });
     }
 
-    // Encontrar y actualizar el plato específico
-    const dishIndex = category.dishes.findIndex(dish => dish._id.toString() === dishId);
-    if (dishIndex === -1) {
-      return json({ success: false, error: 'Dish not found' }, { status: 404 });
-    }
-
-    // Actualizar el plato
-    category.dishes[dishIndex] = {
-      ...category.dishes[dishIndex],
-      ...updatedDish
-    };
-
-    await category.save();
-    return json({ success: true, data: category });
+    return json({ 
+      success: true, 
+      data: dish,
+      message: 'Dish updated successfully'
+    });
   } catch (error) {
-    console.error('PUT dish error:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    console.error('Error updating dish:', error);
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
-export async function DELETE({ params }) {
+export async function DELETE({ params }: RequestEvent) {
   try {
-    await connectDB();
-    const { categoryId, dishId } = params;
+    const { dishId } = params;
 
-    const category = await Category.findById(categoryId);
-    if (!category) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
+    const [deletedDish] = await db.delete(dishes)
+      .where(eq(dishes.id, dishId))
+      .returning();
+
+    if (!deletedDish) {
+      return json({ 
+        success: false, 
+        error: 'Dish not found' 
+      }, { status: 404 });
     }
 
-    // Remove the dish from the category's dishes array
-    category.dishes = category.dishes.filter(dish => dish._id.toString() !== dishId);
-    await category.save();
-
-    return json({ success: true, data: category });
+    return json({ 
+      success: true, 
+      data: deletedDish,
+      message: 'Dish deleted successfully'
+    });
   } catch (error) {
     console.error('Error deleting dish:', error);
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 } 

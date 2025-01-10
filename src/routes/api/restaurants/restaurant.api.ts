@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Restaurant } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { restaurants, categories, dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * Endpoint GET para obtener todos los restaurantes
@@ -8,18 +9,41 @@ import { Restaurant } from '$lib/server/models/menu';
  */
 export const GET = async () => {
   try {
-    // Conectar a la base de datos
-    await connectDB();
+    const allRestaurants = await db.select().from(restaurants);
     
-    // Obtener todos los restaurantes de la base de datos
-    // El método lean() retorna un objeto JavaScript plano en lugar de un documento Mongoose
-    const restaurants = await Restaurant.find({}).lean();
+    // Obtener categorías y platos para cada restaurante
+    const restaurantsWithDetails = await Promise.all(
+      allRestaurants.map(async (restaurant) => {
+        const restaurantCategories = await db.select()
+          .from(categories)
+          .where(eq(categories.restaurantId, restaurant.id));
+
+        const categoriesWithDishes = await Promise.all(
+          restaurantCategories.map(async (category) => {
+            const categoryDishes = await db.select()
+              .from(dishes)
+              .where(eq(dishes.categoryId, category.id));
+
+            return {
+              ...category,
+              dishes: categoryDishes
+            };
+          })
+        );
+
+        return {
+          ...restaurant,
+          categories: categoriesWithDishes
+        };
+      })
+    );
     
-    // Retornar respuesta exitosa con los datos
-    return json({ success: true, data: restaurants });
+    return json({ success: true, data: restaurantsWithDetails });
   } catch (error) {
-    // En caso de error, retornar respuesta de error con estado 500
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 };
 
@@ -28,5 +52,21 @@ export const GET = async () => {
  * @param {Request} request - Objeto de solicitud HTTP
  */
 export const POST = async ({ request }) => {
-  // ... existing POST logic
+  try {
+    const data = await request.json();
+    
+    const [newRestaurant] = await db.insert(restaurants)
+      .values({
+        name: data.name,
+        logo: data.logo
+      })
+      .returning();
+
+    return json({ success: true, data: newRestaurant });
+  } catch (error) {
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
+  }
 }; 
