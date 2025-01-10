@@ -1,31 +1,67 @@
 import { json } from '@sveltejs/kit';
-import { connectDB } from '$lib/server/database';
-import { Menu } from '$lib/server/models/menu';
+import { db } from '$lib/server/database';
+import { restaurants, categories, dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 
-// Crear nuevo menú
+// Crear nuevo menú (en este caso, un restaurante)
 export async function POST({ request }) {
   try {
-    await connectDB();
     const menuData = await request.json();
     
-    const newMenu = new Menu(menuData);
-    await newMenu.save();
+    const [newRestaurant] = await db.insert(restaurants)
+      .values({
+        name: menuData.name,
+        logo: menuData.logo
+      })
+      .returning();
     
-    return json({ success: true, data: newMenu });
+    return json({ success: true, data: newRestaurant });
   } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
-// Obtener todos los menús
+// Obtener todos los menús (restaurantes)
 export async function GET() {
   try {
-    await connectDB();
-    const menus = await Menu.find({});
+    const allRestaurants = await db.select().from(restaurants);
     
-    return json({ success: true, data: menus });
+    // Obtener categorías y platos para cada restaurante
+    const restaurantsWithDetails = await Promise.all(
+      allRestaurants.map(async (restaurant) => {
+        const restaurantCategories = await db.select()
+          .from(categories)
+          .where(eq(categories.restaurantId, restaurant.id));
+
+        const categoriesWithDishes = await Promise.all(
+          restaurantCategories.map(async (category) => {
+            const categoryDishes = await db.select()
+              .from(dishes)
+              .where(eq(dishes.categoryId, category.id));
+
+            return {
+              ...category,
+              dishes: categoryDishes
+            };
+          })
+        );
+
+        return {
+          ...restaurant,
+          categories: categoriesWithDishes
+        };
+      })
+    );
+    
+    return json({ success: true, data: restaurantsWithDetails });
   } catch (error) {
-    return json({ success: false, error: error.message }, { status: 500 });
+    return json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }, { status: 500 });
   }
 }
 
