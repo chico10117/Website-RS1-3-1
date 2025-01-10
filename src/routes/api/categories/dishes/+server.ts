@@ -2,10 +2,9 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
 import { categories, dishes } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import type { RequestEvent } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
-// Obtener todos los platos
-export async function GET() {
+export const GET: RequestHandler = async () => {
   try {
     const allCategories = await db.select().from(categories);
     
@@ -24,23 +23,22 @@ export async function GET() {
 
     return json({ success: true, data: categoriesWithDishes });
   } catch (error) {
-    console.error('GET categories error:', error);
+    console.error('GET categories/dishes error:', error);
     return json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
-}
+};
 
-// Crear nuevo plato
-export async function POST({ request }: RequestEvent) {
+export const POST: RequestHandler = async ({ request }) => {
   try {
     const data = await request.json();
     
-    if (!data.categoryId || !data.title) {
+    if (!data.title || !data.categoryId) {
       return json({ 
         success: false, 
-        error: 'Category ID and title are required' 
+        error: 'Title and category ID are required' 
       }, { status: 400 });
     }
 
@@ -57,7 +55,6 @@ export async function POST({ request }: RequestEvent) {
       }, { status: 404 });
     }
 
-    // Crear nuevo plato
     const [newDish] = await db.insert(dishes)
       .values({
         title: data.title,
@@ -74,10 +71,10 @@ export async function POST({ request }: RequestEvent) {
       message: 'Dish created successfully'
     });
   } catch (error) {
-    console.error('Error creating dish:', error);
+    console.error('POST dish error:', error);
     return json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
   }
-}
+};
