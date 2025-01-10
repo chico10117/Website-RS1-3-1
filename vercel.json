@@ -7,8 +7,5 @@
     "env": {
       "NODE_VERSION": "18"
     }
-  },
-  "engines": {
-    "node": "18.x"
   }
 }
