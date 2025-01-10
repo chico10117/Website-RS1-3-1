@@ -1,7 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { connectDB } from '$lib/server/database';
-import { Category } from '$lib/server/models/menu';
 import type { RequestEvent } from '@sveltejs/kit';
+import { db } from '$lib/server/database';
+import { categories, dishes } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 
 export async function POST({ params, request }: RequestEvent) {
   try {
