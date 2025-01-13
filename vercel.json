@@ -1,11 +1,12 @@
 {
-  "buildCommand": "pnpm run build",
-  "devCommand": "pnpm run dev",
-  "installCommand": "pnpm install",
-  "framework": "sveltekit",
-  "build": {
-    "env": {
-      "NODE_VERSION": "18"
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": {
+        "nodeVersion": "20"
+      }
     }
-  }
+  ]
 }
