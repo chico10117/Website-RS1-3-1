@@ -222,3 +222,9 @@ const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
 
 ## License
 MIT License - See LICENSE file for details
+
+
+
+NEXT STEPS:
+- Add a way to delete a dish
+- Add a way to delete a category
