@@ -1069,7 +1069,7 @@
       <div class="flex-1 p-8 rounded-xl bg-white/30 backdrop-blur-md border border-white/50 shadow-lg">
         <!-- Restaurant Name Section -->
         <div class="mb-6">
-          <label class="block text-sm font-semibold mb-1 text-gray-700">{t('restaurantName')}</label>
+          <label class="block text-lg font-semibold mb-3 text-gray-800">{t('restaurantName')}</label>
           <div class="flex items-center space-x-2">
             {#if isEditingRestaurant}
               <div class="flex-1 flex items-center space-x-2">
@@ -1125,25 +1125,31 @@
         </div>
 
         <!-- Menu Logo Section -->
-        <div class="mb-6">
-          <label class="block text-sm font-medium mb-1">{t('menuLogo')}</label>
-          <div class="flex items-center space-x-2">
-            <div class="relative">
+        <div class="mb-8">
+          <label class="block text-lg font-semibold mb-3 text-gray-800">{t('menuLogo')}</label>
+          <div class="flex items-center gap-4">
+            <div class="relative group">
               <button 
-                class="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-gray-400 transition-colors {!restaurantName ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}"
+                class="w-24 h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-200 
+                  {!restaurantName 
+                    ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' 
+                    : menuLogo 
+                      ? 'border-transparent shadow-md hover:shadow-lg' 
+                      : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300'}"
                 on:click={handleLogoClick}
               >
                 {#if menuLogo}
                   <img 
                     src={menuLogo} 
                     alt="Menu logo" 
-                    class="w-full h-full object-cover rounded-lg"
+                    class="w-full h-full object-cover rounded-xl"
                   />
+                  <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors duration-200" />
                 {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                   </svg>
-                  <span class="text-xs text-gray-500 mt-1">{t('addLogo')}</span>
+                  <span class="text-sm text-blue-600 mt-2 font-medium">{t('addLogo')}</span>
                 {/if}
               </button>
               <input
@@ -1156,7 +1162,7 @@
             </div>
             {#if menuLogo}
               <button 
-                class="p-1 text-gray-500 hover:text-red-500"
+                class="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-red-50 transition-all duration-200"
                 on:click={() => {
                   if (!confirm(t('confirmDeleteLogo'))) return;
                   
@@ -1209,7 +1215,7 @@
 
         <!-- Categories Section -->
         <div class="space-y-3">
-          <h2 class="text-sm font-semibold mb-1 text-gray-700 uppercase tracking-wide">{t('categories')}</h2>
+          <h2 class="text-lg font-semibold mb-3 text-gray-800">Categories</h2>
           <div class="flex items-center space-x-2">
             <input
               type="text"
@@ -1366,12 +1372,23 @@
                                       class="w-16 h-16 object-cover rounded"
                                     />
                                   {/if}
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    class="text-sm"
-                                    on:change={handleImageUpload}
-                                  />
+                                  <div class="relative">
+                                    <button
+                                      class="px-4 py-2 bg-white/80 text-gray-700 rounded border border-gray-300 hover:bg-white/90 transition-colors text-sm font-medium flex items-center gap-2"
+                                      on:click={() => {
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'image/*';
+                                        input.onchange = (e) => handleImageUpload(e);
+                                        input.click();
+                                      }}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                      </svg>
+                                      {t('uploadImage')}
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                               <div class="flex justify-end space-x-2 pt-2">
@@ -1437,12 +1454,23 @@
                               class="w-16 h-16 object-cover rounded"
                             />
                           {/if}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            class="text-sm"
-                            on:change={handleImageUpload}
-                          />
+                          <div class="relative">
+                            <button
+                              class="px-4 py-2 bg-white/80 text-gray-700 rounded border border-gray-300 hover:bg-white/90 transition-colors text-sm font-medium flex items-center gap-2"
+                              on:click={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.onchange = (e) => handleImageUpload(e);
+                                input.click();
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                              {t('uploadImage')}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <div class="flex justify-end pt-2">

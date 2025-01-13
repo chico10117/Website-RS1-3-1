@@ -7,7 +7,7 @@ interface Translation {
 
 export const translations: Translation = {
   appTitle: {
-    es: "Creador de Menú QR",
+    es: "Creador de Carta QR",
     en: "QR Menu Creator"
   },
   restaurantName: {
@@ -19,7 +19,7 @@ export const translations: Translation = {
     en: "Enter restaurant name"
   },
   menuLogo: {
-    es: "Logo del Menú",
+    es: "Logo de la Carta",
     en: "Menu Logo"
   },
   addLogo: {
@@ -67,7 +67,7 @@ export const translations: Translation = {
     en: "Save"
   },
   menuPreview: {
-    es: "Vista Previa del Menú",
+    es: "Vista Previa de la Carta",
     en: "Menu Preview"
   },
   required: {
@@ -141,5 +141,21 @@ export const translations: Translation = {
   restaurantDeleteSuccess: {
     es: "Restaurante eliminado exitosamente",
     en: "Restaurant successfully deleted"
+  },
+  noFileUploaded: {
+    es: "No se ha subido ningún archivo",
+    en: "No file uploaded"
+  },
+  fileUploadSuccess: {
+    es: "Archivo subido exitosamente",
+    en: "File uploaded successfully"
+  },
+  fileUploadError: {
+    es: "Error al subir el archivo",
+    en: "Error uploading file"
+  },
+  uploadImage: {
+    es: "Subir imagen",
+    en: "Upload image"
   }
 }; 
