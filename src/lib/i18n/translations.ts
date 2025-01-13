@@ -157,5 +157,13 @@ export const translations: Translation = {
   uploadImage: {
     es: "Subir imagen",
     en: "Upload image"
+  },
+  saveMenu: {
+    es: "Guardar Menú",
+    en: "Save Menu"
+  },
+  saveSuccess: {
+    es: "Menú guardado con éxito",
+    en: "Menu saved successfully"
   }
 }; 
