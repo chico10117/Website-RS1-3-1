@@ -9,16 +9,7 @@ const config = {
 			$lib: './src/lib'
 		}
 	},
-	preprocess: vitePreprocess(),
-	vitePlugin: {
-		inspector: true,
-		experimental: {
-			inspector: {
-				holdMode: true,
-				showToggleButton: 'always'
-			}
-		}
-	}
+	preprocess: vitePreprocess()
 };
 
 export default config; 
