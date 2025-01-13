@@ -62,7 +62,30 @@
 
   async function handleCategoriesUpdate(event: CustomEvent<Category[]>) {
     const oldCategories = new Set(categories.map(c => c.id));
-    categories = event.detail;
+    const newCategories = event.detail;
+    
+    // Preserve existing dishes when updating categories
+    const updatedCategories = newCategories.map(newCat => {
+      const existingCategory = categories.find(c => c.id === newCat.id);
+      // Merge existing dishes with new dishes, avoiding duplicates
+      const existingDishes = existingCategory?.dishes || [];
+      const newDishes = newCat.dishes || [];
+      const allDishes = [...existingDishes];
+      
+      // Add new dishes that don't exist yet
+      newDishes.forEach(newDish => {
+        if (!allDishes.some(d => d.id === newDish.id)) {
+          allDishes.push(newDish);
+        }
+      });
+      
+      return {
+        ...newCat,
+        dishes: allDishes
+      };
+    });
+    
+    categories = updatedCategories;
     
     // Update cache for changed categories
     categories.forEach(category => {
@@ -194,11 +217,50 @@
       const categoryIdMap = new Map(); // Map temporary IDs to real IDs
       const savedCategories: Category[] = [];
 
+      // First check existing categories to avoid duplicates
+      const existingCategoriesResponse = await fetch(`/api/restaurants/${currentRestaurantId}/categories`);
+      const existingCategoriesResult = await existingCategoriesResponse.json();
+      const existingCategories = existingCategoriesResult.success ? existingCategoriesResult.data : [];
+      const existingCategoryNames = new Set(existingCategories.map((c: Category) => c.name.toLowerCase().trim()));
+
       // First handle category creations and updates
       for (const [tempId, categoryChange] of Object.entries($menuCache.categories)) {
         console.log('Processing category:', { tempId, action: categoryChange.action, data: categoryChange.data });
         
-        if (categoryChange.action === 'create') {
+        // Check if this is a temporary ID (new category) or existing one
+        const isNewCategory = tempId.length > 30; // UUID length check
+        const action = isNewCategory ? 'create' : categoryChange.action;
+        
+        // Check if category with same name already exists
+        const categoryName = categoryChange.data.name.toLowerCase().trim();
+        const existingCategory = existingCategories.find((c: Category) => c.name.toLowerCase().trim() === categoryName);
+        
+        if (action === 'create' && existingCategory) {
+          // If category exists, treat it as an update instead
+          console.log('Category already exists, updating instead:', existingCategory.id);
+          const updateCategoryResponse = await fetch(`/api/restaurants/${currentRestaurantId}/categories/${existingCategory.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: categoryChange.data.name,
+              restaurantId: currentRestaurantId
+            })
+          });
+
+          if (!updateCategoryResponse.ok) {
+            const errorText = await updateCategoryResponse.text();
+            throw new Error(`Failed to update category: ${errorText}`);
+          }
+
+          const categoryResult = await updateCategoryResponse.json();
+          if (!categoryResult.success) {
+            throw new Error(categoryResult.error || 'Failed to update category');
+          }
+          
+          // Store the mapping of temporary ID to existing ID
+          categoryIdMap.set(tempId, existingCategory.id);
+          savedCategories.push(categoryResult.data);
+        } else if (action === 'create') {
           const createCategoryResponse = await fetch(`/api/restaurants/${currentRestaurantId}/categories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -221,8 +283,9 @@
           // Store the mapping of temporary ID to real ID
           categoryIdMap.set(tempId, categoryResult.data.id);
           savedCategories.push(categoryResult.data);
+          existingCategoryNames.add(categoryName); // Add to existing names to prevent duplicates
           console.log('Created category:', { tempId, realId: categoryResult.data.id });
-        } else if (categoryChange.action === 'update') {
+        } else if (action === 'update') {
           const updateCategoryResponse = await fetch(`/api/restaurants/${currentRestaurantId}/categories/${tempId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -301,6 +364,22 @@
             throw new Error(dishResult.error || 'Failed to update dish');
           }
           savedDishes.push(dishResult.data);
+        } else if (dishChange.action === 'delete') {
+          // Handle dish deletion
+          const deleteDishResponse = await fetch(`/api/restaurants/${currentRestaurantId}/categories/${realCategoryId}/dishes/${tempId}`, {
+            method: 'DELETE'
+          });
+
+          if (!deleteDishResponse.ok) {
+            const errorText = await deleteDishResponse.text();
+            throw new Error(`Failed to delete dish: ${errorText}`);
+          }
+
+          const deleteResult = await deleteDishResponse.json();
+          if (!deleteResult.success) {
+            throw new Error(deleteResult.error || 'Failed to delete dish');
+          }
+          // Don't add deleted dishes to savedDishes array
         }
       }
 
@@ -317,11 +396,35 @@
         }
       }
 
-      // Update categories with their dishes
-      categories = savedCategories.map(category => ({
-        ...category,
-        dishes: savedDishes.filter(dish => dish.categoryId === category.id)
-      }));
+      // Update categories with their dishes, excluding deleted ones
+      categories = savedCategories.map(category => {
+        const existingCategory = categories.find(c => c.id === category.id);
+        const categoryDishes = savedDishes.filter(dish => dish.categoryId === category.id);
+        const existingDishes = existingCategory?.dishes || [];
+        
+        // Get list of deleted dish IDs for this category
+        const deletedDishIds = new Set(
+          Object.entries($menuCache.dishes)
+            .filter(([_, change]) => change.action === 'delete' && change.data.categoryId === category.id)
+            .map(([id, _]) => id)
+        );
+        
+        // Merge existing dishes with newly saved dishes, excluding deleted ones
+        const allDishes = [...existingDishes.filter(d => !deletedDishIds.has(d.id))];
+        categoryDishes.forEach(newDish => {
+          const existingIndex = allDishes.findIndex(d => d.id === newDish.id);
+          if (existingIndex >= 0) {
+            allDishes[existingIndex] = newDish; // Update existing dish
+          } else {
+            allDishes.push(newDish); // Add new dish
+          }
+        });
+        
+        return {
+          ...category,
+          dishes: allDishes
+        };
+      });
 
       // Clear the cache since changes are saved
       menuCache.clearCache();

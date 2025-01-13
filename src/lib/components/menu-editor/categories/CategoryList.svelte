@@ -27,12 +27,18 @@
     menuCache.updateCategory(category.id, 'create', category);
     categories = [...categories, category];
     dispatch('update', categories);
+    // Automatically select the new category
+    selectedCategory = categories.length - 1;
   }
 
   async function handleCategoryUpdate(event: CustomEvent<{ index: number; category: Category }>) {
     const { index, category } = event.detail;
-    // Update cache instead of saving
-    menuCache.updateCategory(category.id, 'update', category);
+    // Check if this is a temporary ID (new category) or existing one
+    const isNewCategory = category.id.length > 30; // UUID length check
+    const action = isNewCategory ? 'create' : 'update';
+    
+    // Update cache with appropriate action
+    menuCache.updateCategory(category.id, action, category);
     categories = categories.map((cat, i) => i === index ? category : cat);
     dispatch('update', categories);
   }
