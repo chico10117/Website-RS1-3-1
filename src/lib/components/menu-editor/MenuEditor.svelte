@@ -52,12 +52,54 @@
     // Generate a temporary ID if we don't have one
     const tempId = selectedRestaurant || crypto.randomUUID();
     
-    // Update cache with the restaurant data
+    // Update cache with the restaurant data while preserving existing categories and dishes
     menuCache.updateRestaurant({
       id: tempId,
       name: restaurantName,
       logo: menuLogo
     });
+
+    // If we have a selected restaurant, fetch its categories and dishes
+    if (selectedRestaurant) {
+      try {
+        // Fetch categories with their dishes
+        const response = await fetch(`/api/restaurants/${selectedRestaurant}/categories`);
+        const result = await response.json();
+        
+        if (result.success) {
+          // For each category, ensure we have its dishes
+          const categoriesWithDishes = await Promise.all(result.data.map(async (category: Category) => {
+            try {
+              const dishesResponse = await fetch(`/api/restaurants/${selectedRestaurant}/categories/${category.id}/dishes`);
+              const dishesResult = await dishesResponse.json();
+              return {
+                ...category,
+                dishes: dishesResult.success ? dishesResult.data : []
+              };
+            } catch (error) {
+              console.error(`Error fetching dishes for category ${category.id}:`, error);
+              return {
+                ...category,
+                dishes: category.dishes || []
+              };
+            }
+          }));
+
+          categories = categoriesWithDishes;
+          
+          // Update cache with existing categories and their dishes
+          categories.forEach(category => {
+            menuCache.updateCategory(category.id, 'update', category);
+            // Update dishes in cache
+            category.dishes?.forEach(dish => {
+              menuCache.updateDish(dish.id, 'update', dish);
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching categories and dishes after restaurant update:', error);
+      }
+    }
   }
 
   async function handleCategoriesUpdate(event: CustomEvent<Category[]>) {
@@ -67,14 +109,20 @@
     // Preserve existing dishes when updating categories
     const updatedCategories = newCategories.map(newCat => {
       const existingCategory = categories.find(c => c.id === newCat.id);
-      // Merge existing dishes with new dishes, avoiding duplicates
+      // Merge existing dishes with new dishes, avoiding duplicates by checking both ID and content
       const existingDishes = existingCategory?.dishes || [];
       const newDishes = newCat.dishes || [];
       const allDishes = [...existingDishes];
       
-      // Add new dishes that don't exist yet
+      // Add new dishes that don't exist yet, checking both ID and content
       newDishes.forEach(newDish => {
-        if (!allDishes.some(d => d.id === newDish.id)) {
+        const isDuplicate = allDishes.some(d => 
+          d.id === newDish.id || 
+          (d.title === newDish.title && 
+           d.price === newDish.price && 
+           d.categoryId === newDish.categoryId)
+        );
+        if (!isDuplicate) {
           allDishes.push(newDish);
         }
       });
@@ -409,14 +457,26 @@
             .map(([id, _]) => id)
         );
         
-        // Merge existing dishes with newly saved dishes, excluding deleted ones
+        // Merge existing dishes with newly saved dishes, excluding deleted ones and duplicates
         const allDishes = [...existingDishes.filter(d => !deletedDishIds.has(d.id))];
+        
+        // Add new dishes, avoiding duplicates by checking both ID and content
         categoryDishes.forEach(newDish => {
-          const existingIndex = allDishes.findIndex(d => d.id === newDish.id);
-          if (existingIndex >= 0) {
-            allDishes[existingIndex] = newDish; // Update existing dish
+          const isDuplicate = allDishes.some(d => 
+            d.id === newDish.id || 
+            (d.title === newDish.title && 
+             d.price === newDish.price && 
+             d.categoryId === newDish.categoryId)
+          );
+          
+          if (!isDuplicate) {
+            allDishes.push(newDish);
           } else {
-            allDishes.push(newDish); // Add new dish
+            // If it's a duplicate by content but has the same ID, update it
+            const existingIndex = allDishes.findIndex(d => d.id === newDish.id);
+            if (existingIndex >= 0) {
+              allDishes[existingIndex] = newDish;
+            }
           }
         });
         
