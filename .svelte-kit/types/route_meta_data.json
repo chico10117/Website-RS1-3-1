@@ -3,32 +3,11 @@
 		"src/routes/+layout.js",
 		"src/routes/+layout.js"
 	],
-	"/api/categories": [
-		"src/routes/api/categories/+server.ts"
-	],
-	"/api/categories/dishes": [
-		"src/routes/api/categories/dishes/+server.ts"
-	],
-	"/api/categories/[id]": [
-		"src/routes/api/categories/[id]/+server.ts"
-	],
 	"/api/categories/[categoryId]/dishes": [
 		"src/routes/api/categories/[categoryId]/dishes/+server.ts"
 	],
 	"/api/categories/[categoryId]/dishes/[dishId]": [
 		"src/routes/api/categories/[categoryId]/dishes/[dishId]/+server.ts"
-	],
-	"/api/dishes": [
-		"src/routes/api/dishes/+server.ts"
-	],
-	"/api/ejemplos": [
-		"src/routes/api/ejemplos/+server.ts"
-	],
-	"/api/menu": [
-		"src/routes/api/menu/+server.ts"
-	],
-	"/api/menu/[menuId]/categories": [
-		"src/routes/api/menu/[menuId]/categories/+server.ts"
 	],
 	"/api/restaurants": [
 		"src/routes/api/restaurants/+server.ts"

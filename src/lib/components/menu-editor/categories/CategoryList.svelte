@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Category, Dish } from '$lib/types';
+  import type { Category, Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
@@ -14,49 +14,110 @@
     update: Category[];
   }>();
 
-  let selectedCategory: number | null = null;
-  let newCategory = '';
+  let selectedCategoryId: string | null = null;
 
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
+  // Keep track of categories by ID to prevent duplicates
+  $: categoryMap = new Map(categories.map(cat => [cat.id, cat]));
+  $: orderedCategories = Array.from(categoryMap.values());
+  $: categoryNameMap = new Map(orderedCategories.map(cat => [cat.name.toLowerCase(), cat.id]));
+
+  function isCategoryNameDuplicate(name: string, excludeId?: string): boolean {
+    const existingId = categoryNameMap.get(name.toLowerCase());
+    return existingId !== undefined && existingId !== excludeId;
+  }
+
   async function handleCategoryAdd(event: CustomEvent<Category>) {
     const category = event.detail;
-    // Update cache instead of saving
+    
+    // Check for duplicate name
+    if (isCategoryNameDuplicate(category.name)) {
+      alert(t('error') + ': ' + t('categoryNameExists'));
+      return;
+    }
+    
+    // Update cache
     menuCache.updateCategory(category.id, 'create', category);
-    categories = [...categories, category];
+    
+    // Update the map and convert back to array
+    categoryMap.set(category.id, category);
+    categories = Array.from(categoryMap.values());
+    
     dispatch('update', categories);
     // Automatically select the new category
-    selectedCategory = categories.length - 1;
+    selectedCategoryId = category.id;
   }
 
   async function handleCategoryUpdate(event: CustomEvent<{ index: number; category: Category }>) {
-    const { index, category } = event.detail;
+    const { category } = event.detail;
+    
+    // Get the existing category
+    const existingCategory = categoryMap.get(category.id);
+    
+    // Only check for duplicate names if the name is actually changing
+    if (existingCategory && category.name !== existingCategory.name) {
+      if (isCategoryNameDuplicate(category.name, category.id)) {
+        alert(t('error') + ': ' + t('categoryNameExists'));
+        return;
+      }
+    }
+    
+    // Ensure we have the restaurantId
+    if (!category.restaurantId && selectedRestaurant) {
+      category.restaurantId = selectedRestaurant;
+    }
+    
     // Check if this is a temporary ID (new category) or existing one
     const isNewCategory = category.id.length > 30; // UUID length check
     const action = isNewCategory ? 'create' : 'update';
     
+    const updatedCategory = {
+      ...(existingCategory || {}),
+      ...category,
+      // Ensure dishes are properly handled
+      dishes: category.dishes || existingCategory?.dishes || []
+    };
+    
     // Update cache with appropriate action
-    menuCache.updateCategory(category.id, action, category);
-    categories = categories.map((cat, i) => i === index ? category : cat);
+    menuCache.updateCategory(updatedCategory.id, action, updatedCategory);
+    
+    // Update the map and convert back to array
+    categoryMap.set(updatedCategory.id, updatedCategory);
+    categories = Array.from(categoryMap.values());
+    
     dispatch('update', categories);
   }
 
   async function handleCategoryDelete(event: CustomEvent<number>) {
     const index = event.detail;
-    const category = categories[index];
-    // Update cache instead of saving
+    const category = orderedCategories[index];
+    
+    // Update cache to delete the category
     menuCache.updateCategory(category.id, 'delete', category);
-    categories = categories.filter((_, i) => i !== index);
-    if (selectedCategory === index) {
-      selectedCategory = null;
+    
+    // Also mark all dishes in this category for deletion
+    if (category.dishes) {
+      for (const dish of category.dishes) {
+        menuCache.updateDish(dish.id, 'delete', dish);
+      }
+    }
+    
+    // Remove from map and update array
+    categoryMap.delete(category.id);
+    categories = Array.from(categoryMap.values());
+    
+    if (selectedCategoryId === category.id) {
+      selectedCategoryId = null;
     }
     dispatch('update', categories);
   }
 
   function toggleCategory(index: number) {
-    selectedCategory = selectedCategory === index ? null : index;
+    const category = orderedCategories[index];
+    selectedCategoryId = selectedCategoryId === category.id ? null : category.id;
   }
 </script>
 
@@ -70,11 +131,11 @@
 
   <!-- Categories List -->
   <div class="bg-white/20 backdrop-blur-md rounded-lg border border-white/50">
-    {#each categories as category, index}
+    {#each orderedCategories as category, index (category.id)}
       <CategoryItem
         {category}
         {index}
-        isSelected={selectedCategory === index}
+        isSelected={selectedCategoryId === category.id}
         on:update={handleCategoryUpdate}
         on:delete={handleCategoryDelete}
         on:toggle={() => toggleCategory(index)}

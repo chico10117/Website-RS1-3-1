@@ -104,11 +104,19 @@ function createMenuState() {
           restaurants.push(result.restaurant);
         }
 
-        // Update categories with their dishes
-        const categories = result.categories.map(category => {
-          const dishes = result.dishes.filter(dish => dish.categoryId === category.id);
-          return { ...category, dishes };
+        // Create a map of dishes by category ID
+        const dishesByCategory = new Map<string, Dish[]>();
+        result.dishes.forEach(dish => {
+          const categoryDishes = dishesByCategory.get(dish.categoryId) || [];
+          categoryDishes.push(dish);
+          dishesByCategory.set(dish.categoryId, categoryDishes);
         });
+
+        // Process the saved categories with their dishes
+        const categories = result.categories.map(category => ({
+          ...category,
+          dishes: dishesByCategory.get(category.id) || []
+        }));
 
         return {
           ...state,

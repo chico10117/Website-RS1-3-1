@@ -46,7 +46,16 @@
   }
 
   async function handleRestaurantSelect(event: CustomEvent<string>) {
-    await menuState.selectRestaurant(event.detail);
+    try {
+      await menuState.selectRestaurant(event.detail);
+      // Clear cache when selecting a new restaurant
+      menuCache.clearCache();
+    } catch (error) {
+      console.error('Error selecting restaurant:', error);
+      if (error instanceof Error) {
+        alert(t('error') + ': ' + error.message);
+      }
+    }
   }
 
   async function saveAllChanges() {
@@ -63,8 +72,14 @@
         $menuState.selectedRestaurant
       );
       
+      // Update the state with saved data
       menuState.updateAfterSave(result);
       menuCache.clearCache();
+      
+      // Reload the current restaurant data to ensure frontend is in sync with database
+      if ($menuState.selectedRestaurant) {
+        await menuState.selectRestaurant($menuState.selectedRestaurant);
+      }
       
       alert(t('saveSuccess'));
     } catch (error) {

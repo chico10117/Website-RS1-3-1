@@ -25,6 +25,24 @@ export async function POST({ request, params }: RequestEvent) {
       return json({ success: false, error: 'Valid restaurant ID is required' }, { status: 400 });
     }
 
+    // Check for existing category with the same name in this restaurant
+    const existingCategory = await db.select()
+      .from(categories)
+      .where(
+        and(
+          eq(categories.name, data.name),
+          eq(categories.restaurantId, restaurantId)
+        )
+      )
+      .limit(1);
+
+    if (existingCategory.length > 0) {
+      return json({ 
+        success: false, 
+        error: 'A category with this name already exists in this restaurant'
+      }, { status: 409 });
+    }
+
     // Insertar nueva categoría en la base de datos
     const [newCategory] = await db.insert(categories)
       .values({

@@ -9,6 +9,7 @@ export interface CacheChange<T> {
 }
 
 export interface MenuCache {
+  restaurant?: Restaurant;
   categories: Record<string, CacheChange<Category>>;
   dishes: Record<string, CacheChange<Dish>>;
   hasUnsavedChanges: boolean;
@@ -16,6 +17,7 @@ export interface MenuCache {
 
 function createMenuCache() {
   const { subscribe, set, update } = writable<MenuCache>({
+    restaurant: undefined,
     categories: {},
     dishes: {},
     hasUnsavedChanges: false
@@ -25,6 +27,7 @@ function createMenuCache() {
     subscribe,
     updateRestaurant: (restaurant: Restaurant) => {
       update(cache => {
+        cache.restaurant = restaurant;
         cache.hasUnsavedChanges = true;
         return cache;
       });
@@ -45,6 +48,7 @@ function createMenuCache() {
     },
     clearCache: () => {
       set({
+        restaurant: undefined,
         categories: {},
         dishes: {},
         hasUnsavedChanges: false

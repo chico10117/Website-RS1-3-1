@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Category } from '$lib/types';
+  import type { Category } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
 
@@ -10,6 +10,12 @@
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
+
+  // Format price as currency
+  function formatPrice(price: number | string): string {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
+  }
 </script>
 
 <div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-6">
@@ -47,7 +53,7 @@
               <div class="flex-1">
                 <div class="flex justify-between items-start">
                   <h4 class="text-lg font-semibold text-gray-800">{dish.title}</h4>
-                  <p class="text-lg font-bold text-gray-800">${dish.price}</p>
+                  <p class="text-lg font-bold text-gray-800">${formatPrice(dish.price)}</p>
                 </div>
                 <p class="text-gray-600 mt-1 font-normal">{dish.description}</p>
               </div>

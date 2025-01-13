@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Dish } from '$lib/types';
+  import type { Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
@@ -20,27 +20,42 @@
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
+  // Keep track of dishes by ID to prevent duplicates
+  $: dishMap = new Map(dishes.map(dish => [dish.id, dish]));
+
   async function handleDishAdd(event: CustomEvent<Dish>) {
     const newDish = event.detail;
     menuCache.updateDish(newDish.id, 'create', newDish);
-    dishes = [...dishes, newDish];
+    
+    // Update map and convert back to array
+    dishMap.set(newDish.id, newDish);
+    dishes = Array.from(dishMap.values());
+    
     dispatch('update', dishes);
   }
 
   async function handleDishUpdate(event: CustomEvent<Dish>) {
     const updatedDish = event.detail;
     menuCache.updateDish(updatedDish.id, 'update', updatedDish);
-    dishes = dishes.map(dish => dish.id === updatedDish.id ? updatedDish : dish);
+    
+    // Update map and convert back to array
+    dishMap.set(updatedDish.id, updatedDish);
+    dishes = Array.from(dishMap.values());
+    
     dispatch('update', dishes);
     editingDish = null;
   }
 
   async function handleDishDelete(event: CustomEvent<string>) {
     const dishId = event.detail;
-    const dish = dishes.find(d => d.id === dishId);
+    const dish = dishMap.get(dishId);
     if (dish) {
       menuCache.updateDish(dishId, 'delete', dish);
-      dishes = dishes.filter(d => d.id !== dishId);
+      
+      // Remove from map and update array
+      dishMap.delete(dishId);
+      dishes = Array.from(dishMap.values());
+      
       dispatch('update', dishes);
     }
   }

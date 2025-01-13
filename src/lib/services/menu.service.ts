@@ -17,68 +17,86 @@ export async function saveMenuChanges(
 ): Promise<SaveResult> {
   // Step 1: Save restaurant
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
-    restaurantData,
+    {
+      ...restaurantData,
+      ...(cache.restaurant || {})
+    },
     currentRestaurantId || undefined
   );
   
   const restaurantId = savedRestaurant.id;
-  const categoryIdMap = new Map<string, string>();
+  
+  // Step 2: Get existing categories
+  const existingCategories = await categoryService.fetchCategories(restaurantId);
+  const existingCategoryMap = new Map(existingCategories.map(cat => [cat.name, cat]));
+  
   const savedCategories: Category[] = [];
   const savedDishes: Dish[] = [];
 
-  // Step 2: Process category deletions
+  // Step 3: Process categories
   for (const [tempId, categoryChange] of Object.entries(cache.categories)) {
     const change = categoryChange as CacheChange<Category>;
-    if (change.action === 'delete' && tempId.length < 30) {
-      await categoryService.deleteCategory(restaurantId, tempId);
-    }
-  }
-
-  // Step 3: Process category creates/updates
-  for (const [tempId, categoryChange] of Object.entries(cache.categories)) {
-    const change = categoryChange as CacheChange<Category>;
-    if (change.action === 'delete') continue;
-
-    const savedCategory = await categoryService.createOrUpdateCategory(
-      restaurantId,
-      { name: change.data.name },
-      tempId.length > 30 ? undefined : tempId
-    );
-
-    categoryIdMap.set(tempId, savedCategory.id);
-    savedCategories.push(savedCategory);
-  }
-
-  // Step 4: Process dish deletions
-  for (const [tempId, dishChange] of Object.entries(cache.dishes)) {
-    const change = dishChange as CacheChange<Dish>;
+    
+    // Handle deletion
     if (change.action === 'delete') {
-      const realCategoryId = categoryIdMap.get(change.data.categoryId) || change.data.categoryId;
-      await dishService.deleteDish(restaurantId, realCategoryId, tempId);
+      if (tempId.length < 30) {
+        await categoryService.deleteCategory(restaurantId, tempId);
+      }
+      continue;
+    }
+
+    // Check if category already exists
+    const existingCategory = existingCategoryMap.get(change.data.name);
+    
+    if (existingCategory) {
+      // Use existing category
+      savedCategories.push({ ...existingCategory, dishes: [] });
+      continue;
+    }
+
+    // Create new category only if it doesn't exist
+    if (change.action === 'create' || change.action === 'update') {
+      const savedCategory = await categoryService.createOrUpdateCategory(
+        restaurantId,
+        { name: change.data.name },
+        tempId.length > 30 ? undefined : tempId
+      );
+      savedCategories.push({ ...savedCategory, dishes: [] });
     }
   }
 
-  // Step 5: Process dish creates/updates
+  // Step 4: Save dishes
   for (const [tempId, dishChange] of Object.entries(cache.dishes)) {
     const change = dishChange as CacheChange<Dish>;
     if (change.action === 'delete') continue;
-
-    const realCategoryId = categoryIdMap.get(change.data.categoryId) || change.data.categoryId;
-    const { title, price, description, imageUrl } = change.data;
 
     const savedDish = await dishService.createOrUpdateDish(
       restaurantId,
-      realCategoryId,
-      { title, price, description, imageUrl },
+      change.data.categoryId,
+      { 
+        title: change.data.title,
+        price: change.data.price,
+        description: change.data.description,
+        imageUrl: change.data.imageUrl
+      },
       tempId.length > 30 ? undefined : tempId
     );
 
     savedDishes.push(savedDish);
   }
 
+  // Step 5: Fetch final state
+  const finalCategories = await categoryService.fetchCategories(restaurantId);
+  const categoriesWithDishes = await Promise.all(
+    finalCategories.map(async category => {
+      const dishes = await dishService.fetchDishes(restaurantId, category.id);
+      return { ...category, dishes };
+    })
+  );
+
   return {
     restaurant: savedRestaurant,
-    categories: savedCategories,
+    categories: categoriesWithDishes,
     dishes: savedDishes
   };
 } 

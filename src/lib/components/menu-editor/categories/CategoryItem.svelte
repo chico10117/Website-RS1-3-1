@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Category, Dish } from '$lib/types';
+  import type { Category, Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
@@ -39,7 +39,8 @@
     try {
       const updatedCategory = {
         ...category,
-        name: editingName.trim()
+        name: editingName.trim(),
+        dishes: category.dishes || [] // Preserve dishes
       };
 
       dispatch('update', {
@@ -70,9 +71,18 @@
   }
 
   function handleDishesUpdate(event: CustomEvent<Dish[]>) {
+    const updatedDishes = event.detail;
+    
+    // Create a new category object with the updated dishes
+    const updatedCategory = {
+      ...category,
+      dishes: updatedDishes
+    };
+
+    // Dispatch the update event
     dispatch('update', {
       index,
-      category: { ...category, dishes: event.detail }
+      category: updatedCategory
     });
   }
 </script>

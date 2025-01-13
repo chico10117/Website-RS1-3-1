@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
 
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -14,7 +14,10 @@ export const categories = pgTable('categories', {
   restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
-});
+}, (table) => ({
+  // Add unique constraint for name within a restaurant
+  nameRestaurantUnique: unique().on(table.name, table.restaurantId)
+}));
 
 export const dishes = pgTable('dishes', {
   id: uuid('id').primaryKey().defaultRandom(),

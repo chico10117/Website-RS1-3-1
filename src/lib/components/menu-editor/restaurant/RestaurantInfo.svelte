@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Restaurant } from '$lib/types';
+  import type { Restaurant } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
@@ -80,6 +80,11 @@
   }
 
   async function handleLogoUpload(event: Event) {
+    if (!selectedRestaurant && !restaurantName) {
+      alert(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
+      return;
+    }
+
     try {
       isUploading = true;
       const input = event.target as HTMLInputElement;
@@ -104,11 +109,13 @@
       }
 
       // Update cache with new logo
-      menuCache.updateRestaurant({
-        id: selectedRestaurant,
-        name: restaurantName,
-        logo: uploadResult.url
-      });
+      if (selectedRestaurant) {
+        menuCache.updateRestaurant({
+          id: selectedRestaurant,
+          name: restaurantName,
+          logo: uploadResult.url
+        });
+      }
 
       dispatch('update', {
         name: restaurantName,
@@ -126,7 +133,7 @@
   }
 
   function handleLogoClick() {
-    if (!restaurantName) {
+    if (!selectedRestaurant && !restaurantName) {
       alert(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
       return;
     }

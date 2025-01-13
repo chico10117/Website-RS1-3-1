@@ -1,22 +1,2 @@
-export interface Restaurant {
-  id: string;
-  name: string;
-  logo?: string;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  restaurantId: string;
-  dishes?: Dish[];
-}
-
-export interface Dish {
-  id: string;
-  title: string;
-  price: string;
-  description?: string;
-  imageUrl?: string;
-  categoryId: string;
-  restaurantId: string;
-} 
+// Re-export types from menu.types.ts for backward compatibility
+export type { Restaurant, Category, Dish } from './types/menu.types'; 
