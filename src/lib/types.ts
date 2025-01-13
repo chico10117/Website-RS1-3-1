@@ -1,10 +1,7 @@
 export interface Restaurant {
   id: string;
   name: string;
-  logo: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  categories?: Category[];
+  logo?: string;
 }
 
 export interface Category {
@@ -17,8 +14,9 @@ export interface Category {
 export interface Dish {
   id: string;
   title: string;
-  imageUrl: string;
   price: string;
-  description: string;
+  description?: string;
+  imageUrl?: string;
   categoryId: string;
+  restaurantId: string;
 } 

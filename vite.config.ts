@@ -4,20 +4,12 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	build: {
-		rollupOptions: {
-			external: [
-				'pg',
-				'pg-native',
-				'postgres',
-				'@neondatabase/serverless',
-				'drizzle-orm'
-			]
+		sourcemap: true
+	},
+	server: {
+		fs: {
+			// Allow serving files from one level up from the package root
+			allow: ['..']
 		}
-	},
-	optimizeDeps: {
-		exclude: ['@neondatabase/serverless']
-	},
-	ssr: {
-		noExternal: ['@neondatabase/serverless']
 	}
 }); 
