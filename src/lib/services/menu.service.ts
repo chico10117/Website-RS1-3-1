@@ -68,8 +68,18 @@ export async function saveMenuChanges(
   // Step 4: Save dishes
   for (const [tempId, dishChange] of Object.entries(cache.dishes)) {
     const change = dishChange as CacheChange<Dish>;
-    if (change.action === 'delete') continue;
+    
+    // Handle deletion
+    if (change.action === 'delete') {
+      if (tempId.length < 30) {  // Only delete if it's a real ID
+        await dishService.deleteDish(restaurantId, change.data.categoryId, tempId);
+      }
+      continue;
+    }
 
+    // For updates, use the existing ID
+    const dishId = change.action === 'update' ? tempId : undefined;
+    
     const savedDish = await dishService.createOrUpdateDish(
       restaurantId,
       change.data.categoryId,
@@ -79,7 +89,7 @@ export async function saveMenuChanges(
         description: change.data.description,
         imageUrl: change.data.imageUrl
       },
-      tempId.length > 30 ? undefined : tempId
+      dishId
     );
 
     savedDishes.push(savedDish);
