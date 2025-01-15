@@ -1,8 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { put } from '@vercel/blob';
 import { translations } from '$lib/i18n/translations';
 import { language } from '$lib/stores/language';
 import { get } from 'svelte/store';
@@ -19,28 +17,16 @@ export async function POST({ request }: RequestEvent) {
       return json({ success: false, error: t('noFileUploaded') }, { status: 400 });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'static', 'uploads');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
+    // Upload to Vercel Blob Storage
+    const { url } = await put(file.name, file, {
+      access: 'public',
+    });
 
-    // Generate unique filename
-    const fileName = `${Date.now()}-${file.name}`;
-    const filePath = join(uploadsDir, fileName);
-
-    // Save the file
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await writeFile(filePath, buffer);
-
-    // Return the complete file URL
-    const fileUrl = `/uploads/${fileName}`;
-    console.log('File saved, returning URL:', fileUrl); // Debug log
+    console.log('File uploaded to Vercel Blob, URL:', url); // Debug log
     
     return json({ 
       success: true, 
-      url: fileUrl,
+      url,
       message: t('fileUploadSuccess')
     });
   } catch (error) {
