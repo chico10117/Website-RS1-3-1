@@ -30,12 +30,14 @@
       try {
         // Create a temporary ID for the new restaurant
         const tempId = crypto.randomUUID();
+        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
         
         // Update cache instead of saving
         menuCache.updateRestaurant({
           id: tempId,
           name: restaurantName.trim(),
-          logo: menuLogo || ''
+          logo: menuLogo || '',
+          slug
         });
 
         // Dispatch both update and select events
@@ -58,11 +60,14 @@
     }
 
     try {
+      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+      
       // Update cache instead of saving
       menuCache.updateRestaurant({
         id: selectedRestaurant,
         name: editingRestaurantName.trim(),
-        logo: menuLogo
+        logo: menuLogo,
+        slug
       });
       
       dispatch('update', { 
@@ -110,10 +115,12 @@
 
       // Update cache with new logo
       if (selectedRestaurant) {
+        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
         menuCache.updateRestaurant({
           id: selectedRestaurant,
           name: restaurantName,
-          logo: uploadResult.url
+          logo: uploadResult.url,
+          slug
         });
       }
 

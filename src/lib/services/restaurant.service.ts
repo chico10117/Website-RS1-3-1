@@ -11,7 +11,10 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
   return data.data;
 }
 
-export async function createOrUpdateRestaurant(restaurantData: { name: string; logo: string }, restaurantId?: string): Promise<Restaurant> {
+export async function createOrUpdateRestaurant(
+  restaurantData: { name: string; logo: string; slug?: string }, 
+  restaurantId?: string
+): Promise<Restaurant> {
   const method = restaurantId ? 'PUT' : 'POST';
   const url = restaurantId ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
   

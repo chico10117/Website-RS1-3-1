@@ -3,6 +3,7 @@ import { pgTable, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
   logo: text('logo'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()

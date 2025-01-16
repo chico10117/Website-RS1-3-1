@@ -13,14 +13,16 @@ interface SaveResult {
 
 export async function saveMenuChanges(
   cache: MenuCache,
-  restaurantData: { name: string; logo: string },
+  restaurantData: { name: string; logo: string; slug?: string },
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
   // Step 1: Save restaurant
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
     {
       ...restaurantData,
-      ...(cache.restaurant || {})
+      ...(cache.restaurant || {}),
+      // Ensure slug is generated if not present
+      slug: cache.restaurant?.slug || restaurantData.name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '')
     },
     currentRestaurantId || undefined
   );

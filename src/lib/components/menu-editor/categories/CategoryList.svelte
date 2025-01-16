@@ -70,10 +70,6 @@
       category.restaurantId = selectedRestaurant;
     }
     
-    // Check if this is a temporary ID (new category) or existing one
-    const isNewCategory = category.id.length === 36; // UUID length is exactly 36 characters
-    const action = isNewCategory ? 'create' : 'update';
-    
     const updatedCategory = {
       ...(existingCategory || {}),
       ...category,
@@ -82,7 +78,7 @@
     };
     
     // Update cache with appropriate action
-    menuCache.updateCategory(updatedCategory.id, action, updatedCategory);
+    menuCache.updateCategory(updatedCategory.id, 'update', updatedCategory);
     
     // Update the map and convert back to array
     categoryMap.set(updatedCategory.id, updatedCategory);

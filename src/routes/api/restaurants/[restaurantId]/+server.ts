@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
 import { restaurants } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
+import { generateSlug } from '$lib/utils/slug';
 
 export async function PUT({ params, request }: RequestEvent) {
   try {
@@ -22,10 +23,35 @@ export async function PUT({ params, request }: RequestEvent) {
       }, { status: 404 });
     }
 
+    // If name is being updated, generate new slug
+    let slug: string | undefined;
+    if (updateData.name !== undefined && updateData.name !== existingRestaurant[0].name) {
+      slug = generateSlug(updateData.name);
+      
+      // Check if slug is already taken by another restaurant
+      const slugExists = await db.select()
+        .from(restaurants)
+        .where(
+          and(
+            eq(restaurants.slug, slug),
+            ne(restaurants.id, restaurantId as string)
+          )
+        )
+        .limit(1);
+
+      if (slugExists.length > 0) {
+        return json({ 
+          success: false, 
+          error: 'A restaurant with this name already exists' 
+        }, { status: 400 });
+      }
+    }
+
     // Update the restaurant
     const [updatedRestaurant] = await db.update(restaurants)
       .set({
         ...(updateData.name !== undefined && { name: updateData.name }),
+        ...(slug !== undefined && { slug }),
         ...(updateData.logo !== undefined && { logo: updateData.logo }),
         updatedAt: new Date()
       })

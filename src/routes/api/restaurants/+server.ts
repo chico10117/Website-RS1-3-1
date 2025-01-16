@@ -3,6 +3,7 @@ import { db, createRestaurantWithRelations, getRestaurantWithRelations } from '$
 import { restaurants } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
+import { generateSlug } from '$lib/utils/slug';
 
 export async function POST({ request }: RequestEvent) {
   try {
@@ -15,10 +16,12 @@ export async function POST({ request }: RequestEvent) {
       }, { status: 400 });
     }
 
-    // Check if a restaurant with this name already exists
+    const slug = generateSlug(name);
+
+    // Check if a restaurant with this slug already exists
     const existingRestaurant = await db.select()
       .from(restaurants)
-      .where(eq(restaurants.name, name))
+      .where(eq(restaurants.slug, slug))
       .limit(1);
 
     if (existingRestaurant.length > 0) {
@@ -32,6 +35,7 @@ export async function POST({ request }: RequestEvent) {
     const [newRestaurant] = await db.insert(restaurants)
       .values({
         name,
+        slug,
         logo: logo || null,
         createdAt: new Date(),
         updatedAt: new Date()
