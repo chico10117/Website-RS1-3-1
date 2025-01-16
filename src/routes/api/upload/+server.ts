@@ -17,20 +17,40 @@ export async function POST({ request }: RequestEvent) {
       return json({ success: false, error: t('noFileUploaded') }, { status: 400 });
     }
 
-    // Upload to Vercel Blob Storage
-    const { url } = await put(file.name, file, {
-      access: 'public',
-    });
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      return json({ success: false, error: t('invalidFileType') }, { status: 400 });
+    }
 
-    console.log('File uploaded to Vercel Blob, URL:', url); // Debug log
-    
-    return json({ 
-      success: true, 
-      url,
-      message: t('fileUploadSuccess')
-    });
+    // Validate file size (max 4MB)
+    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+    if (file.size > maxSize) {
+      return json({ success: false, error: t('fileTooLarge') }, { status: 400 });
+    }
+
+    try {
+      // Upload to Vercel Blob Storage
+      const { url } = await put(file.name, file, {
+        access: 'public',
+      });
+
+      console.log('File uploaded to Vercel Blob, URL:', url); // Debug log
+      
+      return json({ 
+        success: true, 
+        url,
+        message: t('fileUploadSuccess')
+      });
+    } catch (uploadError) {
+      console.error('Vercel Blob upload error:', uploadError);
+      return json({ 
+        success: false, 
+        error: t('fileUploadError'),
+        details: uploadError instanceof Error ? uploadError.message : 'Upload failed'
+      }, { status: 500 });
+    }
   } catch (error) {
-    console.error('Error uploading file:', error);
+    console.error('Error processing upload request:', error);
     return json({ 
       success: false, 
       error: t('fileUploadError'),

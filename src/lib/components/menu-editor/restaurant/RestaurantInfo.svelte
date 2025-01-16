@@ -99,6 +99,19 @@
         return;
       }
 
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert(t('error') + ': ' + t('invalidFileType'));
+        return;
+      }
+
+      // Validate file size (max 4MB)
+      const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+      if (file.size > maxSize) {
+        alert(t('error') + ': ' + t('fileTooLarge'));
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -107,10 +120,16 @@
         body: formData
       });
 
-      const uploadResult = await uploadResponse.json();
+      let uploadResult;
+      try {
+        uploadResult = await uploadResponse.json();
+      } catch (parseError) {
+        console.error('Error parsing upload response:', parseError);
+        throw new Error(t('invalidServerResponse'));
+      }
       
       if (!uploadResult.success) {
-        throw new Error(uploadResult.error);
+        throw new Error(uploadResult.error || t('fileUploadError'));
       }
 
       // Update cache with new logo
@@ -129,13 +148,18 @@
         logo: uploadResult.url
       });
 
-      isUploading = false;
     } catch (error) {
       console.error('Error uploading logo:', error);
       if (error instanceof Error) {
         alert(t('error') + ': ' + error.message);
+      } else {
+        alert(t('error') + ': ' + t('fileUploadError'));
       }
+    } finally {
       isUploading = false;
+      // Reset the file input
+      const input = event.target as HTMLInputElement;
+      input.value = '';
     }
   }
 
