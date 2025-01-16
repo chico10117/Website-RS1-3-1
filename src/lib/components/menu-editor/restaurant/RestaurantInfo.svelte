@@ -86,7 +86,15 @@
 
   async function handleLogoUpload(event: Event) {
     if (!selectedRestaurant && !restaurantName) {
-      alert(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
+      const errorDiv = document.getElementById('logo-error');
+      const errorText = errorDiv?.querySelector('span');
+      if (errorDiv && errorText) {
+        errorText.textContent = t('pleaseEnterRestaurantNameFirst');
+        errorDiv.classList.remove('hidden');
+        setTimeout(() => {
+          errorDiv.classList.add('hidden');
+        }, 3000);
+      }
       return;
     }
 
@@ -95,20 +103,35 @@
       const input = event.target as HTMLInputElement;
       const file = input.files?.[0];
       
-      if (!file) {
-        return;
-      }
+      if (!file) return;
 
       // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert(t('error') + ': ' + t('invalidFileType'));
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        const errorDiv = document.getElementById('logo-error');
+        const errorText = errorDiv?.querySelector('span');
+        if (errorDiv && errorText) {
+          errorText.textContent = t('invalidFileType') + ' (JPEG, PNG, WebP)';
+          errorDiv.classList.remove('hidden');
+          setTimeout(() => {
+            errorDiv.classList.add('hidden');
+          }, 3000);
+        }
         return;
       }
 
       // Validate file size (max 4MB)
       const maxSize = 4 * 1024 * 1024; // 4MB in bytes
       if (file.size > maxSize) {
-        alert(t('error') + ': ' + t('fileTooLarge'));
+        const errorDiv = document.getElementById('logo-error');
+        const errorText = errorDiv?.querySelector('span');
+        if (errorDiv && errorText) {
+          errorText.textContent = t('fileTooLarge') + ' (max 4MB)';
+          errorDiv.classList.remove('hidden');
+          setTimeout(() => {
+            errorDiv.classList.add('hidden');
+          }, 3000);
+        }
         return;
       }
 
@@ -150,10 +173,14 @@
 
     } catch (error) {
       console.error('Error uploading logo:', error);
-      if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
-      } else {
-        alert(t('error') + ': ' + t('fileUploadError'));
+      const errorDiv = document.getElementById('logo-error');
+      const errorText = errorDiv?.querySelector('span');
+      if (errorDiv && errorText) {
+        errorText.textContent = error instanceof Error ? error.message : t('fileUploadError');
+        errorDiv.classList.remove('hidden');
+        setTimeout(() => {
+          errorDiv.classList.add('hidden');
+        }, 3000);
       }
     } finally {
       isUploading = false;
@@ -251,38 +278,66 @@
 
 <div class="mb-8">
   <label class="block text-lg font-semibold mb-3 text-gray-800">{t('menuLogo')}</label>
-  <div class="flex items-center gap-4">
+  <div class="flex items-start gap-4">
     <div class="relative group">
-      <button 
+      <form 
         class="w-24 h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-200 
           {!restaurantName 
             ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' 
             : menuLogo 
               ? 'border-transparent shadow-md hover:shadow-lg' 
               : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300'}"
-        on:click={handleLogoClick}
+        on:submit|preventDefault={() => {
+          if (!restaurantName) {
+            const errorMessage = document.getElementById('logo-error');
+            if (errorMessage) {
+              errorMessage.textContent = t('pleaseEnterRestaurantNameFirst');
+              errorMessage.classList.remove('hidden');
+              setTimeout(() => {
+                errorMessage.classList.add('hidden');
+              }, 3000);
+            }
+            return;
+          }
+          const logoInput = document.getElementById('logo-input');
+          if (logoInput) {
+            logoInput.click();
+          }
+        }}
       >
-        {#if menuLogo}
-          <img 
-            src={menuLogo} 
-            alt="Menu logo" 
-            class="w-full h-full object-cover rounded-xl"
-          />
-          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors duration-200" />
-        {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          <span class="text-sm text-blue-600 mt-2 font-medium">{t('addLogo')}</span>
-        {/if}
-      </button>
-      <input
-        id="logo-input"
-        type="file"
-        accept="image/*"
-        class="hidden"
-        on:change={handleLogoUpload}
-      />
+        <button type="submit" class="w-full h-full flex flex-col items-center justify-center">
+          {#if menuLogo}
+            <img 
+              src={menuLogo} 
+              alt="Menu logo" 
+              class="w-full h-full object-cover rounded-xl"
+            />
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors duration-200" />
+          {:else}
+            <div class="flex flex-col items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span class="text-sm text-blue-600 mt-2 font-medium">{t('addLogo')}</span>
+            </div>
+          {/if}
+        </button>
+        <input
+          id="logo-input"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden"
+          on:change={handleLogoUpload}
+        />
+      </form>
+    </div>
+    <div id="logo-error" class="hidden text-sm text-white bg-red-500 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ease-in-out min-w-[200px] whitespace-nowrap">
+      <div class="flex items-center space-x-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <span class="flex-1"></span>
+      </div>
     </div>
   </div>
 </div> 

@@ -83,8 +83,8 @@ export const translations: Translation = {
     en: "Successfully deleted"
   },
   saveSuccess: {
-    es: "Guardado exitosamente",
-    en: "Successfully saved"
+    es: "Menú guardado con éxito",
+    en: "Menu saved successfully"
   },
   error: {
     es: "Error",
@@ -162,8 +162,24 @@ export const translations: Translation = {
     es: "Guardar Menú",
     en: "Save Menu"
   },
-  saveSuccess: {
-    es: "Menú guardado con éxito",
-    en: "Menu saved successfully"
+  invalidFileType: {
+    es: "Tipo de archivo no válido",
+    en: "Invalid file type"
+  },
+  fileTooLarge: {
+    es: "El archivo es demasiado grande",
+    en: "File is too large"
+  },
+  maxFileSize: {
+    es: "Tamaño máximo",
+    en: "Max file size"
+  },
+  allowedFormats: {
+    es: "Formatos permitidos",
+    en: "Allowed formats"
+  },
+  invalidServerResponse: {
+    es: "Respuesta del servidor inválida",
+    en: "Invalid server response"
   }
 }; 

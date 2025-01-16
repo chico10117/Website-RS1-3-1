@@ -28,6 +28,36 @@
       
       if (!file) return;
 
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        const errorDiv = document.getElementById('dish-item-error');
+        const errorText = errorDiv?.querySelector('span');
+        if (errorDiv && errorText) {
+          errorText.textContent = t('invalidFileType') + ' (JPEG, PNG, WebP)';
+          errorDiv.classList.remove('hidden');
+          setTimeout(() => {
+            errorDiv.classList.add('hidden');
+          }, 3000);
+        }
+        return;
+      }
+
+      // Validate file size (max 4MB)
+      const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+      if (file.size > maxSize) {
+        const errorDiv = document.getElementById('dish-item-error');
+        const errorText = errorDiv?.querySelector('span');
+        if (errorDiv && errorText) {
+          errorText.textContent = t('fileTooLarge') + ' (max 4MB)';
+          errorDiv.classList.remove('hidden');
+          setTimeout(() => {
+            errorDiv.classList.add('hidden');
+          }, 3000);
+        }
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -36,18 +66,34 @@
         body: formData
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Error parsing upload response:', parseError);
+        throw new Error(t('invalidServerResponse'));
+      }
       
       if (!data.success) {
-        throw new Error(data.error);
+        throw new Error(data.error || t('fileUploadError'));
       }
 
       editingDish = { ...editingDish, imageUrl: data.url };
     } catch (error) {
       console.error('Error uploading image:', error);
-      if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+      const errorDiv = document.getElementById('dish-item-error');
+      const errorText = errorDiv?.querySelector('span');
+      if (errorDiv && errorText) {
+        errorText.textContent = error instanceof Error ? error.message : t('fileUploadError');
+        errorDiv.classList.remove('hidden');
+        setTimeout(() => {
+          errorDiv.classList.add('hidden');
+        }, 3000);
       }
+    } finally {
+      // Reset the file input
+      const input = event.target as HTMLInputElement;
+      input.value = '';
     }
   }
 
@@ -148,21 +194,26 @@
               />
             {/if}
             <div class="relative">
-              <button
-                class="px-4 py-2 bg-white/80 text-gray-700 rounded border border-gray-300 hover:bg-white/90 transition-colors text-sm font-medium flex items-center gap-2"
-                on:click={() => {
+              <form
+                class="inline-block"
+                on:submit|preventDefault={() => {
                   const input = document.createElement('input');
                   input.type = 'file';
-                  input.accept = 'image/*';
+                  input.accept = 'image/jpeg,image/png,image/webp';
                   input.onchange = (e) => handleImageUpload(e);
                   input.click();
                 }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                {t('uploadImage')}
-              </button>
+                <button
+                  type="submit"
+                  class="px-4 py-2 bg-white/80 text-gray-700 rounded border border-gray-300 hover:bg-white/90 transition-colors text-sm font-medium flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  {t('uploadImage')}
+                </button>
+              </form>
             </div>
           </div>
         </div>
@@ -183,4 +234,14 @@
       </div>
     </div>
   {/if}
+
+  <!-- Error Message -->
+  <div id="dish-item-error" class="hidden absolute top-full left-0 mt-2 pt-2 text-sm text-white bg-red-500 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ease-in-out min-w-[200px] whitespace-nowrap">
+    <div class="flex items-center space-x-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <span></span>
+    </div>
+  </div>
 </div> 
