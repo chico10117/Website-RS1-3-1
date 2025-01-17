@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "migrate": "tsx src/lib/server/migrate.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

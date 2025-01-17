@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, unique, decimal } from 'drizzle-orm/pg-core';
 
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -24,7 +24,7 @@ export const dishes = pgTable('dishes', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
   imageUrl: text('image_url'),
-  price: text('price'),
+  price: decimal('price', { precision: 10, scale: 2 }),
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow(),

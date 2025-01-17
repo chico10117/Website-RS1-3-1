@@ -6,6 +6,7 @@
 5. The user can also add and remove dishes from a category.
 6. The user can also add and remove categories from a restaurant.
 7. The user can also add and remove restaurants.
+8. Im using pnpm, so use pnpm instead of npm.
 
 # Project Instructions
 
