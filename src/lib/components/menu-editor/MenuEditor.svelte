@@ -35,13 +35,20 @@
   // Event handlers
   async function handleRestaurantUpdate(event: CustomEvent<{ name: string; logo: string }>) {
     const { name, logo } = event.detail;
+    const restaurantId = $menuState.selectedRestaurant || crypto.randomUUID();
+    
     menuState.updateRestaurantInfo(name, logo);
     menuCache.updateRestaurant({ 
-      id: $menuState.selectedRestaurant || crypto.randomUUID(),
+      id: restaurantId,
       name,
       logo,
-      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '')
+      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-')
     });
+
+    // If this is a new restaurant, update the selected restaurant ID
+    if (!$menuState.selectedRestaurant) {
+      menuState.selectRestaurant(restaurantId);
+    }
   }
 
   function handleCategoriesUpdate(event: CustomEvent<Category[]>) {

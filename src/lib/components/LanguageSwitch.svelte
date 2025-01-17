@@ -23,7 +23,7 @@
 >
   <span 
     class="absolute left-1.5 flex items-center justify-center w-10 h-10 rounded-full text-3xl transition-colors duration-200"
-    class:bg-gray-200={$language === 'en'}
+    class:bg-transparent={$language === 'en'}
   >{languages.es.flag}</span>
   <span 
     class="pointer-events-none block w-11 h-11 rounded-full bg-white transition-transform duration-200"
@@ -31,7 +31,7 @@
   />
   <span 
     class="absolute right-1.5 flex items-center justify-center w-10 h-10 rounded-full text-3xl transition-colors duration-200"
-    class:bg-gray-200={$language === 'es'}
+    class:bg-transparent={$language === 'es'}
   >{languages.en.flag}</span>
 </button>
 
