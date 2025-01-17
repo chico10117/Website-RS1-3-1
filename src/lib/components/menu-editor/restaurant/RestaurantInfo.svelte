@@ -31,7 +31,7 @@
       try {
         // Create a temporary ID for the new restaurant
         const tempId = crypto.randomUUID();
-        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
         
         // Update cache instead of saving
         menuCache.updateRestaurant({
@@ -41,9 +41,8 @@
           slug
         });
 
-        // Dispatch both update and select events
+        // Only dispatch the update event, don't select the restaurant yet
         dispatch('update', { name: restaurantName.trim(), logo: menuLogo || '' });
-        dispatch('select', tempId);
       } catch (error) {
         console.error('Error updating restaurant:', error);
         if (error instanceof Error) {
@@ -65,7 +64,7 @@
       
       // Update cache instead of saving
       menuCache.updateRestaurant({
-        id: selectedRestaurant,
+        id: selectedRestaurant || '',
         name: editingRestaurantName.trim(),
         logo: menuLogo,
         slug
@@ -233,6 +232,11 @@
     try {
       const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
       
+      if (!selectedRestaurant) {
+        toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
+        return;
+      }
+
       // Update cache instead of saving
       menuCache.updateRestaurant({
         id: selectedRestaurant,
@@ -252,6 +256,13 @@
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
       }
+    }
+  }
+
+  async function handleRestaurantNameKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      await handleRestaurantNameInput();
+      (event.target as HTMLInputElement)?.blur();
     }
   }
 </script>
@@ -294,6 +305,7 @@
           placeholder={t('enterRestaurantName')}
           bind:value={restaurantName}
           on:blur={handleRestaurantNameInput}
+          on:keydown={handleRestaurantNameKeyPress}
           readonly={!!selectedRestaurant}
           disabled={!!selectedRestaurant}
         />
