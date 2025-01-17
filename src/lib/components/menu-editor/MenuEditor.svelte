@@ -44,6 +44,11 @@
       logo,
       slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-')
     });
+
+    // Set the selected restaurant ID when creating a new one
+    if (!$menuState.selectedRestaurant) {
+      await menuState.selectRestaurant(restaurantId);
+    }
   }
 
   function handleCategoriesUpdate(event: CustomEvent<Category[]>) {
