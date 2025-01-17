@@ -18,7 +18,7 @@
 </script>
 
 <button
-  class="relative inline-flex h-12 w-[96px] items-center rounded-full bg-white/80 backdrop-blur-md border-2 border-gray-200 p-1 hover:border-blue-300 transition-all shadow-md hover:shadow-lg"
+  class="relative inline-flex h-12 w-[96px] items-center rounded-full bg-gray-200 backdrop-blur-md border-2 p-1 hover:border-blue-400 transition-all shadow-md hover:shadow-lg"
   on:click={toggleLanguage}
 >
   <span 
@@ -26,7 +26,7 @@
     class:bg-gray-200={$language === 'en'}
   >{languages.es.flag}</span>
   <span 
-    class="pointer-events-none block w-10 h-10 rounded-full bg-blue-600 transition-transform duration-200"
+    class="pointer-events-none block w-11 h-11 rounded-full bg-white transition-transform duration-200"
     class:translate-x-[42px]={$language === 'en'}
   />
   <span 
