@@ -1,6 +1,5 @@
 <script lang="ts">
   import { language } from '$lib/stores/language';
-  import { Globe } from 'lucide-svelte';
 
   const languages = {
     es: {
@@ -9,7 +8,7 @@
     },
     en: {
       name: 'English',
-      flag: '🇺🇸'
+      flag: '🇬🇧'
     }
   };
 
@@ -18,16 +17,23 @@
   }
 </script>
 
-<div class="relative inline-block">
-  <button
-    class="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-md rounded-lg border-2 border-gray-200 hover:bg-white/90 hover:border-blue-400 transition-all shadow-md hover:shadow-lg text-gray-900 font-semibold"
-    on:click={toggleLanguage}
-  >
-    <Globe class="w-4 h-4 text-blue-600" />
-    <span class="text-lg">{languages[$language].flag}</span>
-    <span class="text-sm">{languages[$language].name}</span>
-  </button>
-</div>
+<button
+  class="relative inline-flex h-12 w-[96px] items-center rounded-full bg-white/80 backdrop-blur-md border-2 border-gray-200 p-1 hover:border-blue-300 transition-all shadow-md hover:shadow-lg"
+  on:click={toggleLanguage}
+>
+  <span 
+    class="absolute left-1.5 flex items-center justify-center w-10 h-10 rounded-full text-3xl transition-colors duration-200"
+    class:bg-gray-200={$language === 'en'}
+  >{languages.es.flag}</span>
+  <span 
+    class="pointer-events-none block w-10 h-10 rounded-full bg-blue-600 transition-transform duration-200"
+    class:translate-x-[42px]={$language === 'en'}
+  />
+  <span 
+    class="absolute right-1.5 flex items-center justify-center w-10 h-10 rounded-full text-3xl transition-colors duration-200"
+    class:bg-gray-200={$language === 'es'}
+  >{languages.en.flag}</span>
+</button>
 
 <style>
   button {

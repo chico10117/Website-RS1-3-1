@@ -162,7 +162,7 @@
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="text-xs font-semibold text-gray-700 mb-1 block">{t('title')} *</label>
+        <label class="text-xs font-semibold text-gray-700 mb-1 block w-[50px] whitespace-nowrap">{t('title')}*</label>
         <input
           type="text"
           class="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-normal transition-all duration-200"
@@ -172,10 +172,10 @@
         />
       </div>
       <div>
-        <label class="text-xs font-semibold text-gray-700 mb-1 block">{t('price')} *</label>
+        <label class="text-xs font-semibold text-gray-700 mb-1 block w-[25px]">{t('price')}*</label>
         <input
           type="text"
-          class="w-full px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-normal transition-all duration-200"
+          class="w-[120px] px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-normal transition-all duration-200"
           bind:value={newDish.price}
           on:keydown={handleKeyPress}
           required

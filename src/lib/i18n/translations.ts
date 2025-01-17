@@ -7,8 +7,8 @@ interface Translation {
 
 export const translations: Translation = {
   appTitle: {
-    es: "Creador de Carta QR",
-    en: "QR Menu Creator"
+    es: "Creador de Carta Reco",
+    en: "Reco Menu Builder"
   },
   restaurantName: {
     es: "Nombre del Restaurante",
@@ -39,8 +39,8 @@ export const translations: Translation = {
     en: "Add"
   },
   title: {
-    es: "Título",
-    en: "Title"
+    es: "Nombre del plato",
+    en: "Dish name"
   },
   price: {
     es: "Precio",
