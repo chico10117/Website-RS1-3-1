@@ -10,6 +10,8 @@
   import RestaurantInfo from './restaurant/RestaurantInfo.svelte';
   import CategoryList from './categories/CategoryList.svelte';
   import MenuPreview from './preview/MenuPreview.svelte';
+  import { toasts } from '$lib/stores/toast';
+  import Toast from '$lib/components/ui/Toast.svelte';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -25,7 +27,7 @@
     } catch (error) {
       console.error('Error loading restaurants:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     }
   });
@@ -37,7 +39,8 @@
     menuCache.updateRestaurant({ 
       id: $menuState.selectedRestaurant || crypto.randomUUID(),
       name,
-      logo
+      logo,
+      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '')
     });
   }
 
@@ -53,7 +56,7 @@
     } catch (error) {
       console.error('Error selecting restaurant:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     }
   }
@@ -81,11 +84,11 @@
         await menuState.selectRestaurant($menuState.selectedRestaurant);
       }
       
-      alert(t('saveSuccess'));
+      toasts.success(t('saveSuccess'));
     } catch (error) {
       console.error('Error saving changes:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     } finally {
       menuState.setSaving(false);
@@ -94,6 +97,7 @@
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 font-sans relative">
+  <Toast />
   <div class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-3xl font-bold text-gray-800 tracking-tight">{t('appTitle')}</h1>

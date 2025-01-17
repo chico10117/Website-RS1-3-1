@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
+  import { toasts } from '$lib/stores/toast';
 
   export let restaurantName: string;
   export let menuLogo: string;
@@ -86,15 +87,7 @@
 
   async function handleLogoUpload(event: Event) {
     if (!selectedRestaurant && !restaurantName) {
-      const errorDiv = document.getElementById('logo-error');
-      const errorText = errorDiv?.querySelector('span');
-      if (errorDiv && errorText) {
-        errorText.textContent = t('pleaseEnterRestaurantNameFirst');
-        errorDiv.classList.remove('hidden');
-        setTimeout(() => {
-          errorDiv.classList.add('hidden');
-        }, 3000);
-      }
+      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
       return;
     }
 
@@ -216,6 +209,49 @@
       await updateRestaurantName();
     } else if (event.key === 'Escape') {
       cancelEditingRestaurant();
+    }
+  }
+
+  async function handleRestaurantSelect(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    try {
+      dispatch('select', select.value);
+    } catch (error) {
+      console.error('Error selecting restaurant:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    }
+  }
+
+  async function saveRestaurantChanges() {
+    if (!editingRestaurantName.trim()) {
+      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
+      return;
+    }
+
+    try {
+      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+      
+      // Update cache instead of saving
+      menuCache.updateRestaurant({
+        id: selectedRestaurant,
+        name: editingRestaurantName.trim(),
+        logo: menuLogo,
+        slug
+      });
+      
+      dispatch('update', { 
+        name: editingRestaurantName.trim(), 
+        logo: menuLogo 
+      });
+      
+      isEditingRestaurant = false;
+    } catch (error) {
+      console.error('Error updating restaurant:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
     }
   }
 </script>

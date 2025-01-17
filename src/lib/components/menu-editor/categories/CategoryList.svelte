@@ -6,6 +6,7 @@
   import { menuCache } from '$lib/stores/menu-cache';
   import CategoryItem from './CategoryItem.svelte';
   import AddCategory from './AddCategory.svelte';
+  import { toasts } from '$lib/stores/toast';
 
   export let categories: Category[] = [];
   export let selectedRestaurant: string | null;
@@ -35,7 +36,7 @@
     
     // Check for duplicate name
     if (isCategoryNameDuplicate(category.name)) {
-      alert(t('error') + ': ' + t('categoryNameExists'));
+      toasts.error(t('error') + ': ' + t('categoryNameExists'));
       return;
     }
     
@@ -60,7 +61,7 @@
     // Only check for duplicate names if the name is actually changing
     if (existingCategory && category.name !== existingCategory.name) {
       if (isCategoryNameDuplicate(category.name, category.id)) {
-        alert(t('error') + ': ' + t('categoryNameExists'));
+        toasts.error(t('error') + ': ' + t('categoryNameExists'));
         return;
       }
     }
@@ -114,6 +115,32 @@
   function toggleCategory(index: number) {
     const category = orderedCategories[index];
     selectedCategoryId = selectedCategoryId === category.id ? null : category.id;
+  }
+
+  function handleAddCategory(event: CustomEvent<string>) {
+    const categoryName = event.detail.trim();
+    const existingCategory = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+    
+    if (existingCategory) {
+      toasts.error(t('error') + ': ' + t('categoryNameExists'));
+      return;
+    }
+
+    // ... rest of the function ...
+  }
+
+  function handleUpdateCategory(event: CustomEvent<{ id: string; name: string }>) {
+    const { id, name } = event.detail;
+    const existingCategory = categories.find(c => 
+      c.id !== id && c.name.toLowerCase() === name.toLowerCase()
+    );
+    
+    if (existingCategory) {
+      toasts.error(t('error') + ': ' + t('categoryNameExists'));
+      return;
+    }
+
+    // ... rest of the function ...
   }
 </script>
 

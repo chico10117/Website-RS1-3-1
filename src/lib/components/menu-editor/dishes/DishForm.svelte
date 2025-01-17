@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
+  import { toasts } from '$lib/stores/toast';
 
   export let categoryId: string;
 
@@ -11,7 +12,16 @@
     add: Dish;
   }>();
 
-  let newDish: Dish = {
+  interface NewDish {
+    id: string;
+    title: string;
+    price: string;  // Keep as string for form input
+    description: string;
+    imageUrl: string;
+    categoryId: string;
+  }
+
+  let newDish: NewDish = {
     id: '',
     title: '',
     price: '',
@@ -101,20 +111,20 @@
   }
 
   async function addDish() {
-    if (!newDish.title.trim() || !newDish.price.trim()) {
-      alert(t('error') + ': ' + t('titleAndPriceRequired'));
+    if (!newDish.title.trim() || !newDish.price) {
+      toasts.error(t('error') + ': ' + t('titleAndPriceRequired'));
       return;
     }
 
     try {
       // Create a new dish with a temporary ID
       const dish: Dish = {
-        ...newDish,
         id: crypto.randomUUID(),
         categoryId,
         title: newDish.title.trim(),
-        price: newDish.price.trim(),
-        description: newDish.description.trim()
+        price: parseFloat(newDish.price) || 0,
+        description: newDish.description.trim(),
+        imageUrl: newDish.imageUrl
       };
 
       // Update cache
@@ -135,7 +145,7 @@
     } catch (error) {
       console.error('Error adding dish:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     }
   }

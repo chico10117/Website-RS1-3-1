@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
+  import { toasts } from '$lib/stores/toast';
 
   export let dish: Dish;
   export let isEditing: boolean;
@@ -105,7 +106,7 @@
     } catch (error) {
       console.error('Error updating dish:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     }
   }

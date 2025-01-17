@@ -5,6 +5,7 @@
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
   import DishList from '../dishes/DishList.svelte';
+  import { toasts } from '$lib/stores/toast';
 
   export let category: Category;
   export let index: number;
@@ -52,7 +53,7 @@
     } catch (error) {
       console.error('Error updating category:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     }
   }

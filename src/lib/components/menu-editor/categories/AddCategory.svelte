@@ -3,6 +3,7 @@
   import type { Category } from '$lib/types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
+  import { toasts } from '$lib/stores/toast';
 
   export let selectedRestaurant: string | null;
 
@@ -32,7 +33,7 @@
       } catch (error) {
         console.error('Error adding category:', error);
         if (error instanceof Error) {
-          alert(t('error') + ': ' + error.message);
+          toasts.error(t('error') + ': ' + error.message);
         }
       }
     }
