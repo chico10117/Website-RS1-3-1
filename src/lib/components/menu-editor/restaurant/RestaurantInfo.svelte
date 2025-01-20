@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
+  import { user } from '$lib/stores/user';
 
   export let restaurantName: string;
   export let menuLogo: string;
@@ -23,6 +24,9 @@
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
+
+  // Make user store reactive
+  $: userName = $user.name;
 
   async function handleRestaurantNameInput() {
     if (restaurantName && !selectedRestaurant && !isCreatingRestaurant) {
@@ -193,60 +197,14 @@
   }
 </script>
 
-<div class="mb-6">
+<div class="mb-8">
   <label class="block text-lg font-semibold mb-3 text-gray-800">{t('restaurantName')}</label>
-  <div class="flex items-center space-x-2">
-    {#if isEditingRestaurant}
-      <div class="flex-1 flex items-center space-x-2">
-        <input
-          type="text"
-          class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
-          bind:value={editingRestaurantName}
-          on:keydown={handleRestaurantEditKeyPress}
-          autofocus
-        />
-        <button 
-          class="p-2 text-green-500 hover:text-green-600"
-          on:click={updateRestaurantName}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </button>
-        <button 
-          class="p-2 text-gray-500 hover:text-gray-600"
-          on:click={cancelEditingRestaurant}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-    {:else}
-      <div class="flex-1 flex items-center justify-between">
-        <input
-          type="text"
-          class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
-          placeholder={t('enterRestaurantName')}
-          bind:value={restaurantName}
-          on:blur={handleRestaurantNameInput}
-          readonly={!!selectedRestaurant}
-          disabled={!!selectedRestaurant}
-        />
-        {#if selectedRestaurant}
-          <button 
-            class="p-2 text-gray-500 hover:text-blue-500 ml-2"
-            on:click={startEditingRestaurant}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-            </svg>
-          </button>
-        {/if}
-      </div>
-    {/if}
-  </div>
+  <input
+    type="text"
+    bind:value={restaurantName}
+    placeholder={t('enterRestaurantName')}
+    class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  />
 </div>
 
 <div class="mb-8">

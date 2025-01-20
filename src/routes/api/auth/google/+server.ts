@@ -9,19 +9,27 @@ export async function POST({ request, cookies }: RequestEvent) {
       return json({ error: 'No credential provided' }, { status: 400 });
     }
 
-    // Aquí deberías verificar el token con Google
-    // y crear una sesión para el usuario
+    // Decode the JWT token
+    const [, payloadBase64] = credential.split('.');
+    const payload = JSON.parse(atob(payloadBase64));
 
-    // Por ahora, simplemente guardamos el token en una cookie
+    // Store user info in session cookie
     cookies.set('auth_token', credential, {
       path: '/',
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7 // 1 semana
+      maxAge: 60 * 60 * 24 * 7 // 1 week
     });
 
-    return json({ success: true });
+    return json({ 
+      success: true,
+      user: {
+        name: payload.name,
+        email: payload.email,
+        picture: payload.picture
+      }
+    });
   } catch (error) {
     console.error('Error processing Google login:', error);
     return json({ error: 'Internal server error' }, { status: 500 });
