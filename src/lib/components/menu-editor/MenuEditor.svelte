@@ -1,17 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import type { Category } from '$lib/types/menu.types';
-  import { translations } from '$lib/i18n/translations';
-  import { language } from '$lib/stores/language';
-  import { menuCache } from '$lib/stores/menu-cache';
   import { menuState } from '$lib/stores/menu-state';
-  import * as menuService from '$lib/services/menu.service';
-  import LanguageSwitch from '$lib/components/LanguageSwitch.svelte';
   import RestaurantInfo from './restaurant/RestaurantInfo.svelte';
-  import CategoryList from './categories/CategoryList.svelte';
   import MenuPreview from './preview/MenuPreview.svelte';
   import { toasts } from '$lib/stores/toast';
   import Toast from '$lib/components/ui/Toast.svelte';
+  import CategoryList from './categories/CategoryList.svelte';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -103,17 +96,17 @@
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 font-sans relative">
+<div class="min-h-screen bg-[#1a1b1e] dark:bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 font-sans relative">
   <Toast />
   <div class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-3xl font-bold text-gray-800 tracking-tight">{t('appTitle')}</h1>
+      <h1 class="text-3xl font-bold text-white dark:text-gray-800 tracking-tight">{t('appTitle')}</h1>
       <LanguageSwitch />
     </div>
     
     <div class="flex gap-8">
       <!-- Left Section - Menu Editor -->
-      <div class="flex-1 p-8 rounded-xl bg-white/30 backdrop-blur-md border border-white/50 shadow-lg">
+      <div class="flex-1 p-8 rounded-xl bg-[#25262b] dark:bg-white/30 backdrop-blur-md border border-[#2f3136] dark:border-white/50 shadow-lg">
         <RestaurantInfo
           restaurantName={$menuState.restaurantName}
           menuLogo={$menuState.menuLogo}
@@ -131,10 +124,10 @@
       </div>
 
       <!-- Vertical Divider -->
-      <div class="w-px bg-white/30"></div>
+      <div class="w-px bg-[#2f3136] dark:bg-white/30"></div>
 
       <!-- Right Section - Preview -->
-      <div class="flex-1 p-8">
+      <div class="flex-1 p-8 bg-[#25262b] dark:bg-transparent rounded-xl border border-[#2f3136] dark:border-none">
         <MenuPreview
           restaurantName={$menuState.restaurantName}
           menuLogo={$menuState.menuLogo}
@@ -166,4 +159,11 @@
       </div>
     {/if}
   </div>
-</div> 
+</div>
+
+<style>
+  span {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+</style> 

@@ -5,6 +5,7 @@
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
   import { toasts } from '$lib/stores/toast';
+  import { user } from '$lib/stores/user';
 
   export let restaurantName: string;
   export let menuLogo: string;
@@ -24,6 +25,9 @@
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
+
+  // Make user store reactive
+  $: userName = $user.name;
 
   async function handleRestaurantNameInput() {
     if (restaurantName && !selectedRestaurant && !isCreatingRestaurant) {
@@ -267,7 +271,7 @@
   }
 </script>
 
-<div class="mb-6">
+<div class="mb-8">
   <label class="block text-lg font-semibold mb-3 text-gray-800">{t('restaurantName')}</label>
   <div class="flex items-center space-x-2">
     {#if isEditingRestaurant}

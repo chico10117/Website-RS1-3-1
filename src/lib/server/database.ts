@@ -1,13 +1,9 @@
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import * as dotenv from 'dotenv';
 import * as schema from './schema';
 import { eq } from 'drizzle-orm';
 
-// Cargar variables de entorno
-dotenv.config();
-
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = 'postgresql://neondb_owner:rH7eRhfOGj4J@ep-jolly-sound-a2rw9fhx.eu-central-1.aws.neon.tech/neondb?sslmode=require';
 
 if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not defined');
