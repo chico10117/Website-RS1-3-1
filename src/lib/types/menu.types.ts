@@ -2,7 +2,10 @@ export interface Restaurant {
   id: string;
   name: string;
   slug: string;
-  logo?: string;
+  logo: string | null;
+  userId: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export interface Category {

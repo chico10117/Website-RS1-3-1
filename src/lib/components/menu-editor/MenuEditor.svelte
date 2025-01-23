@@ -11,7 +11,12 @@
   import Toast from '$lib/components/ui/Toast.svelte';
   import CategoryList from './categories/CategoryList.svelte';
   import LanguageSwitch from '$lib/components/ui/LanguageSwitch.svelte';
-  import type { Category } from '$lib/types/menu.types';
+  import type { Category, Restaurant } from '$lib/types/menu.types';
+  import { page } from '$app/stores';
+  import { currentRestaurant } from '$lib/stores/restaurant';
+  import RestaurantSelector from './RestaurantSelector.svelte';
+  import * as categoryService from '$lib/services/category.service';
+  import * as dishService from '$lib/services/dish.service';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -21,14 +26,59 @@
   $: console.log('Cache state:', $menuCache);
   $: console.log('Has unsaved changes:', $menuCache.hasUnsavedChanges);
 
+  let loading = true;
+  let error: string | null = null;
+
+  // Load restaurant data when currentRestaurant changes
+  $: if ($currentRestaurant) {
+    loadRestaurantData($currentRestaurant);
+  }
+
+  async function loadRestaurantData(restaurant: Restaurant) {
+    try {
+      loading = true;
+      console.log('Loading restaurant data:', restaurant);
+      
+      // Update restaurant info in menu state
+      menuState.updateRestaurantInfo(restaurant.name, restaurant.logo ?? '');
+      
+      // Load categories and dishes
+      const categories = await categoryService.fetchCategories(restaurant.id);
+      const categoriesWithDishes = await Promise.all(
+        categories.map(async category => {
+          const dishes = await dishService.fetchDishes(restaurant.id, category.id);
+          return { ...category, dishes };
+        })
+      );
+      
+      // Update menu state with loaded data
+      menuState.updateCategories(categoriesWithDishes);
+    } catch (err) {
+      console.error('Error loading restaurant data:', err);
+      error = err instanceof Error ? err.message : 'Failed to load menu data';
+    } finally {
+      loading = false;
+    }
+  }
+
   onMount(async () => {
     try {
-      await menuState.loadRestaurants();
-    } catch (error) {
-      console.error('Error loading restaurants:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
+      loading = true;
+      const restaurantId = $page.url.searchParams.get('restaurant');
+      
+      if (restaurantId) {
+        await currentRestaurant.loadRestaurant(restaurantId);
+      } else {
+        // If no restaurant ID is specified, load the first restaurant
+        const restaurants = await currentRestaurant.loadRestaurants();
+        if (restaurants.length > 0) {
+          await currentRestaurant.loadRestaurant(restaurants[0].id);
+        }
       }
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to load restaurant';
+    } finally {
+      loading = false;
     }
   });
 
@@ -42,7 +92,10 @@
       id: restaurantId,
       name,
       logo,
-      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-')
+      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-'),
+      userId: $currentRestaurant?.userId || '',
+      createdAt: $currentRestaurant?.createdAt || null,
+      updatedAt: new Date()
     });
 
     // Set the selected restaurant ID when creating a new one
@@ -57,9 +110,12 @@
 
   async function handleRestaurantSelect(event: CustomEvent<string>) {
     try {
-      await menuState.selectRestaurant(event.detail);
       // Clear cache when selecting a new restaurant
       menuCache.clearCache();
+      
+      // Load the restaurant data
+      const restaurantId = event.detail;
+      await currentRestaurant.loadRestaurant(restaurantId);
     } catch (error) {
       console.error('Error selecting restaurant:', error);
       if (error instanceof Error) {
@@ -103,65 +159,88 @@
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative">
-  <Toast />
-  <div class="container mx-auto p-4">
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
-    </div>
-    
-    <div class="flex gap-8">
-      <!-- Left Section - Menu Editor -->
-      <div class="flex-1 p-8 rounded-xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
-        <RestaurantInfo
-          restaurantName={$menuState.restaurantName}
-          menuLogo={$menuState.menuLogo}
-          selectedRestaurant={$menuState.selectedRestaurant}
-          restaurants={$menuState.restaurants}
-          on:update={handleRestaurantUpdate}
-          on:select={handleRestaurantSelect}
-        />
-
-        <CategoryList
-          categories={$menuState.categories}
-          selectedRestaurant={$menuState.selectedRestaurant}
-          on:update={handleCategoriesUpdate}
-        />
+<div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+  <div class="container mx-auto px-4 py-8">
+    {#if loading}
+      <div class="text-center text-white/70">
+        Loading restaurant...
       </div>
-
-      <!-- Vertical Divider -->
-      <div class="w-px bg-white/50 backdrop-blur-sm"></div>
-
-      <!-- Right Section - Preview -->
-      <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-xl border border-white/50 shadow-xl">
-        <MenuPreview
-          restaurantName={$menuState.restaurantName}
-          menuLogo={$menuState.menuLogo}
-          categories={$menuState.categories}
-        />
+    {:else if error}
+      <div class="text-center text-red-400">
+        {error}
       </div>
-    </div>
+    {:else if $currentRestaurant}
+      <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative">
+        <Toast />
+        <div class="container mx-auto p-4">
+          <div class="flex justify-between items-center mb-4">
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
+          </div>
+          
+          <div class="flex gap-8">
+            <!-- Left Section - Menu Editor -->
+            <div class="flex-1 p-8 rounded-xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
+              <RestaurantInfo
+                restaurantName={$menuState.restaurantName}
+                menuLogo={$menuState.menuLogo}
+                selectedRestaurant={$menuState.selectedRestaurant}
+                restaurants={$menuState.restaurants}
+                on:update={handleRestaurantUpdate}
+                on:select={handleRestaurantSelect}
+              />
 
-    <!-- Save Menu Button (Fixed to bottom right) -->
-    {#if $menuCache.hasUnsavedChanges}
-      <div class="fixed bottom-8 right-8 z-50">
-        <button
-          class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl"
-          on:click={saveAllChanges}
-          disabled={$menuState.isSaving}
-        >
-          {#if $menuState.isSaving}
-            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
+              <CategoryList
+                categories={$menuState.categories}
+                selectedRestaurant={$menuState.selectedRestaurant}
+                on:update={handleCategoriesUpdate}
+              />
+            </div>
+
+            <!-- Vertical Divider -->
+            <div class="w-px bg-white/50 backdrop-blur-sm"></div>
+
+            <!-- Right Section - Preview -->
+            <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-xl border border-white/50 shadow-xl">
+              <MenuPreview
+                restaurantName={$menuState.restaurantName}
+                menuLogo={$menuState.menuLogo}
+                categories={$menuState.categories}
+              />
+            </div>
+          </div>
+
+          <!-- Save Menu Button (Fixed to bottom right) -->
+          {#if $menuCache.hasUnsavedChanges}
+            <div class="fixed bottom-8 right-8 z-50">
+              <button
+                class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl"
+                on:click={saveAllChanges}
+                disabled={$menuState.isSaving}
+              >
+                {#if $menuState.isSaving}
+                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                {/if}
+                {t('saveMenu')}
+              </button>
+            </div>
           {/if}
-          {t('saveMenu')}
-        </button>
+        </div>
+      </div>
+
+      <!-- Restaurant Selector at the bottom -->
+      <div class="mt-8 pb-8">
+        <RestaurantSelector />
+      </div>
+    {:else}
+      <div class="text-center text-white/70">
+        No restaurant selected. Please create or select a restaurant.
       </div>
     {/if}
   </div>

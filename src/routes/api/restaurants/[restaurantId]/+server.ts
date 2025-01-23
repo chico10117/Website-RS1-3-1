@@ -23,16 +23,16 @@ export async function PUT({ params, request }: RequestEvent) {
       }, { status: 404 });
     }
 
-    // If name is being updated, generate new slug
-    let slug: string | undefined;
+    // If name is being updated, check for duplicates
     if (updateData.name !== undefined && updateData.name !== existingRestaurant[0].name) {
-      slug = generateSlug(updateData.name);
+      const slug = generateSlug(updateData.name);
       
-      // Check if slug is already taken by another restaurant
+      // Check if name is already taken by another restaurant owned by the same user
       const slugExists = await db.select()
         .from(restaurants)
         .where(
           and(
+            eq(restaurants.userId, existingRestaurant[0].userId),
             eq(restaurants.slug, slug),
             ne(restaurants.id, restaurantId as string)
           )
@@ -45,13 +45,27 @@ export async function PUT({ params, request }: RequestEvent) {
           error: 'A restaurant with this name already exists' 
         }, { status: 400 });
       }
+
+      // Update the restaurant with new name and slug
+      const [updatedRestaurant] = await db.update(restaurants)
+        .set({
+          name: updateData.name,
+          slug,
+          ...(updateData.logo !== undefined && { logo: updateData.logo }),
+          updatedAt: new Date()
+        })
+        .where(eq(restaurants.id, restaurantId as string))
+        .returning();
+
+      return json({ 
+        success: true, 
+        data: updatedRestaurant 
+      });
     }
 
-    // Update the restaurant
+    // If only updating logo or other fields
     const [updatedRestaurant] = await db.update(restaurants)
       .set({
-        ...(updateData.name !== undefined && { name: updateData.name }),
-        ...(slug !== undefined && { slug }),
         ...(updateData.logo !== undefined && { logo: updateData.logo }),
         updatedAt: new Date()
       })

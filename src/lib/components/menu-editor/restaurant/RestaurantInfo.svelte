@@ -6,14 +6,20 @@
   import { menuCache } from '$lib/stores/menu-cache';
   import { toasts } from '$lib/stores/toast';
   import { user } from '$lib/stores/user';
+  import { currentRestaurant } from '$lib/stores/restaurant';
 
-  export let restaurantName: string;
-  export let menuLogo: string;
-  export let selectedRestaurant: string | null;
-  export let restaurants: Restaurant[];
+  export let restaurantName = '';
+  export let menuLogo: string | null = null;
+  export let selectedRestaurant: string | null = null;
+  export let restaurants: Restaurant[] = [];
+
+  interface UpdateEvent {
+    name: string;
+    logo: string | null;
+  }
 
   const dispatch = createEventDispatcher<{
-    update: { name: string; logo: string };
+    update: UpdateEvent;
     select: string;
   }>();
 
@@ -29,6 +35,19 @@
   // Make user store reactive
   $: userName = $user.name;
 
+  // Helper function to ensure string for UI
+  function ensureString(value: string | null | undefined): string {
+    return value || '';
+  }
+
+  // Helper function to ensure string or null for database
+  function ensureStringOrNull(value: string | null | undefined): string | null {
+    return value || null;
+  }
+
+  // Computed value for logo display
+  $: displayLogo = ensureString(menuLogo);
+
   async function handleRestaurantNameInput() {
     if (restaurantName && !selectedRestaurant && !isCreatingRestaurant) {
       isCreatingRestaurant = true;
@@ -41,16 +60,22 @@
         menuCache.updateRestaurant({
           id: tempId,
           name: restaurantName.trim(),
-          logo: menuLogo || '',
-          slug
+          logo: ensureStringOrNull(menuLogo),
+          slug,
+          userId: $user.id,
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
 
         // Only dispatch the update event, don't select the restaurant yet
-        dispatch('update', { name: restaurantName.trim(), logo: menuLogo || '' });
+        dispatch('update', { 
+          name: restaurantName.trim(), 
+          logo: menuLogo
+        });
       } catch (error) {
         console.error('Error updating restaurant:', error);
         if (error instanceof Error) {
-          alert(t('error') + ': ' + error.message);
+          toasts.error(t('error') + ': ' + error.message);
         }
       } finally {
         isCreatingRestaurant = false;
@@ -64,26 +89,41 @@
     }
 
     try {
-      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
-      
-      // Update cache instead of saving
-      menuCache.updateRestaurant({
-        id: selectedRestaurant || '',
-        name: editingRestaurantName.trim(),
-        logo: menuLogo,
-        slug
+      const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: editingRestaurantName.trim(),
+          logo: ensureStringOrNull(menuLogo)
+        })
       });
+
+      const result = await response.json();
       
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update restaurant');
+      }
+
+      // Update the restaurant in the store
+      currentRestaurant.updateCachedRestaurant(result.data);
+      
+      // Update the local state
+      restaurantName = editingRestaurantName.trim();
+      isEditingRestaurant = false;
+      
+      // Dispatch update event
       dispatch('update', { 
         name: editingRestaurantName.trim(), 
-        logo: menuLogo 
+        logo: menuLogo
       });
-      
-      isEditingRestaurant = false;
+
+      toasts.success(t('restaurantUpdated'));
     } catch (error) {
       console.error('Error updating restaurant:', error);
       if (error instanceof Error) {
-        alert(t('error') + ': ' + error.message);
+        toasts.error(t('error') + ': ' + error.message);
       }
     }
   }
@@ -100,36 +140,6 @@
       const file = input.files?.[0];
       
       if (!file) return;
-
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        const errorDiv = document.getElementById('logo-error');
-        const errorText = errorDiv?.querySelector('span');
-        if (errorDiv && errorText) {
-          errorText.textContent = t('invalidFileType') + ' (JPEG, PNG, WebP)';
-          errorDiv.classList.remove('hidden');
-          setTimeout(() => {
-            errorDiv.classList.add('hidden');
-          }, 3000);
-        }
-        return;
-      }
-
-      // Validate file size (max 4MB)
-      const maxSize = 4 * 1024 * 1024; // 4MB in bytes
-      if (file.size > maxSize) {
-        const errorDiv = document.getElementById('logo-error');
-        const errorText = errorDiv?.querySelector('span');
-        if (errorDiv && errorText) {
-          errorText.textContent = t('fileTooLarge') + ' (max 4MB)';
-          errorDiv.classList.remove('hidden');
-          setTimeout(() => {
-            errorDiv.classList.add('hidden');
-          }, 3000);
-        }
-        return;
-      }
 
       const formData = new FormData();
       formData.append('file', file);
@@ -153,12 +163,16 @@
 
       // Update cache with new logo
       if (selectedRestaurant) {
-        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+        const now = new Date();
         menuCache.updateRestaurant({
           id: selectedRestaurant,
           name: restaurantName,
-          logo: uploadResult.url,
-          slug
+          logo: ensureStringOrNull(uploadResult.url),
+          slug,
+          userId: $user.id,
+          createdAt: now,
+          updatedAt: now
         });
       }
 
@@ -166,23 +180,13 @@
         name: restaurantName,
         logo: uploadResult.url
       });
-
     } catch (error) {
       console.error('Error uploading logo:', error);
-      const errorDiv = document.getElementById('logo-error');
-      const errorText = errorDiv?.querySelector('span');
-      if (errorDiv && errorText) {
-        errorText.textContent = error instanceof Error ? error.message : t('fileUploadError');
-        errorDiv.classList.remove('hidden');
-        setTimeout(() => {
-          errorDiv.classList.add('hidden');
-        }, 3000);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
       }
     } finally {
       isUploading = false;
-      // Reset the file input
-      const input = event.target as HTMLInputElement;
-      input.value = '';
     }
   }
 
@@ -234,24 +238,28 @@
     }
 
     try {
-      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
       
       if (!selectedRestaurant) {
         toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
         return;
       }
 
+      const now = new Date();
       // Update cache instead of saving
       menuCache.updateRestaurant({
         id: selectedRestaurant,
         name: editingRestaurantName.trim(),
-        logo: menuLogo,
-        slug
+        logo: ensureStringOrNull(menuLogo),
+        slug,
+        userId: $user.id,
+        createdAt: now,
+        updatedAt: now
       });
       
       dispatch('update', { 
         name: editingRestaurantName.trim(), 
-        logo: menuLogo 
+        logo: menuLogo
       });
       
       isEditingRestaurant = false;
@@ -333,12 +341,7 @@
   <div class="flex items-start gap-4">
     <div class="relative group">
       <form 
-        class="w-24 h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-200 
-          {!restaurantName 
-            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' 
-            : menuLogo 
-              ? 'border-transparent shadow-md hover:shadow-lg' 
-              : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300'}"
+        class="w-24 h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-200 {!restaurantName ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' : menuLogo ? 'border-transparent shadow-md hover:shadow-lg' : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300'}"
         on:submit|preventDefault={() => {
           if (!restaurantName) {
             const errorMessage = document.getElementById('logo-error');
@@ -360,7 +363,7 @@
         <button type="submit" class="w-full h-full flex flex-col items-center justify-center">
           {#if menuLogo}
             <img 
-              src={menuLogo} 
+              src={ensureString(menuLogo)} 
               alt="Menu logo" 
               class="w-full h-full object-cover rounded-xl"
             />
