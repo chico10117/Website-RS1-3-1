@@ -169,7 +169,7 @@
       <div class="text-center text-red-400">
         {error}
       </div>
-    {:else if $currentRestaurant}
+    {:else}
       <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative">
         <Toast />
         <div class="container mx-auto p-4">
@@ -237,10 +237,6 @@
       <!-- Restaurant Selector at the bottom -->
       <div class="mt-8 pb-8">
         <RestaurantSelector />
-      </div>
-    {:else}
-      <div class="text-center text-white/70">
-        No restaurant selected. Please create or select a restaurant.
       </div>
     {/if}
   </div>
