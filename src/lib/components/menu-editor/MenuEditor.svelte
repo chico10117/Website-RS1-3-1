@@ -10,6 +10,7 @@
   import { toasts } from '$lib/stores/toast';
   import Toast from '$lib/components/ui/Toast.svelte';
   import CategoryList from './categories/CategoryList.svelte';
+  import LanguageSwitch from '$lib/components/ui/LanguageSwitch.svelte';
   import type { Category } from '$lib/types/menu.types';
 
   // Make translations reactive
@@ -102,17 +103,16 @@
   }
 </script>
 
-<div class="min-h-screen bg-[#1a1b1e] dark:bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 font-sans relative">
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative">
   <Toast />
   <div class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-3xl font-bold text-white dark:text-gray-800 tracking-tight">{t('appTitle')}</h1>
-      <slot name="language-switch" />
+      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
     </div>
     
     <div class="flex gap-8">
       <!-- Left Section - Menu Editor -->
-      <div class="flex-1 p-8 rounded-xl bg-[#25262b] dark:bg-white/30 backdrop-blur-md border border-[#2f3136] dark:border-white/50 shadow-lg">
+      <div class="flex-1 p-8 rounded-xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
         <RestaurantInfo
           restaurantName={$menuState.restaurantName}
           menuLogo={$menuState.menuLogo}
@@ -130,10 +130,10 @@
       </div>
 
       <!-- Vertical Divider -->
-      <div class="w-px bg-[#2f3136] dark:bg-white/30"></div>
+      <div class="w-px bg-white/50 backdrop-blur-sm"></div>
 
       <!-- Right Section - Preview -->
-      <div class="flex-1 p-8 bg-[#25262b] dark:bg-transparent rounded-xl border border-[#2f3136] dark:border-none">
+      <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-xl border border-white/50 shadow-xl">
         <MenuPreview
           restaurantName={$menuState.restaurantName}
           menuLogo={$menuState.menuLogo}
@@ -146,7 +146,7 @@
     {#if $menuCache.hasUnsavedChanges}
       <div class="fixed bottom-8 right-8 z-50">
         <button
-          class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-lg"
+          class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl"
           on:click={saveAllChanges}
           disabled={$menuState.isSaving}
         >
@@ -168,5 +168,16 @@
 </div>
 
 <style>
-  /* Removed unused span selector */
+  :global(input[type="text"]) {
+    @apply border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out bg-white/80 backdrop-blur-sm;
+  }
+  
+  :global(input[type="text"]::placeholder) {
+    @apply text-gray-400;
+  }
+
+  span {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 </style> 
