@@ -112,7 +112,7 @@
           menuState.updateCategories([]);
           currentRestaurant.set(null);
         }
-        toasts.success(t('restaurantDeleted'));
+        toasts.success(t('restaurantDeleteSuccess'));
       }
     } catch (err) {
       console.error('Error deleting restaurant:', err);
