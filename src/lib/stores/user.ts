@@ -69,16 +69,4 @@ export const user = {
     }
     userStore.set({ id: null, name: null, email: null, picture: null });
   }
-};
-
-// Inicializar el usuario desde la cookie al cargar la página
-if (browser) {
-  fetch('/api/auth/me')
-    .then(res => res.json())
-    .then(data => {
-      if (data.user) {
-        user.set(data.user);
-      }
-    })
-    .catch(console.error);
-} 
+}; 
