@@ -1,10 +1,16 @@
 <script lang="ts">
   import { menuState } from '$lib/stores/menu-state';
+  import { menuCache } from '$lib/stores/menu-cache';
+  import { language } from '$lib/stores/language';
+  import { translations } from '$lib/i18n/translations';
+  import * as menuService from '$lib/services/menu.service';
+  import { onMount } from 'svelte';
   import RestaurantInfo from './restaurant/RestaurantInfo.svelte';
   import MenuPreview from './preview/MenuPreview.svelte';
   import { toasts } from '$lib/stores/toast';
   import Toast from '$lib/components/ui/Toast.svelte';
   import CategoryList from './categories/CategoryList.svelte';
+  import type { Category } from '$lib/types/menu.types';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -101,7 +107,7 @@
   <div class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-3xl font-bold text-white dark:text-gray-800 tracking-tight">{t('appTitle')}</h1>
-      <LanguageSwitch />
+      <slot name="language-switch" />
     </div>
     
     <div class="flex gap-8">
@@ -162,8 +168,5 @@
 </div>
 
 <style>
-  span {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+  /* Removed unused span selector */
 </style> 

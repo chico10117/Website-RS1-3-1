@@ -4,5 +4,5 @@
 </script>
 
 <MenuEditor>
-  <LanguageSwitch slot="language-switch" />
+  <!-- <LanguageSwitch slot="language-switch" /> -->
 </MenuEditor> 

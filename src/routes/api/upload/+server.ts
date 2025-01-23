@@ -4,6 +4,7 @@ import { put } from '@vercel/blob';
 import { translations } from '$lib/i18n/translations';
 import { language } from '$lib/stores/language';
 import { get } from 'svelte/store';
+import env from '$lib/config/env';
 
 export async function POST({ request }: RequestEvent) {
   const currentLanguage = get(language);
@@ -29,9 +30,10 @@ export async function POST({ request }: RequestEvent) {
     }
 
     try {
-      // Upload to Vercel Blob Storage
+      // Upload to Vercel Blob Storage with token
       const { url } = await put(file.name, file, {
         access: 'public',
+        token: env.BLOB_READ_WRITE_TOKEN
       });
 
       console.log('File uploaded to Vercel Blob, URL:', url); // Debug log
