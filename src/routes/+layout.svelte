@@ -6,6 +6,11 @@
   import { user } from '$lib/stores/user';
   import { page } from '$app/stores';
 
+  // Initialize user store with server data
+  $: if (browser && $page.data.user) {
+    user.set($page.data.user);
+  }
+
   // Lógica de protección de ruta
   $: if (browser) {
     const isProtectedRoute = $page.url.pathname === '/';

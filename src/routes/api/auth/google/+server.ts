@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
+import { db } from '$lib/server/database';
+import { users } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 
 export async function POST({ request, cookies }: RequestEvent) {
   try {
@@ -13,6 +16,35 @@ export async function POST({ request, cookies }: RequestEvent) {
     const [, payloadBase64] = credential.split('.');
     const payload = JSON.parse(atob(payloadBase64));
 
+    // Find or create user
+    const existingUsers = await db.select().from(users).where(eq(users.email, payload.email)).limit(1);
+    
+    let dbUser;
+    if (!existingUsers.length) {
+      // Create new user
+      const newUsers = await db.insert(users)
+        .values({
+          email: payload.email,
+          name: payload.name,
+          picture: payload.picture,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      dbUser = newUsers[0];
+    } else {
+      // Update existing user
+      const updatedUsers = await db.update(users)
+        .set({
+          name: payload.name,
+          picture: payload.picture,
+          updatedAt: new Date()
+        })
+        .where(eq(users.email, payload.email))
+        .returning();
+      dbUser = updatedUsers[0];
+    }
+
     // Store user info in session cookie
     cookies.set('auth_token', credential, {
       path: '/',
@@ -25,9 +57,10 @@ export async function POST({ request, cookies }: RequestEvent) {
     return json({ 
       success: true,
       user: {
-        name: payload.name,
-        email: payload.email,
-        picture: payload.picture
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        picture: dbUser.picture
       }
     });
   } catch (error) {

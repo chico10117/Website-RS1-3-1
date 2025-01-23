@@ -1,9 +1,7 @@
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ cookies }) => {
-  const authToken = cookies.get('auth_token');
-  
+export const load: LayoutServerLoad = async ({ locals }) => {
   return {
-    authenticated: !!authToken
+    user: locals.user
   };
 }; 

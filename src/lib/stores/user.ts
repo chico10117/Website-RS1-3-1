@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
 interface User {
+  id: string | null;
   name: string | null;
   email: string | null;
   picture: string | null;
@@ -24,11 +25,11 @@ function formatDisplayName(fullName: string | null): string | null {
 
 // Función para obtener el usuario inicial desde localStorage
 const getStoredUser = (): User => {
-  if (!browser) return { name: null, email: null, picture: null };
+  if (!browser) return { id: null, name: null, email: null, picture: null };
   
   try {
     const storedUser = localStorage.getItem('user');
-    if (!storedUser) return { name: null, email: null, picture: null };
+    if (!storedUser) return { id: null, name: null, email: null, picture: null };
 
     const user = JSON.parse(storedUser);
     return {
@@ -36,7 +37,7 @@ const getStoredUser = (): User => {
       name: user.name ? formatDisplayName(user.name) : null
     };
   } catch {
-    return { name: null, email: null, picture: null };
+    return { id: null, name: null, email: null, picture: null };
   }
 };
 
@@ -66,7 +67,7 @@ export const user = {
     if (browser) {
       localStorage.removeItem('user');
     }
-    userStore.set({ name: null, email: null, picture: null });
+    userStore.set({ id: null, name: null, email: null, picture: null });
   }
 };
 

@@ -1,12 +1,29 @@
 import { json } from '@sveltejs/kit';
-import { db, createRestaurantWithRelations, getRestaurantWithRelations } from '$lib/server/database';
-import { restaurants } from '$lib/server/schema';
+import { db } from '$lib/server/database';
+import { restaurants, users } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import { generateSlug } from '$lib/utils/slug';
 
-export async function POST({ request }: RequestEvent) {
+async function getUserFromToken(token: string) {
+  const [, payloadBase64] = token.split('.');
+  const payload = JSON.parse(atob(payloadBase64));
+  const [user] = await db.select().from(users).where(eq(users.email, payload.email));
+  return user;
+}
+
+export async function POST({ request, cookies }: RequestEvent) {
   try {
+    const token = cookies.get('auth_token');
+    if (!token) {
+      return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
     const { name, logo } = await request.json();
 
     if (!name) {
@@ -18,7 +35,7 @@ export async function POST({ request }: RequestEvent) {
 
     const slug = generateSlug(name);
 
-    // Check if a restaurant with this slug already exists
+    // Check if a restaurant with this slug already exists for this user
     const existingRestaurant = await db.select()
       .from(restaurants)
       .where(eq(restaurants.slug, slug))
@@ -37,6 +54,7 @@ export async function POST({ request }: RequestEvent) {
         name,
         slug,
         logo: logo || null,
+        userId: user.id,
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -56,30 +74,47 @@ export async function POST({ request }: RequestEvent) {
   }
 }
 
-export async function GET({ url }: RequestEvent) {
+export async function GET({ url, cookies }: RequestEvent) {
   try {
-    console.log('Fetching restaurants...'); // Debug log
-    
+    const token = cookies.get('auth_token');
+    if (!token) {
+      return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
     const restaurantId = url.searchParams.get('id');
     
     if (restaurantId) {
-      // Si se proporciona un ID, obtener un restaurante específico con sus relaciones
-      const restaurant = await getRestaurantWithRelations(restaurantId);
-      if (!restaurant) {
+      // Get a specific restaurant with its relations
+      const restaurant = await db.select()
+        .from(restaurants)
+        .where(eq(restaurants.id, restaurantId))
+        .limit(1);
+
+      if (!restaurant.length) {
         return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
       }
-      return json({ success: true, data: restaurant });
+
+      // Verify ownership
+      if (restaurant[0].userId !== user.id) {
+        return json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      }
+
+      return json({ success: true, data: restaurant[0] });
     }
     
-    // Si no se proporciona ID, obtener todos los restaurantes (sin relaciones)
-    const allRestaurants = await db.select().from(restaurants);
-    console.log('Found restaurants:', allRestaurants); // Debug log
-    return json({ success: true, data: allRestaurants });
+    // Get all restaurants for the authenticated user
+    const userRestaurants = await db.select()
+      .from(restaurants)
+      .where(eq(restaurants.userId, user.id));
+
+    return json({ success: true, data: userRestaurants });
   } catch (error) {
     console.error('Error fetching restaurants:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message, error.stack);
-    }
     return json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error',
