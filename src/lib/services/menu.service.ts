@@ -13,7 +13,7 @@ interface SaveResult {
 
 export async function saveMenuChanges(
   cache: MenuCache,
-  restaurantData: { name: string; logo: string; slug?: string },
+  restaurantData: { name: string; logo: string | null; slug?: string },
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
   // Step 1: Save restaurant

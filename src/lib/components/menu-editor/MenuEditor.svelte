@@ -30,8 +30,24 @@
   let error: string | null = null;
 
   // Load restaurant data when currentRestaurant changes
-  $: if ($currentRestaurant) {
-    loadRestaurantData($currentRestaurant);
+  $: if ($currentRestaurant && $page.url.searchParams.get('restaurant')) {
+    const restaurantId = $page.url.searchParams.get('restaurant');
+    // Only load data if there's a restaurant ID in the URL and it matches
+    if (restaurantId === $currentRestaurant.id) {
+      loadRestaurantData($currentRestaurant);
+    } else {
+      // Clear state if no match
+      menuCache.clearCache();
+      menuState.reset();
+      menuState.updateRestaurantInfo('', null);
+      menuState.updateCategories([]);
+      currentRestaurant.set(null);
+      
+      // Remove URL parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('restaurant');
+      window.history.replaceState({}, '', url.toString());
+    }
   }
 
   async function loadRestaurantData(restaurant: Restaurant) {
@@ -39,20 +55,24 @@
       loading = true;
       console.log('Loading restaurant data:', restaurant);
       
-      // Update restaurant info in menu state
-      menuState.updateRestaurantInfo(restaurant.name, restaurant.logo ?? '');
-      
-      // Load categories and dishes
-      const categories = await categoryService.fetchCategories(restaurant.id);
-      const categoriesWithDishes = await Promise.all(
-        categories.map(async category => {
-          const dishes = await dishService.fetchDishes(restaurant.id, category.id);
-          return { ...category, dishes };
-        })
-      );
-      
-      // Update menu state with loaded data
-      menuState.updateCategories(categoriesWithDishes);
+      const restaurantId = $page.url.searchParams.get('restaurant');
+      // Only load if there's a matching restaurant ID in the URL
+      if (restaurantId === restaurant.id) {
+        // Update restaurant info in menu state
+        menuState.updateRestaurantInfo(restaurant.name, restaurant.logo);
+        
+        // Load categories and dishes
+        const categories = await categoryService.fetchCategories(restaurant.id);
+        const categoriesWithDishes = await Promise.all(
+          categories.map(async category => {
+            const dishes = await dishService.fetchDishes(restaurant.id, category.id);
+            return { ...category, dishes };
+          })
+        );
+        
+        // Update menu state with loaded data
+        menuState.updateCategories(categoriesWithDishes);
+      }
     } catch (err) {
       console.error('Error loading restaurant data:', err);
       error = err instanceof Error ? err.message : 'Failed to load menu data';
@@ -64,17 +84,19 @@
   onMount(async () => {
     try {
       loading = true;
-      const restaurantId = $page.url.searchParams.get('restaurant');
       
-      if (restaurantId) {
-        await currentRestaurant.loadRestaurant(restaurantId);
-      } else {
-        // If no restaurant ID is specified, load the first restaurant
-        const restaurants = await currentRestaurant.loadRestaurants();
-        if (restaurants.length > 0) {
-          await currentRestaurant.loadRestaurant(restaurants[0].id);
-        }
-      }
+      // Clear all state and cache on page load - same as Add Restaurant button
+      menuCache.clearCache();
+      menuState.reset();
+      menuState.updateRestaurantInfo('', null);
+      menuState.updateCategories([]);
+      currentRestaurant.set(null);
+      
+      // Remove any URL parameters
+      const url = new URL(window.location.href);
+      url.searchParams.delete('restaurant');
+      window.history.replaceState({}, '', url.toString());
+      
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load restaurant';
     } finally {
@@ -83,7 +105,7 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ name: string; logo: string }>) {
+  async function handleRestaurantUpdate(event: CustomEvent<{ name: string; logo: string | null }>) {
     const { name, logo } = event.detail;
     const restaurantId = $menuState.selectedRestaurant || crypto.randomUUID();
     

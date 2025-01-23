@@ -12,7 +12,7 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 }
 
 export async function createOrUpdateRestaurant(
-  restaurantData: { name: string; logo: string; slug?: string }, 
+  restaurantData: { name: string; logo: string | null; slug?: string }, 
   restaurantId?: string
 ): Promise<Restaurant> {
   const method = restaurantId ? 'PUT' : 'POST';

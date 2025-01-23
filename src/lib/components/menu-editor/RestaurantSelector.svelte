@@ -1,9 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { currentRestaurant } from '$lib/stores/restaurant';
-  import type { Restaurant } from '$lib/types/menu.types';
+  import type { Restaurant, Category } from '$lib/types/menu.types';
   import { Button } from '$lib/components/ui/button';
   import { goto } from '$app/navigation';
+  import { menuCache } from '$lib/stores/menu-cache';
+  import { menuState } from '$lib/stores/menu-state';
+  import * as categoryService from '$lib/services/category.service';
+  import * as dishService from '$lib/services/dish.service';
 
   let restaurants: Restaurant[] = [];
   let loading = true;
@@ -13,6 +17,14 @@
   onMount(async () => {
     try {
       loading = true;
+      // Clear all state on page load
+      menuCache.clearCache();
+      menuState.reset();
+      menuState.updateRestaurantInfo('', null);
+      menuState.updateCategories([]);
+      currentRestaurant.set(null);
+      
+      // Load restaurants
       restaurants = await currentRestaurant.loadRestaurants();
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load restaurants';
@@ -24,18 +36,47 @@
   async function handleRestaurantSelect(restaurant: Restaurant) {
     try {
       switchingRestaurant = restaurant.id;
+      
+      // Clear previous state
+      menuCache.clearCache();
+      menuState.reset();
+      
+      // Load the restaurant data
       await currentRestaurant.loadRestaurant(restaurant.id);
-      // Use replaceState to avoid adding to browser history
-      goto(`/?restaurant=${restaurant.id}`, { 
-        replaceState: true,
-        invalidateAll: true // Force SvelteKit to reload data
-      });
+      
+      // Update URL without reloading
+      const url = new URL(window.location.href);
+      url.searchParams.set('restaurant', restaurant.id);
+      window.history.replaceState({}, '', url.toString());
+      
+      // Load categories and dishes
+      const categories = await categoryService.fetchCategories(restaurant.id);
+      const categoriesWithDishes = await Promise.all(
+        categories.map(async (category: Category) => {
+          const dishes = await dishService.fetchDishes(restaurant.id, category.id);
+          return { ...category, dishes };
+        })
+      );
+      
+      // Update menu state
+      menuState.updateRestaurantInfo(restaurant.name, restaurant.logo);
+      menuState.updateCategories(categoriesWithDishes);
+      
     } catch (err) {
       console.error('Error switching restaurant:', err);
       error = err instanceof Error ? err.message : 'Failed to switch restaurant';
     } finally {
       switchingRestaurant = null;
     }
+  }
+
+  async function handleAddRestaurant() {
+    // Clear current restaurant
+    menuCache.clearCache();
+    menuState.reset();
+    menuState.updateRestaurantInfo('', null);
+    menuState.updateCategories([]);
+    currentRestaurant.set(null);
   }
 </script>
 
@@ -46,7 +87,7 @@
       <Button
         variant="outline"
         class="bg-white/5 text-white hover:bg-white/10 hover:text-white"
-        on:click={() => goto('/restaurants/new')}
+        on:click={handleAddRestaurant}
       >
         Add Restaurant
       </Button>

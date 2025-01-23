@@ -8,20 +8,22 @@ export interface MenuState {
   restaurants: Restaurant[];
   selectedRestaurant: string | null;
   restaurantName: string;
-  menuLogo: string;
+  menuLogo: string | null;
   categories: Category[];
   isSaving: boolean;
 }
 
 function createMenuState() {
-  const { subscribe, set, update } = writable<MenuState>({
+  const initialState: MenuState = {
     restaurants: [],
     selectedRestaurant: null,
     restaurantName: '',
-    menuLogo: '',
+    menuLogo: null,
     categories: [],
     isSaving: false
-  });
+  };
+
+  const { subscribe, set, update } = writable<MenuState>(initialState);
 
   // Derived store for the current restaurant
   const currentRestaurant = derived({ subscribe }, $state => 
@@ -31,6 +33,31 @@ function createMenuState() {
   return {
     subscribe,
     
+    // Reset state to initial values
+    reset() {
+      const initialState: MenuState = {
+        restaurants: [],
+        selectedRestaurant: null,
+        restaurantName: '',
+        menuLogo: null,
+        categories: [],
+        isSaving: false
+      };
+      
+      // First set to initial state
+      set(initialState);
+      
+      // Then force a clean state with an explicit update
+      update(state => ({
+        ...initialState,
+        categories: [],
+        restaurants: [],
+        selectedRestaurant: null,
+        restaurantName: '',
+        menuLogo: null
+      }));
+    },
+
     // Load initial data
     async loadRestaurants() {
       try {
@@ -74,7 +101,7 @@ function createMenuState() {
       }
     },
 
-    updateRestaurantInfo(name: string, logo: string) {
+    updateRestaurantInfo(name: string, logo: string | null) {
       update(state => ({
         ...state,
         restaurantName: name,
