@@ -70,3 +70,4 @@ store_wa-session/
 # Package files
 *.tgz
 .yarn-integrity
+.vercel
