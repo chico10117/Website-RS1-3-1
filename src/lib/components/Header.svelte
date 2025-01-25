@@ -5,6 +5,7 @@
   import { user } from '$lib/stores/user';
 
   $: userName = $user.name;
+  $: userPicture = $user.picture;
   $: isMenuEditor = $page.url.pathname === '/';
   let isDropdownOpen = false;
 
@@ -38,9 +39,16 @@
   {#if userName && isMenuEditor}
     <div class="relative user-menu">
       <button
-        class="px-4 py-2 bg-black/30 backdrop-blur-md rounded-lg border border-white/10 hover:bg-black/40 transition-colors"
+        class="px-4 py-2 bg-black/30 backdrop-blur-md rounded-lg border border-white/10 hover:bg-black/40 transition-colors flex items-center gap-2"
         on:click={() => isDropdownOpen = !isDropdownOpen}
       >
+        {#if userPicture}
+          <img 
+            src={userPicture} 
+            alt="Profile" 
+            class="w-10 h-10 rounded-full object-cover"
+          />
+        {/if}
         <span class="text-sm font-medium text-white whitespace-nowrap">
           {userName}
         </span>

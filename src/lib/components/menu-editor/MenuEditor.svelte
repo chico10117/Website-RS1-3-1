@@ -202,7 +202,7 @@
         {error}
       </div>
     {:else}
-      <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative">
+      <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative rounded-3xl">
         <Toast />
         <div class="container mx-auto p-4">
           <div class="flex justify-between items-center mb-4">
@@ -216,7 +216,7 @@
           
           <div class="flex gap-8">
             <!-- Left Section - Menu Editor -->
-            <div class="flex-1 p-8 rounded-xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
+            <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
               <RestaurantInfo
                 restaurantName={$menuState.restaurantName}
                 menuLogo={$menuState.menuLogo}
@@ -237,7 +237,7 @@
             <div class="w-px bg-white/50 backdrop-blur-sm"></div>
 
             <!-- Right Section - Preview -->
-            <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-xl border border-white/50 shadow-xl">
+            <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-3xl border border-white/50 shadow-xl">
               <MenuPreview
                 restaurantName={$menuState.restaurantName}
                 menuLogo={$menuState.menuLogo}

@@ -73,26 +73,57 @@
     }
   }
 
+  function startEditingRestaurant() {
+    editingRestaurantName = restaurantName;
+    isEditingRestaurant = true;
+  }
+
+  function cancelEditingRestaurant() {
+    editingRestaurantName = restaurantName;
+    isEditingRestaurant = false;
+  }
+
+  function handleRestaurantEditKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      updateRestaurantName();
+    } else if (event.key === 'Escape') {
+      cancelEditingRestaurant();
+    }
+  }
+
   async function updateRestaurantName() {
-    if (!selectedRestaurant || !editingRestaurantName.trim()) {
+    if (!editingRestaurantName.trim()) {
+      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
       return;
     }
 
     try {
-      // Dispatch update event with the existing ID
-      dispatch('update', { 
-        id: selectedRestaurant,
-        name: editingRestaurantName.trim(), 
-        logo: menuLogo
+      if (!selectedRestaurant) {
+        toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
+        return;
+      }
+
+      // Only update the name in the cache
+      menuCache.updateRestaurant({
+        ...$currentRestaurant!, // Keep all existing restaurant data
+        name: editingRestaurantName.trim(), // Only update the name
+        updatedAt: new Date() // Update the modification date
       });
 
-      // Update the local state
+      // Update local state
       restaurantName = editingRestaurantName.trim();
-      isEditingRestaurant = false;
+      
+      // Dispatch update event with only the necessary fields
+      dispatch('update', {
+        id: selectedRestaurant,
+        name: editingRestaurantName.trim(),
+        logo: menuLogo // Keep existing logo
+      });
 
-      toasts.success(t('restaurantUpdated'));
+      // Exit edit mode
+      isEditingRestaurant = false;
     } catch (error) {
-      console.error('Error updating restaurant:', error);
+      console.error('Error updating restaurant name:', error);
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
       }
@@ -180,58 +211,12 @@
     }
   }
 
-  function startEditingRestaurant() {
-    isEditingRestaurant = true;
-    editingRestaurantName = restaurantName;
-  }
-
-  function cancelEditingRestaurant() {
-    isEditingRestaurant = false;
-    editingRestaurantName = '';
-  }
-
-  async function handleRestaurantEditKeyPress(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      await updateRestaurantName();
-    } else if (event.key === 'Escape') {
-      cancelEditingRestaurant();
-    }
-  }
-
   async function handleRestaurantSelect(event: Event) {
     const select = event.target as HTMLSelectElement;
     try {
       dispatch('select', select.value);
     } catch (error) {
       console.error('Error selecting restaurant:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
-    }
-  }
-
-  async function saveRestaurantChanges() {
-    if (!editingRestaurantName.trim()) {
-      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
-      return;
-    }
-
-    try {
-      if (!selectedRestaurant) {
-        toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
-        return;
-      }
-
-      // Dispatch update event with the existing ID
-      dispatch('update', { 
-        id: selectedRestaurant,
-        name: editingRestaurantName.trim(), 
-        logo: menuLogo
-      });
-      
-      isEditingRestaurant = false;
-    } catch (error) {
-      console.error('Error updating restaurant:', error);
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
       }
@@ -278,17 +263,11 @@
       </div>
     {:else}
       <div class="flex-1 flex items-center justify-between">
-        <input
-          type="text"
-          class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
-          placeholder={t('enterRestaurantName')}
-          bind:value={restaurantName}
-          on:blur={handleRestaurantNameInput}
-          on:keydown={handleRestaurantNameKeyPress}
-          readonly={!!selectedRestaurant}
-          disabled={!!selectedRestaurant}
-        />
         {#if selectedRestaurant}
+          <!-- For existing restaurant: show name and edit button -->
+          <div class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg font-normal">
+            {restaurantName}
+          </div>
           <button 
             class="p-2 text-gray-500 hover:text-blue-500 ml-2"
             on:click={startEditingRestaurant}
@@ -297,6 +276,16 @@
               <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
             </svg>
           </button>
+        {:else}
+          <!-- For new restaurant: show editable input -->
+          <input
+            type="text"
+            class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
+            placeholder={t('enterRestaurantName')}
+            bind:value={restaurantName}
+            on:blur={handleRestaurantNameInput}
+            on:keydown={handleRestaurantNameKeyPress}
+          />
         {/if}
       </div>
     {/if}
