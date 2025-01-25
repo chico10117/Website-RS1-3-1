@@ -72,6 +72,9 @@
       menuState.updateRestaurantInfo(restaurant.name, restaurant.logo);
       menuState.updateCategories(categoriesWithDishes);
       
+      // Set the selected restaurant ID in menu state
+      await menuState.selectRestaurant(restaurant.id);
+      
     } catch (err) {
       console.error('Error switching restaurant:', err);
       error = err instanceof Error ? err.message : 'Failed to switch restaurant';

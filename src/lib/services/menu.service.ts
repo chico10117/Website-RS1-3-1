@@ -16,17 +16,25 @@ export async function saveMenuChanges(
   restaurantData: { name: string; logo: string | null; slug?: string },
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
+  console.log('Starting saveMenuChanges with:', {
+    cache,
+    restaurantData,
+    currentRestaurantId
+  });
+
   // Step 1: Save restaurant
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
     {
-      id: currentRestaurantId || undefined, // Add the ID to ensure we update instead of create
-      ...restaurantData,
-      ...(cache.restaurant || {}),
-      // Ensure slug is generated if not present
-      slug: cache.restaurant?.slug || restaurantData.name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-')
+      name: restaurantData.name,
+      logo: restaurantData.logo,
+      // Only include slug if we have it in cache
+      ...(cache.restaurant?.slug && { slug: cache.restaurant.slug })
     },
+    // For updates, use the currentRestaurantId since this is the actual ID from the database
     currentRestaurantId || undefined
   );
+
+  console.log('Restaurant saved:', savedRestaurant);
   
   const restaurantId = savedRestaurant.id;
   

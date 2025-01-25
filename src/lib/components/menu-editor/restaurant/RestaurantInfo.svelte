@@ -151,31 +151,55 @@
         body: formData
       });
 
-      let uploadResult;
-      try {
-        uploadResult = await uploadResponse.json();
-      } catch (parseError) {
-        console.error('Error parsing upload response:', parseError);
-        throw new Error(t('invalidServerResponse'));
-      }
-      
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || t('fileUploadError'));
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload logo');
       }
 
-      // Update cache with new logo
-      if (selectedRestaurant) {
+      const uploadResult = await uploadResponse.json();
+      console.log('Logo uploaded:', uploadResult);
+
+      // Get the current user ID
+      const userId = $user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // For existing restaurant, use the ID from the currentRestaurant store
+      if ($currentRestaurant) {
+        console.log('Updating existing restaurant:', {
+          id: $currentRestaurant.id,
+          name: $currentRestaurant.name,
+          logo: uploadResult.url
+        });
+
+        // Update cache with new logo
+        menuCache.updateRestaurant({
+          ...$currentRestaurant,
+          logo: uploadResult.url || null,
+          updatedAt: new Date()
+        });
+
+        // Dispatch update event with the correct ID
+        dispatch('update', {
+          id: $currentRestaurant.id, // Use the ID from currentRestaurant store
+          name: $currentRestaurant.name,
+          logo: uploadResult.url || null
+        });
+      } else {
+        // For new restaurant
         const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
         const now = new Date();
+        const newId = crypto.randomUUID();
+        
+        console.log('Creating new restaurant:', {
+          id: newId,
+          name: restaurantName,
+          logo: uploadResult.url
+        });
 
-        // Get the current user ID, falling back to the restaurant's user ID if available
-        const userId = $user?.id || $currentRestaurant?.userId;
-        if (!userId) {
-          throw new Error('User not authenticated');
-        }
-
+        // Create new restaurant in cache
         menuCache.updateRestaurant({
-          id: selectedRestaurant,
+          id: newId,
           name: restaurantName,
           logo: uploadResult.url || null,
           slug,
@@ -183,13 +207,14 @@
           createdAt: now,
           updatedAt: now
         });
-      }
 
-      dispatch('update', {
-        id: selectedRestaurant || undefined,
-        name: restaurantName,
-        logo: uploadResult.url || null
-      });
+        // Dispatch update event for new restaurant
+        dispatch('update', {
+          id: newId,
+          name: restaurantName,
+          logo: uploadResult.url || null
+        });
+      }
     } catch (error) {
       console.error('Error uploading logo:', error);
       if (error instanceof Error) {

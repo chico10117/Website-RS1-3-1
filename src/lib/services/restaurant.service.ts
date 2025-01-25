@@ -15,32 +15,39 @@ export async function createOrUpdateRestaurant(
   restaurantData: { id?: string; name: string; logo: string | null; slug?: string }, 
   restaurantId?: string
 ): Promise<Restaurant> {
-  const method = restaurantId ? 'PUT' : 'POST';
-  const url = restaurantId ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
+  // For updates, we use the explicit restaurantId parameter
+  const isUpdate = !!restaurantId;
   
-  const response = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...restaurantData,
-      id: restaurantId || restaurantData.id // Ensure ID is passed for updates
-    })
-  });
+  const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
+  
+  try {
+    // For updates, don't send the ID in the body since it's in the URL
+    const bodyData = isUpdate ? { ...restaurantData, id: undefined } : restaurantData;
+    
+    const response = await fetch(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyData)
+    });
 
-  if (!response.ok) {
-    // If update fails because restaurant doesn't exist, create a new one
-    if (response.status === 404 && restaurantId) {
-      return createOrUpdateRestaurant(restaurantData);
+    const result = await response.json();
+    
+    if (!response.ok || !result.success) {
+      console.error('Restaurant operation failed:', { 
+        status: response.status, 
+        result, 
+        isUpdate,
+        restaurantId,
+        bodyData
+      });
+      throw new Error(result.error || `Failed to ${isUpdate ? 'update' : 'create'} restaurant`);
     }
-    throw new Error(`Failed to ${restaurantId ? 'update' : 'create'} restaurant: ${await response.text()}`);
-  }
 
-  const result = await response.json();
-  if (!result.success) {
-    throw new Error(result.error || `Failed to ${restaurantId ? 'update' : 'create'} restaurant`);
+    return result.data;
+  } catch (error) {
+    console.error('Restaurant operation failed:', error);
+    throw error;
   }
-
-  return result.data;
 }
 
 export async function deleteRestaurant(restaurantId: string): Promise<void> {

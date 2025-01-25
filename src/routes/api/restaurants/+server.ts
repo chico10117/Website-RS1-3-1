@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
 import { restaurants, users } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import { generateSlug } from '$lib/utils/slug';
 
@@ -38,7 +38,12 @@ export async function POST({ request, cookies }: RequestEvent) {
     // Check if a restaurant with this slug already exists for this user
     const existingRestaurant = await db.select()
       .from(restaurants)
-      .where(eq(restaurants.slug, slug))
+      .where(
+        and(
+          eq(restaurants.slug, slug),
+          eq(restaurants.userId, user.id)
+        )
+      )
       .limit(1);
 
     if (existingRestaurant.length > 0) {

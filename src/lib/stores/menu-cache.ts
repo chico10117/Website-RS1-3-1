@@ -35,23 +35,36 @@ function createMenuCache() {
     },
     updateRestaurant(restaurant: Restaurant) {
       update(cache => {
-        // If we already have this restaurant in cache, update it
-        if (cache.restaurant?.id === restaurant.id) {
+        // Always update if we have a restaurant with an ID
+        if (restaurant.id) {
           return {
             ...cache,
             restaurant: {
-              ...cache.restaurant,
-              ...restaurant
+              ...restaurant,
+              // Preserve any fields from cache that aren't in the update
+              ...(cache.restaurant && { 
+                createdAt: cache.restaurant.createdAt,
+                updatedAt: cache.restaurant.updatedAt,
+                userId: cache.restaurant.userId,
+                // Only keep slug if not provided in update
+                ...(restaurant.slug === undefined && { slug: cache.restaurant.slug })
+              })
             },
             hasUnsavedChanges: true
           };
         }
-        // Otherwise set it as new
-        return {
-          ...cache,
-          restaurant,
-          hasUnsavedChanges: true
-        };
+        
+        // For new restaurants (no ID), only set if cache is empty
+        if (!cache.restaurant) {
+          return {
+            ...cache,
+            restaurant,
+            hasUnsavedChanges: true
+          };
+        }
+
+        // If we have a restaurant in cache but no ID in update, preserve the cache
+        return cache;
       });
     },
     updateCategory: (id: string, action: CacheAction, data: Category) => {
