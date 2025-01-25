@@ -19,10 +19,11 @@ export async function saveMenuChanges(
   // Step 1: Save restaurant
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
     {
+      id: currentRestaurantId || undefined, // Add the ID to ensure we update instead of create
       ...restaurantData,
       ...(cache.restaurant || {}),
       // Ensure slug is generated if not present
-      slug: cache.restaurant?.slug || restaurantData.name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '')
+      slug: cache.restaurant?.slug || restaurantData.name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-')
     },
     currentRestaurantId || undefined
   );

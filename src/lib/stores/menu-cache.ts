@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { Restaurant, Category, Dish } from '$lib/types/menu.types';
 
 export type CacheAction = 'create' | 'update' | 'delete';
@@ -9,7 +9,7 @@ export interface CacheChange<T> {
 }
 
 export interface MenuCache {
-  restaurant?: Restaurant;
+  restaurant: Restaurant | null;
   categories: Record<string, CacheChange<Category>>;
   dishes: Record<string, CacheChange<Dish>>;
   hasUnsavedChanges: boolean;
@@ -17,7 +17,7 @@ export interface MenuCache {
 
 function createMenuCache() {
   const { subscribe, set, update } = writable<MenuCache>({
-    restaurant: undefined,
+    restaurant: null,
     categories: {},
     dishes: {},
     hasUnsavedChanges: false
@@ -25,11 +25,33 @@ function createMenuCache() {
 
   return {
     subscribe,
-    updateRestaurant: (restaurant: Restaurant) => {
+    clearCache() {
+      set({
+        restaurant: null,
+        categories: {},
+        dishes: {},
+        hasUnsavedChanges: false
+      });
+    },
+    updateRestaurant(restaurant: Restaurant) {
       update(cache => {
-        cache.restaurant = restaurant;
-        cache.hasUnsavedChanges = true;
-        return cache;
+        // If we already have this restaurant in cache, update it
+        if (cache.restaurant?.id === restaurant.id) {
+          return {
+            ...cache,
+            restaurant: {
+              ...cache.restaurant,
+              ...restaurant
+            },
+            hasUnsavedChanges: true
+          };
+        }
+        // Otherwise set it as new
+        return {
+          ...cache,
+          restaurant,
+          hasUnsavedChanges: true
+        };
       });
     },
     updateCategory: (id: string, action: CacheAction, data: Category) => {
@@ -44,14 +66,6 @@ function createMenuCache() {
         cache.dishes[id] = { action, data };
         cache.hasUnsavedChanges = true;
         return cache;
-      });
-    },
-    clearCache: () => {
-      set({
-        restaurant: undefined,
-        categories: {},
-        dishes: {},
-        hasUnsavedChanges: false
       });
     }
   };

@@ -12,7 +12,7 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 }
 
 export async function createOrUpdateRestaurant(
-  restaurantData: { name: string; logo: string | null; slug?: string }, 
+  restaurantData: { id?: string; name: string; logo: string | null; slug?: string }, 
   restaurantId?: string
 ): Promise<Restaurant> {
   const method = restaurantId ? 'PUT' : 'POST';
@@ -21,7 +21,10 @@ export async function createOrUpdateRestaurant(
   const response = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(restaurantData)
+    body: JSON.stringify({
+      ...restaurantData,
+      id: restaurantId || restaurantData.id // Ensure ID is passed for updates
+    })
   });
 
   if (!response.ok) {

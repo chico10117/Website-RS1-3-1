@@ -17,6 +17,7 @@
   import RestaurantSelector from './RestaurantSelector.svelte';
   import * as categoryService from '$lib/services/category.service';
   import * as dishService from '$lib/services/dish.service';
+  import { user } from '$lib/stores/user';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -105,18 +106,27 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ name: string; logo: string | null }>) {
-    const { name, logo } = event.detail;
-    const restaurantId = $menuState.selectedRestaurant || crypto.randomUUID();
+  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null }>) {
+    const { id, name, logo } = event.detail;
+    const restaurantId = id || $menuState.selectedRestaurant || crypto.randomUUID();
+    const slug = name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
     
     menuState.updateRestaurantInfo(name, logo);
+
+    // Get the current user ID, falling back to the restaurant's user ID if available
+    const userId = $user?.id || $currentRestaurant?.userId;
+    if (!userId) {
+      toasts.error(t('error') + ': ' + 'User not authenticated');
+      return;
+    }
+
     menuCache.updateRestaurant({ 
       id: restaurantId,
       name,
       logo,
-      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-'),
-      userId: $currentRestaurant?.userId || '',
-      createdAt: $currentRestaurant?.createdAt || null,
+      slug,
+      userId,
+      createdAt: $currentRestaurant?.createdAt || new Date(),
       updatedAt: new Date()
     });
 
@@ -198,6 +208,11 @@
           <div class="flex justify-between items-center mb-4">
             <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
           </div>
+
+          <!-- Restaurant Selector at the top -->
+          <div class="mb-8">
+            <RestaurantSelector />
+          </div>
           
           <div class="flex gap-8">
             <!-- Left Section - Menu Editor -->
@@ -254,11 +269,6 @@
             </div>
           {/if}
         </div>
-      </div>
-
-      <!-- Restaurant Selector at the bottom -->
-      <div class="mt-8 pb-8">
-        <RestaurantSelector />
       </div>
     {/if}
   </div>

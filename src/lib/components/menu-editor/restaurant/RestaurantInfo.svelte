@@ -14,6 +14,7 @@
   export let restaurants: Restaurant[] = [];
 
   interface UpdateEvent {
+    id?: string;
     name: string;
     logo: string | null;
   }
@@ -33,7 +34,7 @@
   $: t = (key: string): string => translations[key][currentLanguage];
 
   // Make user store reactive
-  $: userName = $user.name;
+  $: userName = $user?.name;
 
   // Helper function to ensure string for UI
   function ensureString(value: string | null | undefined): string {
@@ -54,21 +55,10 @@
       try {
         // Create a temporary ID for the new restaurant
         const tempId = crypto.randomUUID();
-        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
         
-        // Update cache instead of saving
-        menuCache.updateRestaurant({
-          id: tempId,
-          name: restaurantName.trim(),
-          logo: ensureStringOrNull(menuLogo),
-          slug,
-          userId: $user.id,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-
-        // Only dispatch the update event, don't select the restaurant yet
+        // Dispatch update event
         dispatch('update', { 
+          id: tempId,
           name: restaurantName.trim(), 
           logo: menuLogo
         });
@@ -89,35 +79,16 @@
     }
 
     try {
-      const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: editingRestaurantName.trim(),
-          logo: ensureStringOrNull(menuLogo)
-        })
-      });
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update restaurant');
-      }
-
-      // Update the restaurant in the store
-      currentRestaurant.updateCachedRestaurant(result.data);
-      
-      // Update the local state
-      restaurantName = editingRestaurantName.trim();
-      isEditingRestaurant = false;
-      
-      // Dispatch update event
+      // Dispatch update event with the existing ID
       dispatch('update', { 
+        id: selectedRestaurant,
         name: editingRestaurantName.trim(), 
         logo: menuLogo
       });
+
+      // Update the local state
+      restaurantName = editingRestaurantName.trim();
+      isEditingRestaurant = false;
 
       toasts.success(t('restaurantUpdated'));
     } catch (error) {
@@ -165,20 +136,28 @@
       if (selectedRestaurant) {
         const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
         const now = new Date();
+
+        // Get the current user ID, falling back to the restaurant's user ID if available
+        const userId = $user?.id || $currentRestaurant?.userId;
+        if (!userId) {
+          throw new Error('User not authenticated');
+        }
+
         menuCache.updateRestaurant({
           id: selectedRestaurant,
           name: restaurantName,
-          logo: ensureStringOrNull(uploadResult.url),
+          logo: uploadResult.url || null,
           slug,
-          userId: $user.id,
+          userId,
           createdAt: now,
           updatedAt: now
         });
       }
 
       dispatch('update', {
+        id: selectedRestaurant || undefined,
         name: restaurantName,
-        logo: uploadResult.url
+        logo: uploadResult.url || null
       });
     } catch (error) {
       console.error('Error uploading logo:', error);
@@ -238,26 +217,14 @@
     }
 
     try {
-      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
-      
       if (!selectedRestaurant) {
         toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
         return;
       }
 
-      const now = new Date();
-      // Update cache instead of saving
-      menuCache.updateRestaurant({
-        id: selectedRestaurant,
-        name: editingRestaurantName.trim(),
-        logo: ensureStringOrNull(menuLogo),
-        slug,
-        userId: $user.id,
-        createdAt: now,
-        updatedAt: now
-      });
-      
+      // Dispatch update event with the existing ID
       dispatch('update', { 
+        id: selectedRestaurant,
         name: editingRestaurantName.trim(), 
         logo: menuLogo
       });
