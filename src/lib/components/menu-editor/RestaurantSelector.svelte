@@ -154,18 +154,18 @@
 </script>
 
 <div class="w-full max-w-[1200px] mx-auto mt-8">
-  <div class="bg-[#808080]/30 backdrop-blur-sm rounded-3xl p-6">
-    <div class="flex items-center justify-between mb-4">
+  <div class="bg-[#1a1b1e] rounded-3xl p-6">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h2 class="text-xl font-semibold text-white">Your Restaurants</h2>
-        <p class="text-white/60 text-sm">Manage and organize your restaurant menus</p>
+        <h2 class="text-2xl font-bold text-white">Your Restaurants</h2>
+        <p class="text-white/60 text-sm mt-2">Select a restaurant to manage its menu</p>
       </div>
       <Button
         variant="outline"
-        class="bg-white/5 text-white hover:bg-white/10 hover:text-white border-white/10 transition-all duration-200"
+        class="bg-white/5 text-white hover:bg-[#4285f4] hover:text-white border-white/10 hover:border-[#4285f4] transition-all duration-200 rounded-full px-4 py-1.5 text-xs"
         on:click={handleAddRestaurant}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
         </svg>
         Add Restaurant
@@ -173,79 +173,81 @@
     </div>
     
     {#if loading}
-      <div class="flex items-center justify-center py-8">
+      <div class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-white/30"></div>
       </div>
     {:else if error}
-      <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+      <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-sm">
         <p class="flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
           </svg>
           {error}
         </p>
       </div>
     {:else if restaurants.length === 0}
-      <div class="flex flex-col items-center justify-center py-8 text-center">
-        <p class="text-white/70">No restaurants found</p>
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white/40" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <p class="text-white/70 text-lg font-medium">No restaurants found</p>
+        <p class="text-white/40 text-sm mt-1">Add your first restaurant to get started</p>
       </div>
     {:else}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 auto-rows-min">
+      <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
         {#each restaurants as restaurant (restaurant.id)}
-          <div class="relative group">
-            <Button
-              variant="ghost"
-              class="w-full justify-start text-white hover:text-white bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 hover:border-white/20 transition-all duration-200 p-4"
-              on:click={() => handleRestaurantSelect(restaurant)}
-              disabled={switchingRestaurant === restaurant.id || deletingRestaurant === restaurant.id}
-            >
-              <div class="flex items-center gap-4 w-full">
-                {#if restaurant.logo}
-                  <img 
-                    src={restaurant.logo} 
-                    alt={restaurant.name} 
-                    class="w-10 h-10 rounded-xl object-cover"
-                  />
-                {:else}
-                  <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                    <span class="text-lg font-medium text-white">
-                      {restaurant.name[0].toUpperCase()}
-                    </span>
-                  </div>
-                {/if}
-                <div class="flex-1 min-w-0">
-                  <h3 class="text-base font-medium text-white truncate">
-                    {restaurant.name}
-                  </h3>
-                  {#if switchingRestaurant === restaurant.id}
-                    <p class="text-sm text-white/60">Loading...</p>
-                  {/if}
-                </div>
-                
-                <!-- Edit and Delete buttons -->
-                <div class="opacity-0 group-hover:opacity-100 transition-all duration-200 flex gap-1">
-                  <button
-                    class="p-1.5 text-white/60 hover:text-white/90 rounded-lg transition-all duration-200"
-                    on:click={(e) => handleEditRestaurant(restaurant, e)}
-                    disabled={editingRestaurant === restaurant.id}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                  </button>
-                  <button
-                    class="p-1.5 text-white/60 hover:text-white/90 rounded-lg transition-all duration-200"
-                    on:click={(e) => handleDeleteRestaurant(restaurant, e)}
-                    disabled={deletingRestaurant === restaurant.id}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
+          <button
+            class="group relative flex flex-col items-center justify-center p-4 rounded-3xl border border-white/10 
+                   {$currentRestaurant?.id === restaurant.id ? 'bg-[#4285f4] text-white' : 'bg-white/5 text-white/90 hover:bg-white/10'}
+                   transition-all duration-200"
+            on:click={() => handleRestaurantSelect(restaurant)}
+            disabled={switchingRestaurant === restaurant.id || deletingRestaurant === restaurant.id}
+          >
+            {#if restaurant.logo}
+              <img 
+                src={restaurant.logo} 
+                alt={restaurant.name} 
+                class="w-12 h-12 rounded-2xl object-cover mb-2 shadow-lg"
+              />
+            {:else}
+              <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mb-2 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white/60" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
               </div>
-            </Button>
-          </div>
+            {/if}
+            
+            <span class="text-sm font-medium truncate max-w-full px-1">
+              {restaurant.name}
+            </span>
+            
+            {#if switchingRestaurant === restaurant.id}
+              <span class="text-xs text-white/60 mt-1">Loading...</span>
+            {/if}
+
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 flex gap-1">
+              <button
+                class="p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+                on:click={(e) => handleEditRestaurant(restaurant, e)}
+                disabled={editingRestaurant === restaurant.id}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+              </button>
+              <button
+                class="p-1 rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+                on:click={(e) => handleDeleteRestaurant(restaurant, e)}
+                disabled={deletingRestaurant === restaurant.id}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </button>
         {/each}
       </div>
     {/if}
