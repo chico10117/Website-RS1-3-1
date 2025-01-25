@@ -24,7 +24,7 @@ export async function POST({ request, cookies }: RequestEvent) {
       return json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const { name, logo } = await request.json();
+    const { id, name, logo, slug } = await request.json();
 
     if (!name) {
       return json({ 
@@ -33,14 +33,15 @@ export async function POST({ request, cookies }: RequestEvent) {
       }, { status: 400 });
     }
 
-    const slug = generateSlug(name);
+    // Use provided slug or generate one from name
+    const finalSlug = slug || generateSlug(name);
 
     // Check if a restaurant with this slug already exists for this user
     const existingRestaurant = await db.select()
       .from(restaurants)
       .where(
         and(
-          eq(restaurants.slug, slug),
+          eq(restaurants.slug, finalSlug),
           eq(restaurants.userId, user.id)
         )
       )
@@ -53,17 +54,28 @@ export async function POST({ request, cookies }: RequestEvent) {
       }, { status: 400 });
     }
 
-    // Create the new restaurant
+    console.log('Creating new restaurant:', {
+      id,
+      name,
+      slug: finalSlug,
+      logo,
+      userId: user.id
+    });
+
+    // Create the new restaurant with the provided ID if available
     const [newRestaurant] = await db.insert(restaurants)
       .values({
+        id: id || undefined, // Use provided ID or let the database generate one
         name,
-        slug,
+        slug: finalSlug,
         logo: logo || null,
         userId: user.id,
         createdAt: new Date(),
         updatedAt: new Date()
       })
       .returning();
+
+    console.log('Restaurant created:', newRestaurant);
 
     return json({ 
       success: true, 

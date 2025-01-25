@@ -107,33 +107,41 @@
 
   // Event handlers
   async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null }>) {
+    console.log('handleRestaurantUpdate called with event:', event.detail);
+    
     const { id, name, logo } = event.detail;
-    const restaurantId = id || $menuState.selectedRestaurant || crypto.randomUUID();
+    
+    if (!name.trim()) {
+      console.error('No restaurant name provided');
+      toasts.error(t('error') + ': Missing restaurant name');
+      return;
+    }
+
     const slug = name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
     
-    menuState.updateRestaurantInfo(name, logo);
-
-    // Get the current user ID, falling back to the restaurant's user ID if available
-    const userId = $user?.id || $currentRestaurant?.userId;
+    // Get the current user ID
+    const userId = $user?.id;
     if (!userId) {
+      console.error('Authentication error: No user ID available');
       toasts.error(t('error') + ': ' + 'User not authenticated');
       return;
     }
 
-    menuCache.updateRestaurant({ 
-      id: restaurantId,
+    // Update menu state
+    menuState.updateRestaurantInfo(name, logo);
+
+    // Update cache with complete restaurant data
+    const restaurantData = { 
+      id: crypto.randomUUID(), // Generate new ID for new restaurants
       name,
       logo,
       slug,
       userId,
-      createdAt: $currentRestaurant?.createdAt || new Date(),
+      createdAt: new Date(),
       updatedAt: new Date()
-    });
-
-    // Set the selected restaurant ID when creating a new one
-    if (!$menuState.selectedRestaurant) {
-      await menuState.selectRestaurant(restaurantId);
-    }
+    };
+    console.log('Updating restaurant cache with:', restaurantData);
+    menuCache.updateRestaurant(restaurantData);
   }
 
   function handleCategoriesUpdate(event: CustomEvent<Category[]>) {
@@ -161,12 +169,16 @@
       menuState.setSaving(true);
       console.log('Starting save operation...');
       
+      // For new restaurants, we should not pass a currentRestaurantId
       const result = await menuService.saveMenuChanges(
         $menuCache,
         {
           name: $menuState.restaurantName,
-          logo: $menuState.menuLogo
+          logo: $menuState.menuLogo,
+          // Include slug from cache if available
+          ...(($menuCache.restaurant?.slug) && { slug: $menuCache.restaurant.slug })
         },
+        // Only pass currentRestaurantId if we're updating an existing restaurant
         $menuState.selectedRestaurant
       );
       
@@ -175,8 +187,8 @@
       menuCache.clearCache();
       
       // Reload the current restaurant data to ensure frontend is in sync with database
-      if ($menuState.selectedRestaurant) {
-        await menuState.selectRestaurant($menuState.selectedRestaurant);
+      if (result.restaurant.id) {
+        await menuState.selectRestaurant(result.restaurant.id);
       }
       
       toasts.success(t('saveSuccess'));

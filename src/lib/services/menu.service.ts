@@ -19,19 +19,31 @@ export async function saveMenuChanges(
   console.log('Starting saveMenuChanges with:', {
     cache,
     restaurantData,
-    currentRestaurantId
+    currentRestaurantId,
+    cacheRestaurant: cache.restaurant
   });
 
   // Step 1: Save restaurant
+  // If we have a currentRestaurantId, it's an update. Otherwise, it's a new restaurant.
+  const isNewRestaurant = !currentRestaurantId;
+  
+  console.log('Restaurant operation type:', {
+    isNewRestaurant,
+    currentRestaurantId,
+    cacheRestaurantId: cache.restaurant?.id
+  });
+
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
     {
+      // For new restaurants, include the ID from the cache
+      ...(isNewRestaurant && cache.restaurant?.id && { id: cache.restaurant.id }),
       name: restaurantData.name,
       logo: restaurantData.logo,
-      // Only include slug if we have it in cache
-      ...(cache.restaurant?.slug && { slug: cache.restaurant.slug })
+      // Include slug if we have it in cache or from restaurantData
+      slug: restaurantData.slug || cache.restaurant?.slug
     },
-    // For updates, use the currentRestaurantId since this is the actual ID from the database
-    currentRestaurantId || undefined
+    // For updates, pass the currentRestaurantId. For new restaurants, pass undefined
+    isNewRestaurant ? undefined : currentRestaurantId
   );
 
   console.log('Restaurant saved:', savedRestaurant);

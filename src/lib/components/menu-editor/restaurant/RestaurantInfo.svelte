@@ -50,26 +50,67 @@
   $: displayLogo = ensureString(menuLogo);
 
   async function handleRestaurantNameInput() {
-    if (restaurantName && !selectedRestaurant && !isCreatingRestaurant) {
-      isCreatingRestaurant = true;
-      try {
-        // Create a temporary ID for the new restaurant
-        const tempId = crypto.randomUUID();
-        
-        // Dispatch update event
-        dispatch('update', { 
-          id: tempId,
-          name: restaurantName.trim(), 
-          logo: menuLogo
-        });
-      } catch (error) {
-        console.error('Error updating restaurant:', error);
-        if (error instanceof Error) {
-          toasts.error(t('error') + ': ' + error.message);
-        }
-      } finally {
-        isCreatingRestaurant = false;
+    try {
+      // Skip if restaurant name is empty or if we already have a restaurant selected/being created
+      if (!restaurantName.trim() || selectedRestaurant || isCreatingRestaurant) {
+        return;
       }
+
+      isCreatingRestaurant = true;
+
+      // Get the current user ID
+      const userId = $user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Create a new restaurant ID
+      const newId = crypto.randomUUID();
+      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+      const now = new Date();
+      
+      console.log('Creating new restaurant with:', {
+        newId,
+        restaurantName: restaurantName.trim(),
+        slug,
+        userId
+      });
+
+      // Create the new restaurant object
+      const newRestaurant = {
+        id: newId,
+        name: restaurantName.trim(),
+        logo: menuLogo,
+        slug,
+        userId,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      // Update the cache first
+      console.log('Updating cache with new restaurant:', newRestaurant);
+      menuCache.updateRestaurant(newRestaurant);
+      
+      // Dispatch update event with the new ID
+      const updateEvent = { 
+        id: newId,
+        name: restaurantName.trim(), 
+        logo: menuLogo
+      };
+      console.log('Dispatching update event:', updateEvent);
+      dispatch('update', updateEvent);
+
+      // Clear the input if we're not in edit mode
+      if (!selectedRestaurant) {
+        restaurantName = '';
+      }
+    } catch (error) {
+      console.error('Error creating restaurant:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    } finally {
+      isCreatingRestaurant = false;
     }
   }
 

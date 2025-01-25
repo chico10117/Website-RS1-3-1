@@ -21,9 +21,26 @@ export async function createOrUpdateRestaurant(
   const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
   
   try {
-    // For updates, don't send the ID in the body since it's in the URL
-    const bodyData = isUpdate ? { ...restaurantData, id: undefined } : restaurantData;
+    // For POST (new restaurant), include all data including the generated ID
+    // For PUT (update), don't include id in body since it's in URL
+    const bodyData = isUpdate 
+      ? { name: restaurantData.name, logo: restaurantData.logo, slug: restaurantData.slug }
+      : { 
+          ...(restaurantData.id && { id: restaurantData.id }), 
+          name: restaurantData.name, 
+          logo: restaurantData.logo,
+          slug: restaurantData.slug 
+        };
     
+    console.log('Restaurant operation:', {
+      method: isUpdate ? 'PUT' : 'POST',
+      url,
+      bodyData,
+      isUpdate,
+      restaurantId,
+      providedId: restaurantData.id
+    });
+
     const response = await fetch(url, {
       method: isUpdate ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
