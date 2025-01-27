@@ -343,9 +343,9 @@
 
   function handleCustomPromptInput(event: Event) {
     const textarea = event.target as HTMLTextAreaElement;
-    // Limit to 500 characters
-    if (textarea.value.length > 500) {
-      textarea.value = textarea.value.slice(0, 500);
+    // Limit to 1000 characters
+    if (textarea.value.length > 1000) {
+      textarea.value = textarea.value.slice(0, 1000);
     }
     customPrompt = textarea.value || null;
 
@@ -514,7 +514,7 @@
         class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out bg-white/80 backdrop-blur-sm resize-none"
       ></textarea>
       <div class="absolute bottom-2 right-2 text-sm text-gray-500">
-        {displayCustomPrompt.length}/500
+        {displayCustomPrompt.length}/1000
       </div>
     </div>
   </div>
