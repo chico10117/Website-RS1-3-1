@@ -4,6 +4,11 @@
   import LanguageSwitch from './LanguageSwitch.svelte';
   import { user } from '$lib/stores/user';
 
+  // $: {
+  //   console.log('User store value:', $user);
+  //   console.log('User picture value:', $user.picture);
+  // }
+
   $: userName = $user.name;
   $: userPicture = $user.picture;
   $: isMenuEditor = $page.url.pathname === '/';
@@ -47,7 +52,16 @@
             src={userPicture} 
             alt="Profile" 
             class="w-10 h-10 rounded-full object-cover"
+            on:error={(e) => {
+              console.error('Error loading image:', e);
+              const img = e.currentTarget;
+              console.log('Failed URL:', img.src);
+            }}
           />
+        {:else}
+          <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+            <span class="text-white text-sm">{userName?.[0]?.toUpperCase()}</span>
+          </div>
         {/if}
         <span class="text-sm font-medium text-white whitespace-nowrap">
           {userName}

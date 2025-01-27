@@ -73,7 +73,9 @@
                     <h4 class="text-lg font-semibold text-gray-800">{dish.title}</h4>
                     <p class="text-lg font-bold text-gray-800">${formatPrice(dish.price)}</p>
                   </div>
-                  <p class="text-gray-600 mt-1 font-normal">{dish.description}</p>
+                  {#if dish.description}
+                    <p class="text-gray-600 mt-1 font-normal">{dish.description}</p>
+                  {/if}
                 </div>
               </div>
             {/each}
