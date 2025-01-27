@@ -66,7 +66,7 @@
 
       // Create a new restaurant ID
       const newId = crypto.randomUUID();
-      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
       const now = new Date();
       
       console.log('Creating new restaurant with:', {
@@ -228,7 +228,7 @@
         });
       } else {
         // For new restaurant
-        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
         const now = new Date();
         const newId = crypto.randomUUID();
         
