@@ -9,8 +9,10 @@ export interface MenuState {
   selectedRestaurant: string | null;
   restaurantName: string;
   menuLogo: string | null;
+  customPrompt: string | null;
   categories: Category[];
   isSaving: boolean;
+  lastSaveTime: Date | null;
 }
 
 function createMenuState() {
@@ -19,8 +21,10 @@ function createMenuState() {
     selectedRestaurant: null,
     restaurantName: '',
     menuLogo: null,
+    customPrompt: null,
     categories: [],
-    isSaving: false
+    isSaving: false,
+    lastSaveTime: null
   };
 
   const { subscribe, set, update } = writable<MenuState>(initialState);
@@ -40,8 +44,10 @@ function createMenuState() {
         selectedRestaurant: null,
         restaurantName: '',
         menuLogo: null,
+        customPrompt: null,
         categories: [],
-        isSaving: false
+        isSaving: false,
+        lastSaveTime: null
       };
       
       // First set to initial state
@@ -54,7 +60,8 @@ function createMenuState() {
         restaurants: [],
         selectedRestaurant: null,
         restaurantName: '',
-        menuLogo: null
+        menuLogo: null,
+        customPrompt: null
       }));
     },
 
@@ -79,7 +86,8 @@ function createMenuState() {
           update(state => ({
             ...state,
             restaurantName: restaurant.name,
-            menuLogo: restaurant.logo || ''
+            menuLogo: restaurant.logo || '',
+            customPrompt: restaurant.customPrompt || null
           }));
 
           // Load categories for this restaurant
@@ -101,11 +109,12 @@ function createMenuState() {
       }
     },
 
-    updateRestaurantInfo(name: string, logo: string | null) {
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null) {
       update(state => ({
         ...state,
         restaurantName: name,
-        menuLogo: logo
+        menuLogo: logo,
+        customPrompt
       }));
     },
 
@@ -151,9 +160,19 @@ function createMenuState() {
           selectedRestaurant: result.restaurant.id,
           restaurantName: result.restaurant.name,
           menuLogo: result.restaurant.logo || '',
-          categories
+          customPrompt: result.restaurant.customPrompt || null,
+          categories,
+          lastSaveTime: new Date()
         };
       });
+    },
+
+    // Add this method to the store
+    updateRestaurants(restaurants: Restaurant[]) {
+      update(state => ({
+        ...state,
+        restaurants
+      }));
     }
   };
 }

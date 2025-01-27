@@ -13,7 +13,7 @@ interface SaveResult {
 
 export async function saveMenuChanges(
   cache: MenuCache,
-  restaurantData: { name: string; logo: string | null; slug?: string },
+  restaurantData: { name: string; logo: string | null; slug?: string; customPrompt?: string | null },
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
   console.log('Starting saveMenuChanges with:', {
@@ -40,7 +40,9 @@ export async function saveMenuChanges(
       name: restaurantData.name,
       logo: restaurantData.logo,
       // Include slug if we have it in cache or from restaurantData
-      slug: restaurantData.slug || cache.restaurant?.slug
+      slug: restaurantData.slug || cache.restaurant?.slug,
+      // Include customPrompt from restaurantData or cache
+      customPrompt: restaurantData.customPrompt ?? cache.restaurant?.customPrompt
     },
     // For updates, pass the currentRestaurantId. For new restaurants, pass undefined
     isNewRestaurant ? undefined : currentRestaurantId

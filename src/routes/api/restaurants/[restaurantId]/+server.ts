@@ -109,6 +109,11 @@ export async function PUT({ params, request, cookies }: RequestEvent) {
       updateSet.logo = updateData.logo;
     }
 
+    // Handle custom prompt update if provided
+    if (updateData.customPrompt !== undefined) {
+      updateSet.customPrompt = updateData.customPrompt;
+    }
+
     // Update the restaurant
     const [updatedRestaurant] = await db.update(restaurants)
       .set(updateSet)

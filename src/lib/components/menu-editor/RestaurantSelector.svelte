@@ -27,6 +27,12 @@
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
+  // Add subscription to menuState to detect saves
+  $: if ($menuState.lastSaveTime) {
+    // Refresh the restaurants list after successful save
+    refreshRestaurants();
+  }
+
   onMount(async () => {
     try {
       loading = true;
@@ -56,6 +62,11 @@
       
       // Load the restaurant data
       await currentRestaurant.loadRestaurant(restaurant.id);
+      
+      // If this is a new restaurant that hasn't been saved yet, update the local array
+      if (!restaurants.find(r => r.id === restaurant.id)) {
+        restaurants = [...restaurants, restaurant];
+      }
       
       // Update URL without reloading
       const url = new URL(window.location.href);
@@ -151,14 +162,24 @@
     restaurantToDelete = null;
     showDeleteConfirm = false;
   }
+
+  async function refreshRestaurants() {
+    try {
+      // Load fresh data from the database
+      restaurants = await currentRestaurant.loadRestaurants();
+    } catch (err) {
+      console.error('Error refreshing restaurants:', err);
+      error = err instanceof Error ? err.message : 'Failed to refresh restaurants';
+    }
+  }
 </script>
 
 <div class="w-full max-w-[1200px] mx-auto mt-8">
   <div class="bg-[#1a1b1e] rounded-3xl p-6">
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h2 class="text-2xl font-bold text-white">Your Restaurants</h2>
-        <p class="text-white/60 text-sm mt-2">Select a restaurant to manage its menu</p>
+        <h2 class="text-2xl font-bold text-white">{t('yourRestaurants')}</h2>
+        <p class="text-white/60 text-sm mt-2">{t('selectRestaurantManage')}</p>
       </div>
       <Button
         variant="outline"
@@ -168,13 +189,14 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
         </svg>
-        Add Restaurant
+        {t('addRestaurant')}
       </Button>
     </div>
     
     {#if loading}
       <div class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-white/30"></div>
+        <span class="ml-3 text-white/60">{t('loading')}</span>
       </div>
     {:else if error}
       <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-sm">
@@ -192,8 +214,8 @@
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
           </svg>
         </div>
-        <p class="text-white/70 text-lg font-medium">No restaurants found</p>
-        <p class="text-white/40 text-sm mt-1">Add your first restaurant to get started</p>
+        <p class="text-white/70 text-lg font-medium">{t('noRestaurantsFound')}</p>
+        <p class="text-white/40 text-sm mt-1">{t('addFirstRestaurant')}</p>
       </div>
     {:else}
       <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -224,7 +246,7 @@
             </span>
             
             {#if switchingRestaurant === restaurant.id}
-              <span class="text-xs text-white/60 mt-1">Loading...</span>
+              <span class="text-xs text-white/60 mt-1">{t('loading')}</span>
             {/if}
 
             <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 flex gap-1">

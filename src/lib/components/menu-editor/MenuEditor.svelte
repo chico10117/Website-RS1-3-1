@@ -40,7 +40,7 @@
       // Clear state if no match
       menuCache.clearCache();
       menuState.reset();
-      menuState.updateRestaurantInfo('', null);
+      menuState.updateRestaurantInfo('', null, null);
       menuState.updateCategories([]);
       currentRestaurant.set(null);
       
@@ -60,7 +60,13 @@
       // Only load if there's a matching restaurant ID in the URL
       if (restaurantId === restaurant.id) {
         // Update restaurant info in menu state
-        menuState.updateRestaurantInfo(restaurant.name, restaurant.logo);
+        menuState.updateRestaurantInfo(restaurant.name, restaurant.logo, restaurant.customPrompt);
+        
+        // Update cache with restaurant data including customPrompt
+        menuCache.updateRestaurant({
+          ...restaurant,
+          updatedAt: new Date()
+        });
         
         // Load categories and dishes
         const categories = await categoryService.fetchCategories(restaurant.id);
@@ -89,7 +95,7 @@
       // Clear all state and cache on page load - same as Add Restaurant button
       menuCache.clearCache();
       menuState.reset();
-      menuState.updateRestaurantInfo('', null);
+      menuState.updateRestaurantInfo('', null, null);
       menuState.updateCategories([]);
       currentRestaurant.set(null);
       
@@ -106,10 +112,10 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null }>) {
+  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null; customPrompt: string | null }>) {
     console.log('handleRestaurantUpdate called with event:', event.detail);
     
-    const { id, name, logo } = event.detail;
+    const { id, name, logo, customPrompt } = event.detail;
     
     if (!name.trim()) {
       console.error('No restaurant name provided');
@@ -128,13 +134,14 @@
     }
 
     // Update menu state
-    menuState.updateRestaurantInfo(name, logo);
+    menuState.updateRestaurantInfo(name, logo, customPrompt);
 
     // Update cache with complete restaurant data
     const restaurantData = { 
-      id: crypto.randomUUID(), // Generate new ID for new restaurants
+      id: id || crypto.randomUUID(), // Use existing ID if available, otherwise generate new
       name,
       logo,
+      customPrompt,
       slug,
       userId,
       createdAt: new Date(),
@@ -142,6 +149,11 @@
     };
     console.log('Updating restaurant cache with:', restaurantData);
     menuCache.updateRestaurant(restaurantData);
+
+    // If this is a new restaurant, update the current restaurant store
+    if (!id) {
+      currentRestaurant.set(restaurantData);
+    }
   }
 
   function handleCategoriesUpdate(event: CustomEvent<Category[]>) {
@@ -176,7 +188,9 @@
           name: $menuState.restaurantName,
           logo: $menuState.menuLogo,
           // Include slug from cache if available
-          ...(($menuCache.restaurant?.slug) && { slug: $menuCache.restaurant.slug })
+          ...(($menuCache.restaurant?.slug) && { slug: $menuCache.restaurant.slug }),
+          // Include customPrompt from cache
+          customPrompt: $menuCache.restaurant?.customPrompt
         },
         // Only pass currentRestaurantId if we're updating an existing restaurant
         $menuState.selectedRestaurant
@@ -189,6 +203,7 @@
       // Reload the current restaurant data to ensure frontend is in sync with database
       if (result.restaurant.id) {
         await menuState.selectRestaurant(result.restaurant.id);
+        await refreshRestaurants();
       }
       
       toasts.success(t('saveSuccess'));
@@ -199,6 +214,16 @@
       }
     } finally {
       menuState.setSaving(false);
+    }
+  }
+
+  // Add this function to refresh restaurants
+  async function refreshRestaurants() {
+    try {
+      const restaurants = await currentRestaurant.loadRestaurants();
+      menuState.updateRestaurants(restaurants);
+    } catch (error) {
+      console.error('Error refreshing restaurants:', error);
     }
   }
 </script>
@@ -234,6 +259,7 @@
                 menuLogo={$menuState.menuLogo}
                 selectedRestaurant={$menuState.selectedRestaurant}
                 restaurants={$menuState.restaurants}
+                customPrompt={$currentRestaurant?.customPrompt ?? null}
                 on:update={handleRestaurantUpdate}
                 on:select={handleRestaurantSelect}
               />

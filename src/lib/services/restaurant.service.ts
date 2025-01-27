@@ -12,7 +12,13 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 }
 
 export async function createOrUpdateRestaurant(
-  restaurantData: { id?: string; name: string; logo: string | null; slug?: string }, 
+  restaurantData: { 
+    id?: string; 
+    name: string; 
+    logo: string | null; 
+    slug?: string;
+    customPrompt?: string | null;
+  }, 
   restaurantId?: string
 ): Promise<Restaurant> {
   // For updates, we use the explicit restaurantId parameter
@@ -24,12 +30,18 @@ export async function createOrUpdateRestaurant(
     // For POST (new restaurant), include all data including the generated ID
     // For PUT (update), don't include id in body since it's in URL
     const bodyData = isUpdate 
-      ? { name: restaurantData.name, logo: restaurantData.logo, slug: restaurantData.slug }
+      ? { 
+          name: restaurantData.name, 
+          logo: restaurantData.logo, 
+          slug: restaurantData.slug,
+          customPrompt: restaurantData.customPrompt 
+        }
       : { 
           ...(restaurantData.id && { id: restaurantData.id }), 
           name: restaurantData.name, 
           logo: restaurantData.logo,
-          slug: restaurantData.slug 
+          slug: restaurantData.slug,
+          customPrompt: restaurantData.customPrompt
         };
     
     console.log('Restaurant operation:', {

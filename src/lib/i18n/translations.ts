@@ -181,5 +181,57 @@ export const translations: Translation = {
   invalidServerResponse: {
     es: "Respuesta del servidor inválida",
     en: "Invalid server response"
+  },
+  customPromptLabel: {
+    es: "Instrucciones o información adicional",
+    en: "Additional instructions or information"
+  },
+  customPromptPlaceholder: {
+    es: "Ingrese cualquier instrucción o información adicional para su menú (máximo 500 caracteres)",
+    en: "Enter any additional instructions or information for your menu (max 500 characters)"
+  },
+  noRestaurantSelected: {
+    es: "No hay restaurante seleccionado",
+    en: "No restaurant selected"
+  },
+  logo: {
+    es: "Logo",
+    en: "Logo"
+  },
+  edit: {
+    es: "Editar",
+    en: "Edit"
+  },
+  dragAndDrop: {
+    es: "o arrastrar y soltar",
+    en: "or drag and drop"
+  },
+  dropToUpload: {
+    es: "Soltar para subir",
+    en: "Drop to upload"
+  },
+  yourRestaurants: {
+    es: "Tus Restaurantes",
+    en: "Your Restaurants"
+  },
+  selectRestaurantManage: {
+    es: "Selecciona un restaurante para administrar su menú",
+    en: "Select a restaurant to manage its menu"
+  },
+  addRestaurant: {
+    es: "Agregar Restaurante",
+    en: "Add Restaurant"
+  },
+  noRestaurantsFound: {
+    es: "No se encontraron restaurantes",
+    en: "No restaurants found"
+  },
+  addFirstRestaurant: {
+    es: "Agrega tu primer restaurante para comenzar",
+    en: "Add your first restaurant to get started"
+  },
+  loading: {
+    es: "Cargando...",
+    en: "Loading..."
   }
 }; 
