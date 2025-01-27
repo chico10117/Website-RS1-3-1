@@ -12,32 +12,59 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 }
 
 export async function createOrUpdateRestaurant(
-  restaurantData: { name: string; logo: string | null; slug?: string }, 
+  restaurantData: { id?: string; name: string; logo: string | null; slug?: string }, 
   restaurantId?: string
 ): Promise<Restaurant> {
-  const method = restaurantId ? 'PUT' : 'POST';
-  const url = restaurantId ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
+  // For updates, we use the explicit restaurantId parameter
+  const isUpdate = !!restaurantId;
   
-  const response = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(restaurantData)
-  });
+  const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
+  
+  try {
+    // For POST (new restaurant), include all data including the generated ID
+    // For PUT (update), don't include id in body since it's in URL
+    const bodyData = isUpdate 
+      ? { name: restaurantData.name, logo: restaurantData.logo, slug: restaurantData.slug }
+      : { 
+          ...(restaurantData.id && { id: restaurantData.id }), 
+          name: restaurantData.name, 
+          logo: restaurantData.logo,
+          slug: restaurantData.slug 
+        };
+    
+    console.log('Restaurant operation:', {
+      method: isUpdate ? 'PUT' : 'POST',
+      url,
+      bodyData,
+      isUpdate,
+      restaurantId,
+      providedId: restaurantData.id
+    });
 
-  if (!response.ok) {
-    // If update fails because restaurant doesn't exist, create a new one
-    if (response.status === 404 && restaurantId) {
-      return createOrUpdateRestaurant(restaurantData);
+    const response = await fetch(url, {
+      method: isUpdate ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyData)
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok || !result.success) {
+      console.error('Restaurant operation failed:', { 
+        status: response.status, 
+        result, 
+        isUpdate,
+        restaurantId,
+        bodyData
+      });
+      throw new Error(result.error || `Failed to ${isUpdate ? 'update' : 'create'} restaurant`);
     }
-    throw new Error(`Failed to ${restaurantId ? 'update' : 'create'} restaurant: ${await response.text()}`);
-  }
 
-  const result = await response.json();
-  if (!result.success) {
-    throw new Error(result.error || `Failed to ${restaurantId ? 'update' : 'create'} restaurant`);
+    return result.data;
+  } catch (error) {
+    console.error('Restaurant operation failed:', error);
+    throw error;
   }
-
-  return result.data;
 }
 
 export async function deleteRestaurant(restaurantId: string): Promise<void> {

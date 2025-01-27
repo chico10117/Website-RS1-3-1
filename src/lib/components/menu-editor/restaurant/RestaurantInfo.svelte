@@ -14,6 +14,7 @@
   export let restaurants: Restaurant[] = [];
 
   interface UpdateEvent {
+    id?: string;
     name: string;
     logo: string | null;
   }
@@ -33,7 +34,7 @@
   $: t = (key: string): string => translations[key][currentLanguage];
 
   // Make user store reactive
-  $: userName = $user.name;
+  $: userName = $user?.name;
 
   // Helper function to ensure string for UI
   function ensureString(value: string | null | undefined): string {
@@ -49,79 +50,121 @@
   $: displayLogo = ensureString(menuLogo);
 
   async function handleRestaurantNameInput() {
-    if (restaurantName && !selectedRestaurant && !isCreatingRestaurant) {
-      isCreatingRestaurant = true;
-      try {
-        // Create a temporary ID for the new restaurant
-        const tempId = crypto.randomUUID();
-        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
-        
-        // Update cache instead of saving
-        menuCache.updateRestaurant({
-          id: tempId,
-          name: restaurantName.trim(),
-          logo: ensureStringOrNull(menuLogo),
-          slug,
-          userId: $user.id,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-
-        // Only dispatch the update event, don't select the restaurant yet
-        dispatch('update', { 
-          name: restaurantName.trim(), 
-          logo: menuLogo
-        });
-      } catch (error) {
-        console.error('Error updating restaurant:', error);
-        if (error instanceof Error) {
-          toasts.error(t('error') + ': ' + error.message);
-        }
-      } finally {
-        isCreatingRestaurant = false;
+    try {
+      // Skip if restaurant name is empty or if we already have a restaurant selected/being created
+      if (!restaurantName.trim() || selectedRestaurant || isCreatingRestaurant) {
+        return;
       }
+
+      isCreatingRestaurant = true;
+
+      // Get the current user ID
+      const userId = $user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Create a new restaurant ID
+      const newId = crypto.randomUUID();
+      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+      const now = new Date();
+      
+      console.log('Creating new restaurant with:', {
+        newId,
+        restaurantName: restaurantName.trim(),
+        slug,
+        userId
+      });
+
+      // Create the new restaurant object
+      const newRestaurant = {
+        id: newId,
+        name: restaurantName.trim(),
+        logo: menuLogo,
+        slug,
+        userId,
+        createdAt: now,
+        updatedAt: now
+      };
+
+      // Update the cache first
+      console.log('Updating cache with new restaurant:', newRestaurant);
+      menuCache.updateRestaurant(newRestaurant);
+      
+      // Dispatch update event with the new ID
+      const updateEvent = { 
+        id: newId,
+        name: restaurantName.trim(), 
+        logo: menuLogo
+      };
+      console.log('Dispatching update event:', updateEvent);
+      dispatch('update', updateEvent);
+
+      // Clear the input if we're not in edit mode
+      if (!selectedRestaurant) {
+        restaurantName = '';
+      }
+    } catch (error) {
+      console.error('Error creating restaurant:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    } finally {
+      isCreatingRestaurant = false;
+    }
+  }
+
+  function startEditingRestaurant() {
+    editingRestaurantName = restaurantName;
+    isEditingRestaurant = true;
+  }
+
+  function cancelEditingRestaurant() {
+    editingRestaurantName = restaurantName;
+    isEditingRestaurant = false;
+  }
+
+  function handleRestaurantEditKeyPress(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      updateRestaurantName();
+    } else if (event.key === 'Escape') {
+      cancelEditingRestaurant();
     }
   }
 
   async function updateRestaurantName() {
-    if (!selectedRestaurant || !editingRestaurantName.trim()) {
+    if (!editingRestaurantName.trim()) {
+      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
       return;
     }
 
     try {
-      const response = await fetch(`/api/restaurants/${selectedRestaurant}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: editingRestaurantName.trim(),
-          logo: ensureStringOrNull(menuLogo)
-        })
-      });
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update restaurant');
+      if (!selectedRestaurant) {
+        toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
+        return;
       }
 
-      // Update the restaurant in the store
-      currentRestaurant.updateCachedRestaurant(result.data);
-      
-      // Update the local state
-      restaurantName = editingRestaurantName.trim();
-      isEditingRestaurant = false;
-      
-      // Dispatch update event
-      dispatch('update', { 
-        name: editingRestaurantName.trim(), 
-        logo: menuLogo
+      // Only update the name in the cache
+      menuCache.updateRestaurant({
+        ...$currentRestaurant!, // Keep all existing restaurant data
+        name: editingRestaurantName.trim(), // Only update the name
+        updatedAt: new Date() // Update the modification date
       });
 
-      toasts.success(t('restaurantUpdated'));
+      // Update local state
+      restaurantName = editingRestaurantName.trim();
+      
+      // Dispatch update event with only the necessary fields
+      dispatch('update', {
+        id: selectedRestaurant,
+        name: editingRestaurantName.trim(),
+        logo: menuLogo // Keep existing logo
+      });
+
+      // Exit edit mode
+      isEditingRestaurant = false;
     } catch (error) {
-      console.error('Error updating restaurant:', error);
+      console.error('Error updating restaurant name:', error);
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
       }
@@ -149,37 +192,70 @@
         body: formData
       });
 
-      let uploadResult;
-      try {
-        uploadResult = await uploadResponse.json();
-      } catch (parseError) {
-        console.error('Error parsing upload response:', parseError);
-        throw new Error(t('invalidServerResponse'));
-      }
-      
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || t('fileUploadError'));
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload logo');
       }
 
-      // Update cache with new logo
-      if (selectedRestaurant) {
+      const uploadResult = await uploadResponse.json();
+      console.log('Logo uploaded:', uploadResult);
+
+      // Get the current user ID
+      const userId = $user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // For existing restaurant, use the ID from the currentRestaurant store
+      if ($currentRestaurant) {
+        console.log('Updating existing restaurant:', {
+          id: $currentRestaurant.id,
+          name: $currentRestaurant.name,
+          logo: uploadResult.url
+        });
+
+        // Update cache with new logo
+        menuCache.updateRestaurant({
+          ...$currentRestaurant,
+          logo: uploadResult.url || null,
+          updatedAt: new Date()
+        });
+
+        // Dispatch update event with the correct ID
+        dispatch('update', {
+          id: $currentRestaurant.id, // Use the ID from currentRestaurant store
+          name: $currentRestaurant.name,
+          logo: uploadResult.url || null
+        });
+      } else {
+        // For new restaurant
         const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
         const now = new Date();
-        menuCache.updateRestaurant({
-          id: selectedRestaurant,
+        const newId = crypto.randomUUID();
+        
+        console.log('Creating new restaurant:', {
+          id: newId,
           name: restaurantName,
-          logo: ensureStringOrNull(uploadResult.url),
+          logo: uploadResult.url
+        });
+
+        // Create new restaurant in cache
+        menuCache.updateRestaurant({
+          id: newId,
+          name: restaurantName,
+          logo: uploadResult.url || null,
           slug,
-          userId: $user.id,
+          userId,
           createdAt: now,
           updatedAt: now
         });
-      }
 
-      dispatch('update', {
-        name: restaurantName,
-        logo: uploadResult.url
-      });
+        // Dispatch update event for new restaurant
+        dispatch('update', {
+          id: newId,
+          name: restaurantName,
+          logo: uploadResult.url || null
+        });
+      }
     } catch (error) {
       console.error('Error uploading logo:', error);
       if (error instanceof Error) {
@@ -201,70 +277,12 @@
     }
   }
 
-  function startEditingRestaurant() {
-    isEditingRestaurant = true;
-    editingRestaurantName = restaurantName;
-  }
-
-  function cancelEditingRestaurant() {
-    isEditingRestaurant = false;
-    editingRestaurantName = '';
-  }
-
-  async function handleRestaurantEditKeyPress(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      await updateRestaurantName();
-    } else if (event.key === 'Escape') {
-      cancelEditingRestaurant();
-    }
-  }
-
   async function handleRestaurantSelect(event: Event) {
     const select = event.target as HTMLSelectElement;
     try {
       dispatch('select', select.value);
     } catch (error) {
       console.error('Error selecting restaurant:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
-    }
-  }
-
-  async function saveRestaurantChanges() {
-    if (!editingRestaurantName.trim()) {
-      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
-      return;
-    }
-
-    try {
-      const slug = editingRestaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
-      
-      if (!selectedRestaurant) {
-        toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
-        return;
-      }
-
-      const now = new Date();
-      // Update cache instead of saving
-      menuCache.updateRestaurant({
-        id: selectedRestaurant,
-        name: editingRestaurantName.trim(),
-        logo: ensureStringOrNull(menuLogo),
-        slug,
-        userId: $user.id,
-        createdAt: now,
-        updatedAt: now
-      });
-      
-      dispatch('update', { 
-        name: editingRestaurantName.trim(), 
-        logo: menuLogo
-      });
-      
-      isEditingRestaurant = false;
-    } catch (error) {
-      console.error('Error updating restaurant:', error);
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
       }
@@ -311,17 +329,11 @@
       </div>
     {:else}
       <div class="flex-1 flex items-center justify-between">
-        <input
-          type="text"
-          class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
-          placeholder={t('enterRestaurantName')}
-          bind:value={restaurantName}
-          on:blur={handleRestaurantNameInput}
-          on:keydown={handleRestaurantNameKeyPress}
-          readonly={!!selectedRestaurant}
-          disabled={!!selectedRestaurant}
-        />
         {#if selectedRestaurant}
+          <!-- For existing restaurant: show name and edit button -->
+          <div class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg font-normal">
+            {restaurantName}
+          </div>
           <button 
             class="p-2 text-gray-500 hover:text-blue-500 ml-2"
             on:click={startEditingRestaurant}
@@ -330,6 +342,16 @@
               <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
             </svg>
           </button>
+        {:else}
+          <!-- For new restaurant: show editable input -->
+          <input
+            type="text"
+            class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
+            placeholder={t('enterRestaurantName')}
+            bind:value={restaurantName}
+            on:blur={handleRestaurantNameInput}
+            on:keydown={handleRestaurantNameKeyPress}
+          />
         {/if}
       </div>
     {/if}

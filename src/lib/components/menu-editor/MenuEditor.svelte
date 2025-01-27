@@ -17,6 +17,7 @@
   import RestaurantSelector from './RestaurantSelector.svelte';
   import * as categoryService from '$lib/services/category.service';
   import * as dishService from '$lib/services/dish.service';
+  import { user } from '$lib/stores/user';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -105,25 +106,42 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ name: string; logo: string | null }>) {
-    const { name, logo } = event.detail;
-    const restaurantId = $menuState.selectedRestaurant || crypto.randomUUID();
+  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null }>) {
+    console.log('handleRestaurantUpdate called with event:', event.detail);
     
+    const { id, name, logo } = event.detail;
+    
+    if (!name.trim()) {
+      console.error('No restaurant name provided');
+      toasts.error(t('error') + ': Missing restaurant name');
+      return;
+    }
+
+    const slug = name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
+    
+    // Get the current user ID
+    const userId = $user?.id;
+    if (!userId) {
+      console.error('Authentication error: No user ID available');
+      toasts.error(t('error') + ': ' + 'User not authenticated');
+      return;
+    }
+
+    // Update menu state
     menuState.updateRestaurantInfo(name, logo);
-    menuCache.updateRestaurant({ 
-      id: restaurantId,
+
+    // Update cache with complete restaurant data
+    const restaurantData = { 
+      id: crypto.randomUUID(), // Generate new ID for new restaurants
       name,
       logo,
-      slug: name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-'),
-      userId: $currentRestaurant?.userId || '',
-      createdAt: $currentRestaurant?.createdAt || null,
+      slug,
+      userId,
+      createdAt: new Date(),
       updatedAt: new Date()
-    });
-
-    // Set the selected restaurant ID when creating a new one
-    if (!$menuState.selectedRestaurant) {
-      await menuState.selectRestaurant(restaurantId);
-    }
+    };
+    console.log('Updating restaurant cache with:', restaurantData);
+    menuCache.updateRestaurant(restaurantData);
   }
 
   function handleCategoriesUpdate(event: CustomEvent<Category[]>) {
@@ -151,12 +169,16 @@
       menuState.setSaving(true);
       console.log('Starting save operation...');
       
+      // For new restaurants, we should not pass a currentRestaurantId
       const result = await menuService.saveMenuChanges(
         $menuCache,
         {
           name: $menuState.restaurantName,
-          logo: $menuState.menuLogo
+          logo: $menuState.menuLogo,
+          // Include slug from cache if available
+          ...(($menuCache.restaurant?.slug) && { slug: $menuCache.restaurant.slug })
         },
+        // Only pass currentRestaurantId if we're updating an existing restaurant
         $menuState.selectedRestaurant
       );
       
@@ -165,8 +187,8 @@
       menuCache.clearCache();
       
       // Reload the current restaurant data to ensure frontend is in sync with database
-      if ($menuState.selectedRestaurant) {
-        await menuState.selectRestaurant($menuState.selectedRestaurant);
+      if (result.restaurant.id) {
+        await menuState.selectRestaurant(result.restaurant.id);
       }
       
       toasts.success(t('saveSuccess'));
@@ -192,16 +214,21 @@
         {error}
       </div>
     {:else}
-      <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative">
+      <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative rounded-3xl">
         <Toast />
         <div class="container mx-auto p-4">
           <div class="flex justify-between items-center mb-4">
             <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
           </div>
+
+          <!-- Restaurant Selector at the top -->
+          <div class="mb-8">
+            <RestaurantSelector />
+          </div>
           
           <div class="flex gap-8">
             <!-- Left Section - Menu Editor -->
-            <div class="flex-1 p-8 rounded-xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
+            <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
               <RestaurantInfo
                 restaurantName={$menuState.restaurantName}
                 menuLogo={$menuState.menuLogo}
@@ -222,7 +249,7 @@
             <div class="w-px bg-white/50 backdrop-blur-sm"></div>
 
             <!-- Right Section - Preview -->
-            <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-xl border border-white/50 shadow-xl">
+            <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-3xl border border-white/50 shadow-xl">
               <MenuPreview
                 restaurantName={$menuState.restaurantName}
                 menuLogo={$menuState.menuLogo}
@@ -254,11 +281,6 @@
             </div>
           {/if}
         </div>
-      </div>
-
-      <!-- Restaurant Selector at the bottom -->
-      <div class="mt-8 pb-8">
-        <RestaurantSelector />
       </div>
     {/if}
   </div>

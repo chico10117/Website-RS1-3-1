@@ -4,27 +4,81 @@ import { restaurants } from '$lib/server/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import { generateSlug } from '$lib/utils/slug';
+import { users } from '$lib/server/schema';
 
-export async function PUT({ params, request }: RequestEvent) {
+async function getUserFromToken(token: string) {
+  const [, payloadBase64] = token.split('.');
+  const payload = JSON.parse(atob(payloadBase64));
+  const [user] = await db.select().from(users).where(eq(users.email, payload.email));
+  return user;
+}
+
+export async function PUT({ params, request, cookies }: RequestEvent) {
   try {
     const { restaurantId } = params;
     const updateData = await request.json();
 
-    // Validate that restaurantId exists
-    const existingRestaurant = await db.select()
+    console.log('PUT /api/restaurants/[restaurantId]:', {
+      restaurantId,
+      updateData
+    });
+
+    // Check authentication
+    const token = cookies.get('auth_token');
+    if (!token) {
+      console.log('No auth token found');
+      return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await getUserFromToken(token);
+    if (!user) {
+      console.log('No user found for token');
+      return json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    console.log('User found:', {
+      userId: user.id,
+      userEmail: user.email
+    });
+
+    // First check if restaurant exists at all
+    const [restaurant] = await db.select()
       .from(restaurants)
       .where(eq(restaurants.id, restaurantId as string))
       .limit(1);
 
-    if (!existingRestaurant.length) {
+    console.log('Restaurant lookup result:', {
+      found: !!restaurant,
+      restaurant,
+      requestedId: restaurantId
+    });
+
+    if (!restaurant) {
       return json({ 
         success: false, 
         error: 'Restaurant not found' 
       }, { status: 404 });
     }
 
-    // If name is being updated, check for duplicates
-    if (updateData.name !== undefined && updateData.name !== existingRestaurant[0].name) {
+    // Then check if it belongs to the user
+    if (restaurant.userId !== user.id) {
+      console.log('Restaurant ownership mismatch:', {
+        restaurantUserId: restaurant.userId,
+        requestingUserId: user.id
+      });
+      return json({ 
+        success: false, 
+        error: 'Restaurant does not belong to current user' 
+      }, { status: 403 });
+    }
+
+    // Prepare update data
+    const updateSet: any = {
+      updatedAt: new Date()
+    };
+
+    // Handle name update if provided
+    if (updateData.name !== undefined && updateData.name !== restaurant.name) {
       const slug = generateSlug(updateData.name);
       
       // Check if name is already taken by another restaurant owned by the same user
@@ -32,7 +86,7 @@ export async function PUT({ params, request }: RequestEvent) {
         .from(restaurants)
         .where(
           and(
-            eq(restaurants.userId, existingRestaurant[0].userId),
+            eq(restaurants.userId, user.id),
             eq(restaurants.slug, slug),
             ne(restaurants.id, restaurantId as string)
           )
@@ -46,29 +100,18 @@ export async function PUT({ params, request }: RequestEvent) {
         }, { status: 400 });
       }
 
-      // Update the restaurant with new name and slug
-      const [updatedRestaurant] = await db.update(restaurants)
-        .set({
-          name: updateData.name,
-          slug,
-          ...(updateData.logo !== undefined && { logo: updateData.logo }),
-          updatedAt: new Date()
-        })
-        .where(eq(restaurants.id, restaurantId as string))
-        .returning();
-
-      return json({ 
-        success: true, 
-        data: updatedRestaurant 
-      });
+      updateSet.name = updateData.name;
+      updateSet.slug = slug;
     }
 
-    // If only updating logo or other fields
+    // Handle logo update if provided
+    if (updateData.logo !== undefined) {
+      updateSet.logo = updateData.logo;
+    }
+
+    // Update the restaurant
     const [updatedRestaurant] = await db.update(restaurants)
-      .set({
-        ...(updateData.logo !== undefined && { logo: updateData.logo }),
-        updatedAt: new Date()
-      })
+      .set(updateSet)
       .where(eq(restaurants.id, restaurantId as string))
       .returning();
 
