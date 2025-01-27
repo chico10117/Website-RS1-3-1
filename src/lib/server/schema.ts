@@ -15,6 +15,7 @@ export const restaurants = pgTable('restaurants', {
   slug: text('slug').notNull().unique(),
   logo: text('logo'),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  customPrompt: text('custom_prompt'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });

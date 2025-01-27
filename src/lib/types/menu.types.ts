@@ -4,6 +4,7 @@ export interface Restaurant {
   slug: string;
   logo: string | null;
   userId: string;
+  customPrompt: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
