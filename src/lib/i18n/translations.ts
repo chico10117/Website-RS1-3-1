@@ -187,8 +187,8 @@ export const translations: Translation = {
     en: "Additional instructions or information"
   },
   customPromptPlaceholder: {
-    es: "Ingrese cualquier instrucción o información adicional para su menú (máximo 500 caracteres)",
-    en: "Enter any additional instructions or information for your menu (max 500 characters)"
+    es: "Ingrese cualquier instrucción o información adicional para su menú (máximo 1000 caracteres)",
+    en: "Enter any additional instructions or information for your menu (max 1000 characters)"
   },
   noRestaurantSelected: {
     es: "No hay restaurante seleccionado",
