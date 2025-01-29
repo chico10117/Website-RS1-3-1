@@ -7,8 +7,8 @@ interface Translation {
 
 export const translations: Translation = {
   appTitle: {
-    es: "Creador de Carta Reco",
-    en: "Reco Menu Builder"
+    es: "Creador de Carta",
+    en: "Menu Builder"
   },
   restaurantName: {
     es: "Nombre del Restaurante",

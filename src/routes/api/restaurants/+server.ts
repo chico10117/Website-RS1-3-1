@@ -34,7 +34,7 @@ export async function POST({ request, cookies }: RequestEvent) {
     }
 
     // Use provided slug or generate one from name
-    const finalSlug = slug || generateSlug(name);
+    const finalSlug = slug || await generateSlug(name);
 
     // Check if a restaurant with this slug already exists for this user
     const existingRestaurant = await db.select()

@@ -18,6 +18,7 @@
   import * as dishService from '$lib/services/dish.service';
   import { user } from '$lib/stores/user';
   import { writable } from 'svelte/store';
+  import { generateSlug } from '$lib/utils/slug';
 
   const isRestaurantSelectorMinimized = writable(false);
 
@@ -125,8 +126,6 @@
       return;
     }
 
-    const slug = name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-');
-    
     // Get the current user ID
     const userId = $user?.id;
     if (!userId) {
@@ -137,6 +136,9 @@
 
     // Update menu state
     menuState.updateRestaurantInfo(name, logo, customPrompt);
+
+    // Generate slug
+    const slug = await generateSlug(name);
 
     // Update cache with complete restaurant data
     const restaurantData = { 
@@ -233,7 +235,7 @@
 <div class="container mx-auto px-4 py-8">
   {#if loading}
     <div class="text-center text-gray-600">
-      Loading restaurant...
+      Loading restaurants...
     </div>
   {:else if error}
     <div class="text-center text-red-500">
@@ -244,7 +246,10 @@
       <Toast />
       <div class="space-y-8">
         <div class="flex justify-between items-center">
-          <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
+          <div class="flex items-center gap-3">
+            <img src="/recologo.svg" alt="Reco Logo" class="h-8 w-auto" />
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
+          </div>
         </div>
 
         <!-- Restaurant Selector with glass effect -->
@@ -290,6 +295,7 @@
             <CategoryList
               categories={$menuState.categories}
               selectedRestaurant={$menuState.selectedRestaurant}
+              restaurantName={$menuState.restaurantName}
               on:update={handleCategoriesUpdate}
             />
           </div>

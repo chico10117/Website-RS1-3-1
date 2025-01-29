@@ -10,6 +10,7 @@
 
   export let categories: Category[] = [];
   export let selectedRestaurant: string | null;
+  export let restaurantName: string = '';
 
   const dispatch = createEventDispatcher<{
     update: Category[];
@@ -149,6 +150,7 @@
   
   <AddCategory
     {selectedRestaurant}
+    {restaurantName}
     on:add={handleCategoryAdd}
   />
 

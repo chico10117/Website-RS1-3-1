@@ -1,12 +1,15 @@
-export function generateSlug(name: string, userId?: string): string {
-  const baseSlug = name
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-    .replace(/[^\w\s-]/g, '') // Remove special characters except whitespace and hyphens
-    .replace(/\s+/g, ''); // Remove all whitespace
-
-  // Add user-specific prefix if userId is provided
-  return userId ? `${userId.slice(0, 8)}-${baseSlug}` : baseSlug;
+export async function generateSlug(name: string): Promise<string> {
+  try {
+    const response = await fetch(`/api/slug?name=${encodeURIComponent(name)}`);
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+    
+    return result.data;
+  } catch (error) {
+    console.error('Error generating slug:', error);
+    throw error;
+  }
 } 

@@ -359,6 +359,70 @@
       });
     }
   }
+
+  async function handleLogoDelete(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      // Get the current user ID
+      const userId = $user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // For existing restaurant, use the ID from the currentRestaurant store
+      if ($currentRestaurant) {
+        // Update cache with null logo
+        menuCache.updateRestaurant({
+          ...$currentRestaurant,
+          logo: null,
+          updatedAt: new Date()
+        });
+
+        // Dispatch update event with the correct ID
+        dispatch('update', {
+          id: $currentRestaurant.id,
+          name: $currentRestaurant.name,
+          logo: null,
+          customPrompt: $currentRestaurant.customPrompt
+        });
+      } else if (restaurantName) {
+        // For new restaurant
+        const now = new Date();
+        const newId = crypto.randomUUID();
+        const slug = await generateSlug(restaurantName);
+        
+        // Create new restaurant in cache
+        menuCache.updateRestaurant({
+          id: newId,
+          name: restaurantName,
+          logo: null,
+          customPrompt: customPrompt,
+          slug,
+          userId,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        // Dispatch update event
+        dispatch('update', {
+          id: newId,
+          name: restaurantName,
+          logo: null,
+          customPrompt: customPrompt
+        });
+      }
+
+      // Update local state
+      menuLogo = null;
+    } catch (error) {
+      console.error('Error deleting logo:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    }
+  }
 </script>
 
 <div class="space-y-4">
@@ -439,12 +503,24 @@
         >
           <button type="submit" class="w-full h-full flex flex-col items-center justify-center">
             {#if menuLogo}
-              <img 
-                src={ensureString(menuLogo)} 
-                alt="Menu logo" 
-                class="w-full h-full object-cover rounded-xl"
-              />
-              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors duration-200" />
+              <div class="relative w-full h-full">
+                <img 
+                  src={ensureString(menuLogo)} 
+                  alt="Menu logo" 
+                  class="w-full h-full object-cover rounded-xl"
+                />
+                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors duration-200" />
+                <!-- Delete button overlay -->
+                <button
+                  type="button"
+                  class="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
+                  on:click|stopPropagation={handleLogoDelete}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
             {:else}
               <div class="flex flex-col items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

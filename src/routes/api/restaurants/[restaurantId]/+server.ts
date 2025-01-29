@@ -79,7 +79,7 @@ export async function PUT({ params, request, cookies }: RequestEvent) {
 
     // Handle name update if provided
     if (updateData.name !== undefined && updateData.name !== restaurant.name) {
-      const slug = generateSlug(updateData.name);
+      const slug = await generateSlug(updateData.name);
       
       // Check if name is already taken by another restaurant owned by the same user
       const slugExists = await db.select()

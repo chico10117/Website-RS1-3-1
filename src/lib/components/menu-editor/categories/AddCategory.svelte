@@ -6,6 +6,7 @@
   import { toasts } from '$lib/stores/toast';
 
   export let selectedRestaurant: string | null;
+  export let restaurantName: string = '';
 
   const dispatch = createEventDispatcher<{
     add: Category;
@@ -18,14 +19,15 @@
   $: t = (key: string): string => translations[key][currentLanguage];
 
   async function addCategory() {
-    if (newCategory.trim() && selectedRestaurant) {
+    // Allow adding category if we have either a selectedRestaurant ID or a restaurant name
+    if (newCategory.trim() && (selectedRestaurant || restaurantName)) {
       try {
         // Create a new category object
         const category: Category = {
           id: crypto.randomUUID(), // Generate a temporary ID
           name: newCategory.trim(),
           dishes: [],
-          restaurantId: selectedRestaurant
+          restaurantId: selectedRestaurant || crypto.randomUUID() // Use temporary ID if no restaurant ID yet
         };
 
         dispatch('add', category);
@@ -57,7 +59,7 @@
   <button 
     class="px-4 py-2 bg-blue-500/80 backdrop-blur-sm text-white rounded-lg hover:bg-blue-600/80 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
     on:click={addCategory}
-    disabled={!selectedRestaurant}
+    disabled={!selectedRestaurant && !restaurantName}
   >
     {t('add')}
   </button>
