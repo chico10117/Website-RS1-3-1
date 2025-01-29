@@ -7,6 +7,7 @@
   import { toasts } from '$lib/stores/toast';
   import { user } from '$lib/stores/user';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { generateSlug } from '$lib/utils/slug';
 
   export let restaurantName = '';
   export let menuLogo: string | null = null;
@@ -144,7 +145,7 @@
         });
       } else {
         // For new restaurant
-        const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+        const slug = generateSlug(restaurantName, userId);
         const now = new Date();
         const newId = crypto.randomUUID();
         
@@ -199,57 +200,42 @@
 
   async function handleRestaurantNameInput() {
     try {
-      // Skip if restaurant name is empty or if we already have a restaurant selected/being created
       if (!restaurantName || selectedRestaurant || isCreatingRestaurant) {
         return;
       }
 
       isCreatingRestaurant = true;
 
-      // Get the current user ID
       const userId = $user?.id;
       if (!userId) {
         throw new Error('User not authenticated');
       }
 
-      // Create a new restaurant ID
       const newId = crypto.randomUUID();
-      // Generate slug from the final name, preserving spaces in the name itself
-      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
       const now = new Date();
       
-      console.log('Creating new restaurant with:', {
-        newId,
-        restaurantName: restaurantName,
-        slug,
-        userId
-      });
-
-      // Create the new restaurant object
+      // Remove slug generation from here since it will be handled by the service
       const newRestaurant = {
         id: newId,
         name: restaurantName,
         logo: menuLogo,
         customPrompt: customPrompt,
-        slug,
         userId,
         createdAt: now,
         updatedAt: now
       };
 
-      // Update the cache first
+      // Update cache with new restaurant
       console.log('Updating cache with new restaurant:', newRestaurant);
       menuCache.updateRestaurant(newRestaurant);
       
-      // Dispatch update event with the new ID
-      const updateEvent = { 
+      // Dispatch update event
+      dispatch('update', {
         id: newId,
-        name: restaurantName, 
+        name: restaurantName,
         logo: menuLogo,
         customPrompt: customPrompt
-      };
-      console.log('Dispatching update event:', updateEvent);
-      dispatch('update', updateEvent);
+      });
 
     } catch (error) {
       console.error('Error creating restaurant:', error);
@@ -351,7 +337,7 @@
         id: crypto.randomUUID(),
         name: restaurantName.trim(),
         logo: menuLogo,
-        slug: restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-'),
+        slug: generateSlug(restaurantName, userId),
         userId,
         createdAt: new Date(),
         updatedAt: new Date()

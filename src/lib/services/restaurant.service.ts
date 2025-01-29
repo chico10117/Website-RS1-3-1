@@ -1,4 +1,5 @@
 import type { Restaurant } from '$lib/types';
+import { generateSlug } from '$lib/utils/slug';
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
   const response = await fetch('/api/restaurants');
@@ -18,6 +19,7 @@ export async function createOrUpdateRestaurant(
     logo: string | null; 
     slug?: string;
     customPrompt?: string | null;
+    userId?: string;
   }, 
   restaurantId?: string
 ): Promise<Restaurant> {
@@ -26,6 +28,9 @@ export async function createOrUpdateRestaurant(
   
   const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
   
+  // Generate slug if not provided
+  const slug = restaurantData.slug || generateSlug(restaurantData.name, restaurantData.userId);
+  
   try {
     // For POST (new restaurant), include all data including the generated ID
     // For PUT (update), don't include id in body since it's in URL
@@ -33,14 +38,14 @@ export async function createOrUpdateRestaurant(
       ? { 
           name: restaurantData.name, 
           logo: restaurantData.logo, 
-          slug: restaurantData.slug,
+          slug,
           customPrompt: restaurantData.customPrompt 
         }
       : { 
           ...(restaurantData.id && { id: restaurantData.id }), 
           name: restaurantData.name, 
           logo: restaurantData.logo,
-          slug: restaurantData.slug,
+          slug,
           customPrompt: restaurantData.customPrompt
         };
     
