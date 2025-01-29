@@ -227,88 +227,86 @@
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-  <div class="container mx-auto px-4 py-8">
-    {#if loading}
-      <div class="text-center text-white/70">
-        Loading restaurant...
-      </div>
-    {:else if error}
-      <div class="text-center text-red-400">
-        {error}
-      </div>
-    {:else}
-      <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 font-sans relative rounded-3xl">
-        <Toast />
-        <div class="container mx-auto p-4">
-          <div class="flex justify-between items-center mb-4">
-            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
-          </div>
-
-          <!-- Restaurant Selector at the top -->
-          <div class="mb-8">
-            <RestaurantSelector />
-          </div>
-          
-          <div class="flex gap-8">
-            <!-- Left Section - Menu Editor -->
-            <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
-              <RestaurantInfo
-                restaurantName={$menuState.restaurantName}
-                menuLogo={$menuState.menuLogo}
-                selectedRestaurant={$menuState.selectedRestaurant}
-                restaurants={$menuState.restaurants}
-                customPrompt={$currentRestaurant?.customPrompt ?? null}
-                on:update={handleRestaurantUpdate}
-                on:select={handleRestaurantSelect}
-              />
-
-              <CategoryList
-                categories={$menuState.categories}
-                selectedRestaurant={$menuState.selectedRestaurant}
-                on:update={handleCategoriesUpdate}
-              />
-            </div>
-
-            <!-- Vertical Divider -->
-            <div class="w-px bg-white/50 backdrop-blur-sm"></div>
-
-            <!-- Right Section - Preview -->
-            <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-3xl border border-white/50 shadow-xl">
-              <MenuPreview
-                restaurantName={$menuState.restaurantName}
-                menuLogo={$menuState.menuLogo}
-                categories={$menuState.categories}
-              />
-            </div>
-          </div>
-
-          <!-- Save Menu Button (Fixed to bottom right) -->
-          {#if $menuCache.hasUnsavedChanges}
-            <div class="fixed bottom-8 right-8 z-50">
-              <button
-                class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl"
-                on:click={saveAllChanges}
-                disabled={$menuState.isSaving}
-              >
-                {#if $menuState.isSaving}
-                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                {/if}
-                {t('saveMenu')}
-              </button>
-            </div>
-          {/if}
+<div class="container mx-auto px-4 py-8">
+  {#if loading}
+    <div class="text-center text-gray-600">
+      Loading restaurant...
+    </div>
+  {:else if error}
+    <div class="text-center text-red-500">
+      {error}
+    </div>
+  {:else}
+    <div class="glass rounded-3xl p-8">
+      <Toast />
+      <div class="space-y-8">
+        <div class="flex justify-between items-center">
+          <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
         </div>
+
+        <!-- Restaurant Selector with glass effect -->
+        <div class="glass-hover rounded-xl p-4">
+          <RestaurantSelector />
+        </div>
+        
+        <div class="flex gap-8">
+          <!-- Left Section - Menu Editor -->
+          <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
+            <RestaurantInfo
+              restaurantName={$menuState.restaurantName}
+              menuLogo={$menuState.menuLogo}
+              selectedRestaurant={$menuState.selectedRestaurant}
+              restaurants={$menuState.restaurants}
+              customPrompt={$currentRestaurant?.customPrompt ?? null}
+              on:update={handleRestaurantUpdate}
+              on:select={handleRestaurantSelect}
+            />
+
+            <CategoryList
+              categories={$menuState.categories}
+              selectedRestaurant={$menuState.selectedRestaurant}
+              on:update={handleCategoriesUpdate}
+            />
+          </div>
+
+          <!-- Vertical Divider -->
+          <div class="w-px bg-white/50 backdrop-blur-sm"></div>
+
+          <!-- Right Section - Preview -->
+          <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-3xl border border-white/50 shadow-xl">
+            <MenuPreview
+              restaurantName={$menuState.restaurantName}
+              menuLogo={$menuState.menuLogo}
+              categories={$menuState.categories}
+            />
+          </div>
+        </div>
+
+        <!-- Save Menu Button (Fixed to bottom right) -->
+        {#if $menuCache.hasUnsavedChanges}
+          <div class="fixed bottom-8 right-8 z-50">
+            <button
+              class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl"
+              on:click={saveAllChanges}
+              disabled={$menuState.isSaving}
+            >
+              {#if $menuState.isSaving}
+                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              {/if}
+              {t('saveMenu')}
+            </button>
+          </div>
+        {/if}
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </div>
 
 <style>
