@@ -33,6 +33,15 @@
     refreshRestaurants();
   }
 
+  // Add this helper function to sort restaurants by creation date
+  function sortRestaurantsByDate(restaurants: Restaurant[]) {
+    return [...restaurants].sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return dateB.getTime() - dateA.getTime(); // Most recent first
+    });
+  }
+
   onMount(async () => {
     try {
       loading = true;
@@ -43,8 +52,9 @@
       menuState.updateCategories([]);
       currentRestaurant.set(null);
       
-      // Load restaurants
-      restaurants = await currentRestaurant.loadRestaurants();
+      // Load and sort restaurants
+      const loadedRestaurants = await currentRestaurant.loadRestaurants();
+      restaurants = sortRestaurantsByDate(loadedRestaurants);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load restaurants';
     } finally {
@@ -165,8 +175,9 @@
 
   async function refreshRestaurants() {
     try {
-      // Load fresh data from the database
-      restaurants = await currentRestaurant.loadRestaurants();
+      // Load fresh data and sort
+      const loadedRestaurants = await currentRestaurant.loadRestaurants();
+      restaurants = sortRestaurantsByDate(loadedRestaurants);
     } catch (err) {
       console.error('Error refreshing restaurants:', err);
       error = err instanceof Error ? err.message : 'Failed to refresh restaurants';

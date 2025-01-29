@@ -5,8 +5,8 @@ export interface Restaurant {
   logo: string | null;
   userId: string;
   customPrompt: string | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export interface Category {

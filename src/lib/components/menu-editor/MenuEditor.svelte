@@ -10,7 +10,6 @@
   import { toasts } from '$lib/stores/toast';
   import Toast from '$lib/components/ui/Toast.svelte';
   import CategoryList from './categories/CategoryList.svelte';
-  import LanguageSwitch from '$lib/components/ui/LanguageSwitch.svelte';
   import type { Category, Restaurant } from '$lib/types/menu.types';
   import { page } from '$app/stores';
   import { currentRestaurant } from '$lib/stores/restaurant';

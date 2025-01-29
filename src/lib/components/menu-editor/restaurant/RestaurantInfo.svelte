@@ -200,7 +200,7 @@
   async function handleRestaurantNameInput() {
     try {
       // Skip if restaurant name is empty or if we already have a restaurant selected/being created
-      if (!restaurantName.trim() || selectedRestaurant || isCreatingRestaurant) {
+      if (!restaurantName || selectedRestaurant || isCreatingRestaurant) {
         return;
       }
 
@@ -214,12 +214,13 @@
 
       // Create a new restaurant ID
       const newId = crypto.randomUUID();
-      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '');
+      // Generate slug from the final name, preserving spaces in the name itself
+      const slug = restaurantName.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
       const now = new Date();
       
       console.log('Creating new restaurant with:', {
         newId,
-        restaurantName: restaurantName.trim(),
+        restaurantName: restaurantName,
         slug,
         userId
       });
@@ -227,7 +228,7 @@
       // Create the new restaurant object
       const newRestaurant = {
         id: newId,
-        name: restaurantName.trim(),
+        name: restaurantName,
         logo: menuLogo,
         customPrompt: customPrompt,
         slug,
@@ -243,17 +244,13 @@
       // Dispatch update event with the new ID
       const updateEvent = { 
         id: newId,
-        name: restaurantName.trim(), 
+        name: restaurantName, 
         logo: menuLogo,
         customPrompt: customPrompt
       };
       console.log('Dispatching update event:', updateEvent);
       dispatch('update', updateEvent);
 
-      // Clear the input if we're not in edit mode
-      if (!selectedRestaurant) {
-        restaurantName = '';
-      }
     } catch (error) {
       console.error('Error creating restaurant:', error);
       if (error instanceof Error) {
@@ -334,13 +331,6 @@
     }
   }
 
-  async function handleRestaurantNameKeyPress(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      await handleRestaurantNameInput();
-      (event.target as HTMLInputElement)?.blur();
-    }
-  }
-
   function handleCustomPromptInput(event: Event) {
     const textarea = event.target as HTMLTextAreaElement;
     // Limit to 1000 characters
@@ -387,47 +377,50 @@
 
 <div class="space-y-4">
   <!-- Restaurant Name Input -->
-  {#if isEditingRestaurant}
-    <div class="flex items-center gap-2">
-      <input
-        type="text"
-        bind:value={editingRestaurantName}
-        on:keydown={handleRestaurantEditKeyPress}
-        placeholder={t('enterRestaurantName')}
-        class="flex-1"
-      />
-      <button
-        class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-        on:click={updateRestaurantName}
-      >
-        {t('save')}
-      </button>
-      <button
-        class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
-        on:click={cancelEditingRestaurant}
-      >
-        {t('cancel')}
-      </button>
-    </div>
-  {:else}
-    <div class="flex items-center gap-2">
-      <input
-        type="text"
-        bind:value={restaurantName}
-        on:input={handleRestaurantNameInput}
-        placeholder={t('enterRestaurantName')}
-        class="flex-1"
-      />
-      {#if selectedRestaurant}
+  <div class="flex items-center gap-2">
+    {#if isEditingRestaurant}
+      <div class="flex items-center gap-2 w-full">
+        <input
+          type="text"
+          bind:value={editingRestaurantName}
+          on:keydown={handleRestaurantEditKeyPress}
+          placeholder={t('enterRestaurantName')}
+          class="flex-1"
+        />
         <button
-          class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-          on:click={startEditingRestaurant}
+          class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+          on:click={updateRestaurantName}
         >
-          {t('edit')}
+          {t('save')}
         </button>
-      {/if}
-    </div>
-  {/if}
+        <button
+          class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+          on:click={cancelEditingRestaurant}
+        >
+          {t('cancel')}
+        </button>
+      </div>
+    {:else}
+      <div class="flex items-center gap-2 w-full">
+        <input
+          type="text"
+          bind:value={restaurantName}
+          on:input={handleRestaurantNameInput}
+          placeholder={t('enterRestaurantName')}
+          class="flex-1"
+          readonly={!!selectedRestaurant}
+        />
+        {#if selectedRestaurant}
+          <button
+            class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            on:click={startEditingRestaurant}
+          >
+            {t('edit')}
+          </button>
+        {/if}
+      </div>
+    {/if}
+  </div>
 
   <!-- Logo Upload -->
   <div class="mb-8">

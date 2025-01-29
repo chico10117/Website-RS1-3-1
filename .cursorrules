@@ -25,9 +25,17 @@ We are using vercel for deployment.
 
 
 # To do list
-1. Add google picture to the user profile in the header. Fix issue not showing the picture.
-2. Fix slug generation for restaurants. Unique slug for each restaurant checker error. add user?
-3. Agregar personalizacion del prompt.
+
+1. Add columns, tipografia, color fondo, background image, etc.
+
+2. Fix slug generation for restaurants. Unique slug for each restaurant checker error. add user? 
+    Crear preview del dominio
+
+3. Agregar personalizacion del prompt
+    Front end
+    
+
+
 4. Capacidad de subir archivos con informacion del restaurante o carta.
 
 # Svelte
