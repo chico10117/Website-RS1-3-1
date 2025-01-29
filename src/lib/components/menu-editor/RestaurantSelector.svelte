@@ -189,8 +189,7 @@
   <div class="p-6">
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900">{t('yourRestaurants')}</h2>
-        <p class="text-gray-500 text-sm mt-2">{t('selectRestaurantManage')}</p>
+        <p class="text-gray-500 text-sm">{t('selectRestaurantManage')}</p>
       </div>
       <Button
         variant="outline"
