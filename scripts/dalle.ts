@@ -15,11 +15,11 @@ const openai = new OpenAI({
 function generatePrompt(title: string, description: string, type: 'food' | 'drink' | 'restaurant'): string {
   switch (type) {
     case 'food':
-      return `A complete ${title} ${description}, served on a rustic wooden board with sides and garnishes visible. Wide shot showing the entire plate and surrounding table setting. Captured from a 3/4 overhead angle to show the full composition. Natural lighting with soft shadows. Professional food photography style with the entire dish in frame.`;
+      return `A gourmet ${title} ${description}, artfully presented on a rustic wooden board. Captured from a 45-degree angle to highlight the textures and layers of the dish. Background features a blurred view of a cozy, ambient-lit restaurant setting. Illuminated with soft, natural lighting to accentuate the freshness of ingredients. In a hyper-realistic photographic style.`;
     
     case 'drink':
-      return `A full view of ${title} ${description}, served in an elegant glass with accompanying garnishes and ice. Wide composition showing the entire glass and surrounding bar setting. Shot from a slight side angle to capture the full presentation. Professional beverage photography with the complete drink in frame.`;
-    
+      return `A full view of ${title} ${description}, served in an elegant glass with accompanying garnishes and ice. Wide composition showing the entire glass and surrounding bar setting. Shot from a slight side angle to capture the full presentation. Professional beverage photography with the complete drink in frame and hyper-realistic style.`;
+  
     case 'restaurant':
       return `A minimalist and modern logo design for ${title} restaurant. The logo should feature a stylized burger icon with clean lines and professional typography. Use a color palette of warm browns and rich reds. The design should be simple enough to be recognizable at small sizes. The logo should be centered on a white background with plenty of padding. Professional branding style with high contrast and clear shapes.`;
     
@@ -81,4 +81,4 @@ function getDefaultImage(type: 'food' | 'drink' | 'restaurant'): string {
     default:
       return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
   }
-}
+} 

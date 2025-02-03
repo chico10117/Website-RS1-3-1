@@ -3,7 +3,7 @@ import { type Restaurant, type Category, type Dish } from '../../src/lib/types/m
 export const seedData = {
   userEmail: 'chico10117@gmail.com',
   restaurant: {
-    name: 'Burger Test Dalle 2 256x256 iteration 2',
+    name: 'Burger',
     logo: '' // Will be set by getRandomPhotoUrl in seed.ts with query "burger-restaurant-storefront"
   },
   categories: [
