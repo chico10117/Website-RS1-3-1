@@ -29,7 +29,7 @@ export async function createOrUpdateRestaurant(
   const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
   
   // Generate slug if not provided
-  const slug = restaurantData.slug || await generateSlug(restaurantData.name, restaurantData.userId);
+  const slug = restaurantData.slug || await generateSlug(restaurantData.name);
   
   try {
     // For POST (new restaurant), include all data including the generated ID

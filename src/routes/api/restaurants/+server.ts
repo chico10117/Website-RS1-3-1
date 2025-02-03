@@ -12,7 +12,7 @@ async function getUserFromToken(token: string) {
   return user;
 }
 
-export async function POST({ request, cookies }: RequestEvent) {
+export async function POST({ request, cookies, fetch }: RequestEvent) {
   try {
     const token = cookies.get('auth_token');
     if (!token) {
@@ -34,7 +34,7 @@ export async function POST({ request, cookies }: RequestEvent) {
     }
 
     // Use provided slug or generate one from name
-    const finalSlug = slug || await generateSlug(name);
+    const finalSlug = slug || await generateSlug(name, fetch);
 
     // Check if a restaurant with this slug already exists for this user
     const existingRestaurant = await db.select()

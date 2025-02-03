@@ -3,10 +3,10 @@ export interface Restaurant {
   name: string;
   slug: string;
   logo: string | null;
-  userId: string;
   customPrompt: string | null;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Category {
@@ -19,9 +19,8 @@ export interface Category {
 export interface Dish {
   id: string;
   title: string;
-  price: number;
-  description?: string;
-  imageUrl?: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
   categoryId: string;
-  restaurantId: string;
 } 

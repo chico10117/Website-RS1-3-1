@@ -144,19 +144,12 @@
           customPrompt: $currentRestaurant.customPrompt
         });
       } else {
-        // For new restaurant
-        const slug = generateSlug(restaurantName, userId);
+        // For new restaurant, generate slug first
+        const slug = await generateSlug(restaurantName);
         const now = new Date();
         const newId = crypto.randomUUID();
         
-        console.log('Creating new restaurant:', {
-          id: newId,
-          name: restaurantName,
-          logo: uploadResult.url
-        });
-
-        // Create new restaurant in cache
-        menuCache.updateRestaurant({
+        const newRestaurant = {
           id: newId,
           name: restaurantName,
           logo: uploadResult.url || null,
@@ -165,7 +158,12 @@
           userId,
           createdAt: now,
           updatedAt: now
-        });
+        };
+
+        console.log('Creating new restaurant:', newRestaurant);
+
+        // Create new restaurant in cache
+        menuCache.updateRestaurant(newRestaurant);
 
         // Dispatch update event
         dispatch('update', {
@@ -211,22 +209,24 @@
         throw new Error('User not authenticated');
       }
 
+      // Generate slug first
+      const slug = await generateSlug(restaurantName);
       const newId = crypto.randomUUID();
       const now = new Date();
       
-      // Remove slug generation from here since it will be handled by the service
       const newRestaurant = {
         id: newId,
         name: restaurantName,
         logo: menuLogo,
         customPrompt: customPrompt,
+        slug,
         userId,
         createdAt: now,
         updatedAt: now
       };
 
       // Update cache with new restaurant
-      console.log('Updating cache with new restaurant:', newRestaurant);
+      console.log('Creating new restaurant:', newRestaurant);
       menuCache.updateRestaurant(newRestaurant);
       
       // Dispatch update event
@@ -317,7 +317,7 @@
     }
   }
 
-  function handleCustomPromptInput(event: Event) {
+  async function handleCustomPromptInput(event: Event) {
     const textarea = event.target as HTMLTextAreaElement;
     // Limit to 1000 characters
     if (textarea.value.length > 1000) {
@@ -333,30 +333,47 @@
         return;
       }
 
-      const currentRestaurantData = $currentRestaurant || {
-        id: crypto.randomUUID(),
-        name: restaurantName.trim(),
-        logo: menuLogo,
-        slug: generateSlug(restaurantName, userId),
-        userId,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      try {
+        const currentRestaurantData = $currentRestaurant;
+        let restaurantData;
 
-      // Update cache with new custom prompt
-      menuCache.updateRestaurant({
-        ...currentRestaurantData,
-        customPrompt: customPrompt,
-        updatedAt: new Date()
-      });
+        if (currentRestaurantData) {
+          restaurantData = {
+            ...currentRestaurantData,
+            customPrompt: customPrompt,
+            updatedAt: new Date()
+          };
+        } else {
+          // For new restaurant, generate slug
+          const slug = await generateSlug(restaurantName);
+          restaurantData = {
+            id: crypto.randomUUID(),
+            name: restaurantName.trim(),
+            logo: menuLogo,
+            customPrompt: customPrompt,
+            slug,
+            userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+        }
 
-      // Dispatch update event
-      dispatch('update', {
-        id: selectedRestaurant || undefined,
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt: customPrompt
-      });
+        // Update cache with new custom prompt
+        menuCache.updateRestaurant(restaurantData);
+
+        // Dispatch update event
+        dispatch('update', {
+          id: selectedRestaurant || undefined,
+          name: restaurantName,
+          logo: menuLogo,
+          customPrompt: customPrompt
+        });
+      } catch (error) {
+        console.error('Error updating custom prompt:', error);
+        if (error instanceof Error) {
+          toasts.error(t('error') + ': ' + error.message);
+        }
+      }
     }
   }
 

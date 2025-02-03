@@ -71,3 +71,6 @@ store_wa-session/
 *.tgz
 .yarn-integrity
 .vercel
+
+# Seed data
+scripts/seed-data/sensitive-data.ts

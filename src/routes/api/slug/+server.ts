@@ -1,61 +1,46 @@
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 import { db } from '$lib/server/database';
 import { restaurants } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import type { RequestEvent } from '@sveltejs/kit';
 
-export async function GET({ url }: RequestEvent) {
-  try {
-    const name = url.searchParams.get('name');
+export const POST: RequestHandler = async ({ request }) => {
+    const { name } = await request.json();
     
     if (!name) {
-      return json({ 
-        success: false, 
-        error: 'Name parameter is required' 
-      }, { status: 400 });
+        return json({ error: 'Name parameter is required' }, { status: 400 });
     }
 
-    const baseSlug = name
-      .toLowerCase()
-      .trim()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-      .replace(/[^\w\s]/g, '') // Remove special characters except whitespace
-      .replace(/\s+/g, ''); // Remove all whitespace
+    try {
+        // Generate base slug
+        let baseSlug = name.toLowerCase()
+            .replace(/[^\w\s-]/g, '') // Remove special characters
+            .replace(/\s+/g, '-')     // Replace spaces with hyphens
+            .replace(/-+/g, '-')      // Replace multiple hyphens with single hyphen
+            .trim();                  // Trim hyphens from start and end
 
-    // Check if the base slug exists
-    const existingRestaurants = await db
-      .select()
-      .from(restaurants)
-      .where(eq(restaurants.slug, baseSlug));
+        // Check if slug exists
+        let slug = baseSlug;
+        let counter = 1;
+        let slugExists = true;
 
-    // If no collision, return base slug
-    if (existingRestaurants.length === 0) {
-      return json({ success: true, data: baseSlug });
+        while (slugExists) {
+            const existingRestaurant = await db.select()
+                .from(restaurants)
+                .where(eq(restaurants.slug, slug));
+
+            if (existingRestaurant.length === 0) {
+                slugExists = false;
+            } else {
+                // If slug exists, append counter
+                slug = `${baseSlug}-${counter}`;
+                counter++;
+            }
+        }
+
+        return json({ slug });
+    } catch (error) {
+        console.error('Error generating slug:', error);
+        return json({ error: 'Failed to generate slug' }, { status: 500 });
     }
-
-    // If collision exists, find the next available number
-    let counter = 1;
-    let newSlug = `${baseSlug}${counter}`;
-
-    while (true) {
-      const exists = await db
-        .select()
-        .from(restaurants)
-        .where(eq(restaurants.slug, newSlug));
-
-      if (exists.length === 0) {
-        return json({ success: true, data: newSlug });
-      }
-
-      counter++;
-      newSlug = `${baseSlug}${counter}`;
-    }
-  } catch (error) {
-    console.error('Error generating slug:', error);
-    return json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to generate slug' 
-    }, { status: 500 });
-  }
-} 
+}; 

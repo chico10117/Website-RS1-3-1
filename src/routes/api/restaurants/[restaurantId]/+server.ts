@@ -13,7 +13,7 @@ async function getUserFromToken(token: string) {
   return user;
 }
 
-export async function PUT({ params, request, cookies }: RequestEvent) {
+export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
   try {
     const { restaurantId } = params;
     const updateData = await request.json();
@@ -79,7 +79,7 @@ export async function PUT({ params, request, cookies }: RequestEvent) {
 
     // Handle name update if provided
     if (updateData.name !== undefined && updateData.name !== restaurant.name) {
-      const slug = await generateSlug(updateData.name);
+      const slug = await generateSlug(updateData.name, fetch);
       
       // Check if name is already taken by another restaurant owned by the same user
       const slugExists = await db.select()
