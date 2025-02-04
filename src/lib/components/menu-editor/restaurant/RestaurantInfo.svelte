@@ -319,7 +319,7 @@
 
   async function handleCustomPromptInput(event: Event) {
     const textarea = event.target as HTMLTextAreaElement;
-    // Limit to 5000 characters
+    // Limit to 5000 characters yeah
     if (textarea.value.length > 5000) {
       textarea.value = textarea.value.slice(0, 5000);
     }
