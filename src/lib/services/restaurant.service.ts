@@ -20,6 +20,8 @@ export async function createOrUpdateRestaurant(
     slug?: string;
     customPrompt?: string | null;
     userId?: string;
+    currency: string;
+    color: number;
   }, 
   restaurantId?: string
 ): Promise<Restaurant> {
@@ -39,14 +41,18 @@ export async function createOrUpdateRestaurant(
           name: restaurantData.name, 
           logo: restaurantData.logo, 
           slug,
-          customPrompt: restaurantData.customPrompt 
+          customPrompt: restaurantData.customPrompt,
+          currency: restaurantData.currency,
+          color: restaurantData.color
         }
       : { 
           ...(restaurantData.id && { id: restaurantData.id }), 
           name: restaurantData.name, 
           logo: restaurantData.logo,
           slug,
-          customPrompt: restaurantData.customPrompt
+          customPrompt: restaurantData.customPrompt,
+          currency: restaurantData.currency,
+          color: restaurantData.color
         };
     
     console.log('Restaurant operation:', {

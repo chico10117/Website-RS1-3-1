@@ -114,6 +114,15 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
       updateSet.customPrompt = updateData.customPrompt;
     }
 
+    // Add currency and color updates
+    if (updateData.currency !== undefined) {
+      updateSet.currency = updateData.currency;
+    }
+
+    if (updateData.color !== undefined) {
+      updateSet.color = updateData.color;
+    }
+
     // Update the restaurant
     const [updatedRestaurant] = await db.update(restaurants)
       .set(updateSet)
