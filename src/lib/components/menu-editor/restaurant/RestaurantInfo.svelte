@@ -14,12 +14,16 @@
   export let selectedRestaurant: string | null = null;
   export let restaurants: Restaurant[] = [];
   export let customPrompt: string | null = null;
+  export let currency: string = '€';
+  export let color: number = 1;
 
   interface UpdateEvent {
     id?: string;
     name: string;
     logo: string | null;
     customPrompt: string | null;
+    currency: string;
+    color: number;
   }
 
   const dispatch = createEventDispatcher<{
@@ -53,6 +57,19 @@
   // Computed value for logo display
   $: displayLogo = ensureString(menuLogo);
   $: displayCustomPrompt = ensureString(customPrompt);
+
+  const colorOptions = [
+    { value: 1, label: 'Light' },
+    { value: 2, label: 'Dark' },
+    { value: 3, label: 'Blue' },
+    { value: 4, label: 'Green' },
+    { value: 5, label: 'Red' },
+  ];
+
+  const currencyOptions = [
+    { value: '€', label: 'Euro (€)' },
+    { value: '$', label: 'Dollar ($)' },
+  ];
 
   function handleDragEnter(e: DragEvent) {
     e.preventDefault();
@@ -141,7 +158,9 @@
           id: $currentRestaurant.id,
           name: $currentRestaurant.name,
           logo: uploadResult.url || null,
-          customPrompt: $currentRestaurant.customPrompt
+          customPrompt: $currentRestaurant.customPrompt,
+          currency,
+          color
         });
       } else {
         // For new restaurant, generate slug first
@@ -157,7 +176,9 @@
           slug,
           userId,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          currency,
+          color
         };
 
         console.log('Creating new restaurant:', newRestaurant);
@@ -170,7 +191,9 @@
           id: newId,
           name: restaurantName,
           logo: uploadResult.url || null,
-          customPrompt: customPrompt
+          customPrompt: customPrompt,
+          currency,
+          color
         });
       }
     } catch (error) {
@@ -222,7 +245,9 @@
         slug,
         userId,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
+        currency,
+        color
       };
 
       // Update cache with new restaurant
@@ -234,7 +259,9 @@
         id: newId,
         name: restaurantName,
         logo: menuLogo,
-        customPrompt: customPrompt
+        customPrompt: customPrompt,
+        currency,
+        color
       });
 
     } catch (error) {
@@ -292,7 +319,9 @@
         id: selectedRestaurant,
         name: editingRestaurantName.trim(),
         logo: menuLogo, // Keep existing logo
-        customPrompt: customPrompt // Keep existing custom prompt
+        customPrompt: customPrompt, // Keep existing custom prompt
+        currency,
+        color
       });
 
       // Exit edit mode
@@ -366,7 +395,9 @@
           id: selectedRestaurant || undefined,
           name: restaurantName,
           logo: menuLogo,
-          customPrompt: customPrompt
+          customPrompt: customPrompt,
+          currency,
+          color
         });
       } catch (error) {
         console.error('Error updating custom prompt:', error);
@@ -402,7 +433,9 @@
           id: $currentRestaurant.id,
           name: $currentRestaurant.name,
           logo: null,
-          customPrompt: $currentRestaurant.customPrompt
+          customPrompt: $currentRestaurant.customPrompt,
+          currency,
+          color
         });
       } else if (restaurantName) {
         // For new restaurant
@@ -419,7 +452,9 @@
           slug,
           userId,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          currency,
+          color
         });
 
         // Dispatch update event
@@ -427,7 +462,9 @@
           id: newId,
           name: restaurantName,
           logo: null,
-          customPrompt: customPrompt
+          customPrompt: customPrompt,
+          currency,
+          color
         });
       }
 
@@ -439,6 +476,44 @@
         toasts.error(t('error') + ': ' + error.message);
       }
     }
+  }
+
+  function handleColorChange(value: number) {
+    color = value;
+    if ($currentRestaurant) {
+      menuCache.updateRestaurant({
+        ...$currentRestaurant,
+        color: value,
+        updatedAt: new Date()
+      });
+    }
+    dispatch('update', {
+      id: selectedRestaurant || undefined,
+      name: restaurantName,
+      logo: menuLogo,
+      customPrompt: customPrompt,
+      currency,
+      color: value
+    });
+  }
+
+  function handleCurrencyChange(value: string) {
+    currency = value;
+    if ($currentRestaurant) {
+      menuCache.updateRestaurant({
+        ...$currentRestaurant,
+        currency: value,
+        updatedAt: new Date()
+      });
+    }
+    dispatch('update', {
+      id: selectedRestaurant || undefined,
+      name: restaurantName,
+      logo: menuLogo,
+      customPrompt: customPrompt,
+      currency: value,
+      color
+    });
   }
 </script>
 
@@ -590,6 +665,52 @@
       </div>
     </div>
   </div>
+
+  <!-- Color Selection -->
+  <div class="space-y-4 mt-6">
+    <div class="space-y-2">
+      <label class="block text-sm font-medium text-gray-700">
+        {t('themeColor')}
+      </label>
+      <div class="flex gap-4 flex-wrap">
+        {#each colorOptions as option}
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="radio"
+              name="color"
+              value={option.value}
+              checked={color === option.value}
+              on:change={() => handleColorChange(option.value)}
+              class="form-radio text-blue-600"
+            />
+            <span class="text-sm text-gray-700">{option.label}</span>
+          </label>
+        {/each}
+      </div>
+    </div>
+
+    <!-- Currency Selection -->
+    <div class="space-y-2">
+      <label class="block text-sm font-medium text-gray-700">
+        {t('currency')}
+      </label>
+      <div class="flex gap-4">
+        {#each currencyOptions as option}
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="radio"
+              name="currency"
+              value={option.value}
+              checked={currency === option.value}
+              on:change={() => handleCurrencyChange(option.value)}
+              class="form-radio text-blue-600"
+            />
+            <span class="text-sm text-gray-700">{option.label}</span>
+          </label>
+        {/each}
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -604,5 +725,9 @@
   span {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  :global(.form-radio) {
+    @apply h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500;
   }
 </style> 

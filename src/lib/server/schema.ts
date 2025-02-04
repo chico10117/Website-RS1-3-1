@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, unique, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, unique, decimal, integer } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -16,6 +16,8 @@ export const restaurants = pgTable('restaurants', {
   logo: text('logo'),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   customPrompt: text('custom_prompt'),
+  currency: text('currency').notNull().default('€'),
+  color: integer('color').notNull().default(1),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });

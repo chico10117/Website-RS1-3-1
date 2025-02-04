@@ -115,10 +115,10 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null; customPrompt: string | null }>) {
+  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null; customPrompt: string | null; currency: string; color: number }>) {
     console.log('handleRestaurantUpdate called with event:', event.detail);
     
-    const { id, name, logo, customPrompt } = event.detail;
+    const { id, name, logo, customPrompt, currency, color } = event.detail;
     
     if (!name.trim()) {
       console.error('No restaurant name provided');
@@ -149,7 +149,9 @@
       slug,
       userId,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      currency,
+      color
     };
     console.log('Updating restaurant cache with:', restaurantData);
     menuCache.updateRestaurant(restaurantData);
@@ -194,7 +196,9 @@
           // Include slug from cache if available
           ...(($menuCache.restaurant?.slug) && { slug: $menuCache.restaurant.slug }),
           // Include customPrompt from cache
-          customPrompt: $menuCache.restaurant?.customPrompt
+          customPrompt: $menuCache.restaurant?.customPrompt,
+          currency: $menuCache.restaurant?.currency || '€',
+          color: $menuCache.restaurant?.color || 1
         },
         // Only pass currentRestaurantId if we're updating an existing restaurant
         $menuState.selectedRestaurant
@@ -288,6 +292,8 @@
               selectedRestaurant={$menuState.selectedRestaurant}
               restaurants={$menuState.restaurants}
               customPrompt={$currentRestaurant?.customPrompt ?? null}
+              currency={$currentRestaurant?.currency || '€'}
+              color={$currentRestaurant?.color || 1}
               on:update={handleRestaurantUpdate}
               on:select={handleRestaurantSelect}
             />

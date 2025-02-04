@@ -233,5 +233,13 @@ export const translations: Translation = {
   loading: {
     es: "Cargando...",
     en: "Loading..."
+  },
+  themeColor: {
+    en: 'Theme Color',
+    es: 'Color del Tema'
+  },
+  currency: {
+    en: 'Currency',
+    es: 'Moneda'
   }
 }; 

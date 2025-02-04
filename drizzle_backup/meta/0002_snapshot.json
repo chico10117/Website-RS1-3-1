@@ -1,6 +1,6 @@
 {
-  "id": "d7db892c-f220-4674-93fb-1e1bc7d12f25",
-  "prevId": "9b1a327b-c9be-4fc5-a79d-1ac37ba558ee",
+  "id": "9b1a327b-c9be-4fc5-a79d-1ac37ba558ee",
+  "prevId": "eb2ac8ab-433a-47c7-9de0-14c88f46a78a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -185,26 +185,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
-        },
-        "custom_prompt": {
-          "name": "custom_prompt",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'€'"
-        },
-        "color": {
-          "name": "color",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
         },
         "created_at": {
           "name": "created_at",

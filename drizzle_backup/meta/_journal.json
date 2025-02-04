@@ -22,13 +22,6 @@
       "when": 1737639536920,
       "tag": "0002_furry_runaways",
       "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1738677789883,
-      "tag": "0003_silly_frank_castle",
-      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,8 @@ export interface Restaurant {
   logo: string | null;
   customPrompt: string | null;
   userId: string;
+  currency: string;
+  color: number;
   createdAt: Date;
   updatedAt: Date;
 }
