@@ -286,24 +286,26 @@
         <div class="flex gap-8">
           <!-- Left Section - Menu Editor -->
           <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
-            <RestaurantInfo
-              restaurantName={$menuState.restaurantName}
-              menuLogo={$menuState.menuLogo}
-              selectedRestaurant={$menuState.selectedRestaurant}
-              restaurants={$menuState.restaurants}
-              customPrompt={$currentRestaurant?.customPrompt ?? null}
-              currency={$currentRestaurant?.currency || '€'}
-              color={$currentRestaurant?.color || 1}
-              on:update={handleRestaurantUpdate}
-              on:select={handleRestaurantSelect}
-            />
+            <div class="space-y-8">
+              <RestaurantInfo
+                restaurantName={$menuState.restaurantName}
+                menuLogo={$menuState.menuLogo}
+                selectedRestaurant={$menuState.selectedRestaurant}
+                restaurants={$menuState.restaurants}
+                customPrompt={$currentRestaurant?.customPrompt ?? null}
+                currency={$currentRestaurant?.currency || '€'}
+                color={$currentRestaurant?.color || 1}
+                on:update={handleRestaurantUpdate}
+                on:select={handleRestaurantSelect}
+              />
 
-            <CategoryList
-              categories={$menuState.categories}
-              selectedRestaurant={$menuState.selectedRestaurant}
-              restaurantName={$menuState.restaurantName}
-              on:update={handleCategoriesUpdate}
-            />
+              <CategoryList
+                categories={$menuState.categories}
+                selectedRestaurant={$menuState.selectedRestaurant}
+                restaurantName={$menuState.restaurantName}
+                on:update={handleCategoriesUpdate}
+              />
+            </div>
           </div>
 
           <!-- Vertical Divider -->
@@ -315,15 +317,16 @@
               restaurantName={$menuState.restaurantName}
               menuLogo={$menuState.menuLogo}
               categories={$menuState.categories}
+              currency={$currentRestaurant?.currency || '€'}
             />
           </div>
         </div>
 
-        <!-- Save Menu Button (Fixed to bottom right) -->
+        <!-- Save Menu Button (Fixed to viewport) -->
         {#if $menuCache.hasUnsavedChanges}
-          <div class="fixed bottom-8 right-8 z-50">
+          <div class="sticky bottom-8 left-0 right-0 flex justify-end px-8 z-50 pointer-events-none">
             <button
-              class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl"
+              class="px-6 py-3 bg-blue-600/90 backdrop-blur-sm text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2 shadow-xl pointer-events-auto"
               on:click={saveAllChanges}
               disabled={$menuState.isSaving}
             >

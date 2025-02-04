@@ -67,8 +67,9 @@
   ];
 
   const currencyOptions = [
-    { value: '€', label: 'Euro (€)' },
-    { value: '$', label: 'Dollar ($)' },
+    { value: '€', label: '€' },
+    { value: '$', label: '$' },
+    { value: '£', label: '£' }
   ];
 
   function handleDragEnter(e: DragEvent) {
@@ -505,6 +506,11 @@
         currency: value,
         updatedAt: new Date()
       });
+      // Update the current restaurant store immediately
+      currentRestaurant.set({
+        ...$currentRestaurant,
+        currency: value
+      });
     }
     dispatch('update', {
       id: selectedRestaurant || undefined,
@@ -667,7 +673,7 @@
   </div>
 
   <!-- Color Selection -->
-  <div class="space-y-4 mt-6">
+  <div class="space-y-4 mt-6 mb-12">
     <div class="space-y-2">
       <label class="block text-sm font-medium text-gray-700">
         {t('themeColor')}
@@ -690,7 +696,7 @@
     </div>
 
     <!-- Currency Selection -->
-    <div class="space-y-2">
+    <div class="space-y-2 mb-12">
       <label class="block text-sm font-medium text-gray-700">
         {t('currency')}
       </label>

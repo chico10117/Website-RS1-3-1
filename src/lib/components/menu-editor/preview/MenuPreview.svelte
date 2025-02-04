@@ -10,6 +10,7 @@
   export let restaurantName: string = '';
   export let menuLogo: string | null = null;
   export let categories: Category[] = [];
+  export let currency: string = '€';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -71,7 +72,7 @@
                 <div class="flex-1">
                   <div class="flex justify-between items-start">
                     <h4 class="text-lg font-semibold text-gray-800">{dish.title}</h4>
-                    <p class="text-lg font-bold text-gray-800">${formatPrice(dish.price)}</p>
+                    <p class="text-lg font-bold text-gray-800">{currency}{formatPrice(dish.price)}</p>
                   </div>
                   {#if dish.description}
                     <p class="text-gray-600 mt-1 font-normal">{dish.description}</p>
