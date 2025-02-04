@@ -7,7 +7,8 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '../src/lib/server/schema';
 import { seedData as burgerData } from './seed-data/restaurant-data';
-import { eq, and } from 'drizzle-orm';
+import { seedData as santoData } from './seed-data/restaurant-data-santo';
+import { eq, and, sql } from 'drizzle-orm';
 import { generateAndStoreImage } from './dalle';
 
 function getDishType(categoryName: string): 'food' | 'drink' | 'restaurant' {
@@ -54,46 +55,74 @@ async function seedRestaurant(db: any, seedData: any) {
         )
       );
 
-    // If exists, delete it and its related data
+    let restaurant;
+
     if (existingRestaurant.length > 0) {
-      console.log(`🗑️  Removing existing restaurant data for ${seedData.restaurant.name}...`);
-      await db.delete(schema.restaurants)
-        .where(eq(schema.restaurants.id, existingRestaurant[0].id));
-    }
+      console.log(`📝 Restaurant ${seedData.restaurant.name} already exists, updating...`);
+      restaurant = existingRestaurant[0];
+    } else {
+      // Generate restaurant image
+      const restaurantImageUrl = await generateAndStoreImage(
+        seedData.restaurant.name,
+        'Modern restaurant exterior',
+        'restaurant'
+      );
 
-    // Generate restaurant image
-    const restaurantImageUrl = await generateAndStoreImage(
-      seedData.restaurant.name,
-      'Modern restaurant exterior',
-      'restaurant'
-    );
-
-    // Create restaurant with generated image
-    const [restaurant] = await db.insert(schema.restaurants)
-      .values({
-        name: seedData.restaurant.name,
-        slug,
-        userId: user.id,
-        logo: restaurantImageUrl
-      })
-      .returning();
-
-    console.log('✅ Created restaurant:', restaurant.name);
-
-    // Create categories and dishes with generated images
-    for (const categoryData of seedData.categories) {
-      const [category] = await db.insert(schema.categories)
+      // Create restaurant with generated image
+      [restaurant] = await db.insert(schema.restaurants)
         .values({
-          name: categoryData.name,
-          restaurantId: restaurant.id
+          name: seedData.restaurant.name,
+          slug,
+          userId: user.id,
+          logo: restaurantImageUrl
         })
         .returning();
 
-      console.log('✅ Created category:', category.name);
+      console.log('✅ Created restaurant:', restaurant.name);
+    }
+
+    // Create categories and dishes with generated images
+    for (const categoryData of seedData.categories) {
+      // Check if category exists
+      let [category] = await db.select()
+        .from(schema.categories)
+        .where(
+          and(
+            eq(schema.categories.name, categoryData.name),
+            eq(schema.categories.restaurantId, restaurant.id)
+          )
+        );
+
+      if (!category) {
+        [category] = await db.insert(schema.categories)
+          .values({
+            name: categoryData.name,
+            restaurantId: restaurant.id
+          })
+          .returning();
+        console.log('✅ Created category:', category.name);
+      } else {
+        console.log('📝 Category already exists:', category.name);
+      }
 
       if (categoryData.dishes) {
         for (const dishData of categoryData.dishes) {
           try {
+            // Check if dish exists
+            const [existingDish] = await db.select()
+              .from(schema.dishes)
+              .where(
+                and(
+                  eq(schema.dishes.title, dishData.title),
+                  eq(schema.dishes.categoryId, category.id)
+                )
+              );
+
+            if (existingDish) {
+              console.log('📝 Dish already exists:', dishData.title);
+              continue;
+            }
+
             // Generate image for the dish/drink
             const type = getDishType(categoryData.name);
             const dishImageUrl = await generateAndStoreImage(
@@ -125,6 +154,29 @@ async function seedRestaurant(db: any, seedData: any) {
   }
 }
 
+async function updateDishTitlesCase(db: any, seedData: any) {
+  console.log('📝 Updating dish titles case sensitivity...');
+  
+  for (const categoryData of seedData.categories) {
+    for (const dishData of categoryData.dishes) {
+      await db
+        .update(schema.dishes)
+        .set({ title: dishData.title })
+        .where(
+          and(
+            eq(sql`LOWER(${schema.dishes.title})`, dishData.title.toLowerCase()),
+            eq(schema.dishes.categoryId, 
+              db.select({ id: schema.categories.id })
+                .from(schema.categories)
+                .where(eq(schema.categories.name, categoryData.name))
+            )
+          )
+        );
+    }
+  }
+  console.log('✅ Dish titles case sensitivity updated');
+}
+
 async function seed() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL environment variable is required');
@@ -140,8 +192,11 @@ async function seed() {
   try {
     console.log('🌱 Starting seeding process...');
 
-    // Seed only burger restaurant
-    await seedRestaurant(db, burgerData);
+    // First update existing titles case
+    await updateDishTitlesCase(db, santoData);
+    
+    // Then proceed with regular seeding
+    await seedRestaurant(db, santoData);
 
     console.log('✅ Seeding completed successfully!');
     process.exit(0);
