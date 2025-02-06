@@ -241,5 +241,25 @@ export const translations: Translation = {
   currency: {
     en: 'Currency',
     es: 'Moneda'
+  },
+  colorLight: {
+    en: 'Light',
+    es: 'Claro'
+  },
+  colorGreen: {
+    en: 'Green',
+    es: 'Verde'
+  },
+  colorPink: {
+    en: 'Pink',
+    es: 'Rosa'
+  },
+  colorDark: {
+    en: 'Dark',
+    es: 'Oscuro'
+  },
+  colorError: {
+    en: 'Error',
+    es: 'Error'
   }
 }; 

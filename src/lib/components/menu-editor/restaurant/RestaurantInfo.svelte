@@ -58,12 +58,12 @@
   $: displayLogo = ensureString(menuLogo);
   $: displayCustomPrompt = ensureString(customPrompt);
 
-  const colorOptions = [
-    { value: 1, label: 'Light' },
-    { value: 2, label: 'Dark' },
-    { value: 3, label: 'Blue' },
-    { value: 4, label: 'Green' },
-    { value: 5, label: 'Red' },
+  $: colorOptions = [
+    { value: 1, label: t('colorLight') },
+    { value: 2, label: t('colorGreen') },
+    { value: 3, label: t('colorPink') },
+    { value: 4, label: t('colorDark') },
+    { value: 5, label: t('colorError') },
   ];
 
   const currencyOptions = [
@@ -233,8 +233,12 @@
         throw new Error('User not authenticated');
       }
 
-      // Generate slug first
+      // Generate slug first and wait for it to complete
       const slug = await generateSlug(restaurantName);
+      if (!slug) {
+        throw new Error('Failed to generate slug');
+      }
+
       const newId = crypto.randomUUID();
       const now = new Date();
       
@@ -251,9 +255,12 @@
         color
       };
 
-      // Update cache with new restaurant
+      // Update cache with new restaurant only after slug is generated
       console.log('Creating new restaurant:', newRestaurant);
       menuCache.updateRestaurant(newRestaurant);
+      
+      // Update the currentRestaurant store immediately
+      currentRestaurant.set(newRestaurant);
       
       // Dispatch update event
       dispatch('update', {
@@ -565,7 +572,15 @@
           >
             {t('edit')}
           </button>
-          {#if $currentRestaurant?.slug}
+          {#if isCreatingRestaurant}
+            <div class="flex items-center gap-1 px-3 py-1 text-sm text-gray-600">
+              <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {t('generatingPreview')}
+            </div>
+          {:else if $currentRestaurant?.slug}
             <a
               href={`https://${$currentRestaurant.slug}.reco.restaurant`}
               target="_blank"
