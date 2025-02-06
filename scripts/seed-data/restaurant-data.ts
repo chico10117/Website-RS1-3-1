@@ -52,6 +52,35 @@ export const seedData = {
           imageUrl: ''
         }
       ]
+    },
+    {
+      name: 'Beers',
+      dishes: [
+        {
+          title: 'Craft IPA',
+          price: '7.99',
+          description: 'Hoppy India Pale Ale with citrus notes and a refreshing finish',
+          imageUrl: '' // Will be set by getRandomPhotoUrl in seed.ts with query "craft-ipa-beer"
+        },
+        {
+          title: 'Local Lager',
+          price: '6.99',
+          description: 'Crisp, clean traditional lager brewed locally',
+          imageUrl: ''
+        },
+        {
+          title: 'Belgian Wheat Beer',
+          price: '8.99',
+          description: 'Smooth wheat beer with subtle notes of coriander and orange peel',
+          imageUrl: ''
+        },
+        {
+          title: 'Stout',
+          price: '7.99',
+          description: 'Rich, dark stout with coffee and chocolate undertones',
+          imageUrl: ''
+        }
+      ]
     }
   ]
 };

@@ -21,6 +21,7 @@
     "lucide-svelte": "^0.454.0",
     "node-fetch": "2",
     "openai": "^4.82.0",
+    "p-limit": "^6.2.0",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
     "tailwind-merge": "^2.5.4",

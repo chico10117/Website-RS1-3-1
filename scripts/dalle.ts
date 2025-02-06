@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { put } from '@vercel/blob';
 import * as dotenv from 'dotenv';
+import pLimit from 'p-limit';
 
 dotenv.config();
 
@@ -21,7 +22,7 @@ function generatePrompt(title: string, description: string, type: 'food' | 'drin
       return `A full view of ${title} ${description}, served in an elegant glass with accompanying garnishes and ice. Wide composition showing the entire glass and surrounding bar setting. Shot from a slight side angle to capture the full presentation. Professional beverage photography with the complete drink in frame and hyper-realistic style.`;
   
     case 'restaurant':
-      return `A minimalist and modern logo design for ${title} restaurant. The logo should feature a stylized burger icon with clean lines and professional typography. Use a color palette of warm browns and rich reds. The design should be simple enough to be recognizable at small sizes. The logo should be centered on a white background with plenty of padding. Professional branding style with high contrast and clear shapes.`;
+      return `A minimalist and modern logo design for ${title} restaurant. The logo should feature a stylized icon with clean lines and professional typography. Use a color palette of warm browns and rich reds. The design should be simple enough to be recognizable at small sizes. The logo should be centered on a white background with plenty of padding. Professional branding style with high contrast and clear shapes.`;
     
     default:
       return `A professional photograph of ${title}. ${description}. Captured in a hyper-realistic style with perfect lighting and composition.`;
@@ -80,5 +81,51 @@ function getDefaultImage(type: 'food' | 'drink' | 'restaurant'): string {
       return 'https://images.unsplash.com/photo-1552566626-52f8b828add9';
     default:
       return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
+  }
+}
+
+interface ImageGenerationTask {
+  title: string;
+  description: string;
+  type: 'food' | 'drink' | 'restaurant';
+}
+
+export async function generateBatchImages(
+  tasks: ImageGenerationTask[],
+  concurrency: number = 3
+): Promise<Record<string, string>> {
+  const limit = pLimit(concurrency);
+  const results: Record<string, string> = {};
+
+  try {
+    const promises = tasks.map(task => 
+      limit(async () => {
+        try {
+          const [imageUrl] = await generateAndStoreImage(
+            task.title,
+            task.description,
+            task.type
+          );
+          console.log(`✅ Generated image for ${task.title}`);
+          return { title: task.title, url: imageUrl };
+        } catch (error) {
+          console.error(`Failed to generate image for ${task.title}:`, error);
+          return { title: task.title, url: getDefaultImage(task.type) };
+        }
+      })
+    );
+
+    const completedTasks = await Promise.all(promises);
+    completedTasks.forEach(task => {
+      results[task.title] = task.url;
+    });
+
+    return results;
+  } catch (error) {
+    console.error('Batch processing error:', error);
+    return tasks.reduce((acc, task) => {
+      acc[task.title] = getDefaultImage(task.type);
+      return acc;
+    }, {} as Record<string, string>);
   }
 } 
