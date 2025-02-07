@@ -14,8 +14,19 @@ const openai = new OpenAI({
 });
 
 function generatePrompt(title: string, description: string, type: 'food' | 'drink' | 'restaurant'): string {
+  // Helper function to detect Japanese dishes
+  const isJapaneseDish = (title: string, description: string): boolean => {
+    const japaneseTerms = ['sushi', 'sashimi', 'nigiri', 'maki', 'roll', 'tempura', 'wagyu', 'hamachi', 'toro', 'unagi', 'hotate', 'ikura', 'chu\'toro', 'o\'toro'];
+    return japaneseTerms.some(term => 
+      title.toLowerCase().includes(term) || description.toLowerCase().includes(term)
+    );
+  };
+
   switch (type) {
     case 'food':
+      if (isJapaneseDish(title, description)) {
+        return `A professional food photograph of ${title}, ${description}. Japanese fine dining presentation on a minimalist ceramic plate or wooden board. Shot from a 45-degree angle with soft, natural lighting to highlight the fresh ingredients and artful plating. The background should be clean and slightly blurred, focusing on the dish. Styled in an authentic Japanese restaurant setting with attention to traditional presentation techniques. Hyper-realistic photographic style with emphasis on texture and color.`;
+      }
       return `A gourmet ${title} ${description}, artfully presented on a rustic wooden board. Captured from a 45-degree angle to highlight the textures and layers of the dish. Background features a blurred view of a cozy, ambient-lit restaurant setting. Illuminated with soft, natural lighting to accentuate the freshness of ingredients. In a hyper-realistic photographic style.`;
     
     case 'drink':

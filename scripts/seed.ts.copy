@@ -2,14 +2,16 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from '../src/lib/server/schema';
-import { eq, and } from 'drizzle-orm';
-import { generateAndStoreImage } from './dalle';
 
 // Load environment variables before other imports
 dotenv.config();
+
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from '../src/lib/server/schema';
+import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { generateAndStoreImage } from './dalle';
 
 // ES Module dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -36,7 +38,6 @@ function getDishType(categoryName: string): 'food' | 'drink' | 'restaurant' {
 
 interface SeedOptions {
   updateNamesOnly?: boolean;
-  skipImageGeneration?: boolean;
 }
 
 async function seedRestaurant(db: any, seedData: any, options: SeedOptions = {}) {
@@ -78,18 +79,12 @@ async function seedRestaurant(db: any, seedData: any, options: SeedOptions = {})
           .where(eq(schema.restaurants.id, existingRestaurant[0].id));
       }
 
-      let restaurantImageUrl = '';
-      
-      // Generate restaurant image if not skipping image generation
-      if (!options.skipImageGeneration) {
-        console.log('🎨 Generating restaurant logo...');
-        restaurantImageUrl = await generateAndStoreImage(
-          seedData.restaurant.name,
-          seedData.restaurant.customPrompt || 'Modern restaurant exterior',
-          'restaurant'
-        );
-        console.log('✅ Restaurant logo generated:', restaurantImageUrl);
-      }
+      // Generate restaurant image
+      const restaurantImageUrl = await generateAndStoreImage(
+        seedData.restaurant.name,
+        'Modern restaurant exterior',
+        'restaurant'
+      );
 
       // Create restaurant with generated image and customPrompt
       [restaurant] = await db.insert(schema.restaurants)
@@ -165,25 +160,17 @@ async function seedRestaurant(db: any, seedData: any, options: SeedOptions = {})
             } else {
               // Only create new dishes if not updating names
               const type = getDishType(categoryData.name);
-              
-              let dishImageUrl = '';
-              
-              // Generate dish image if not skipping image generation
-              if (!options.skipImageGeneration) {
-                console.log(`🎨 Generating image for dish: ${dishData.title}...`);
-                dishImageUrl = await generateAndStoreImage(
-                  dishData.title,
-                  dishData.description || `${dishData.title} - ${categoryData.name}`,
-                  type
-                );
-                console.log('✅ Dish image generated:', dishImageUrl);
-              }
+              const dishImageUrl = await generateAndStoreImage(
+                dishData.title,
+                dishData.description,
+                type
+              );
 
               const [dish] = await db.insert(schema.dishes)
                 .values({
                   ...dishData,
                   categoryId: category.id,
-                  imageUrl: dishImageUrl 
+                  imageUrl: dishImageUrl
                 })
                 .returning();
 
@@ -224,13 +211,12 @@ async function seed() {
 
     // Get command line arguments
     const updateNamesOnly = process.argv.includes('--update-names-only');
-    const skipImageGeneration = process.argv.includes('--skip-images');
     
     // Get the restaurant data file from command line argument
     const dataFile = process.argv[2];
     if (!dataFile) {
       console.error('Please provide a restaurant data file as an argument');
-      console.error('Usage: pnpm seed <restaurant-data-file> [--update-names-only] [--skip-images]');
+      console.error('Usage: pnpm seed <restaurant-data-file>');
       process.exit(1);
     }
 
@@ -264,7 +250,7 @@ async function seed() {
     console.log(`📝 Using restaurant data from: ${cleanDataFile}`);
 
     // Seed restaurant with options
-    await seedRestaurant(db, seedData, { updateNamesOnly, skipImageGeneration });
+    await seedRestaurant(db, seedData, { updateNamesOnly });
 
     console.log('✅ Seeding completed successfully!');
     process.exit(0);
