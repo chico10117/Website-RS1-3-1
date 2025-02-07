@@ -129,8 +129,11 @@ export async function saveMenuChanges(
     
     // Handle deletion
     if (change.action === 'delete') {
-      if (tempId.length !== 36) {  // Only delete if it's not a temporary ID
+      try {
         await dishService.deleteDish(restaurantId, change.data.categoryId, tempId);
+      } catch (error) {
+        console.error('Error deleting dish:', error);
+        // Continue with other operations even if one deletion fails
       }
       continue;
     }
