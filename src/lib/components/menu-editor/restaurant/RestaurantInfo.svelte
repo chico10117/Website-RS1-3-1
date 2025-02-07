@@ -377,7 +377,9 @@
           restaurantData = {
             ...currentRestaurantData,
             customPrompt: customPrompt,
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            currency,
+            color
           };
         } else {
           // For new restaurant, generate slug
@@ -390,7 +392,9 @@
             slug,
             userId,
             createdAt: new Date(),
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            currency,
+            color
           };
         }
 

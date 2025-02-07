@@ -16,6 +16,11 @@
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
+  // Update currency when currentRestaurant changes
+  $: if ($currentRestaurant?.currency) {
+    currency = $currentRestaurant.currency;
+  }
+
   // Format price as currency
   function formatPrice(price: number | string): string {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
