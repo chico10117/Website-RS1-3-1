@@ -198,7 +198,8 @@
           // Include customPrompt from cache
           customPrompt: $menuCache.restaurant?.customPrompt,
           currency: $menuCache.restaurant?.currency || '€',
-          color: $menuCache.restaurant?.color || 1
+          // Use the current color from cache or currentRestaurant, fallback to 1 only if both are undefined
+          color: $menuCache.restaurant?.color ?? $currentRestaurant?.color ?? 1
         },
         // Only pass currentRestaurantId if we're updating an existing restaurant
         $menuState.selectedRestaurant

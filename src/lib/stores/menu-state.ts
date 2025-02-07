@@ -135,7 +135,11 @@ function createMenuState() {
         const restaurantIndex = state.restaurants.findIndex(r => r.id === result.restaurant.id);
         const restaurants = [...state.restaurants];
         if (restaurantIndex >= 0) {
-          restaurants[restaurantIndex] = result.restaurant;
+          // Preserve existing restaurant data that might not be in the result
+          restaurants[restaurantIndex] = {
+            ...restaurants[restaurantIndex],
+            ...result.restaurant
+          };
         } else {
           restaurants.push(result.restaurant);
         }

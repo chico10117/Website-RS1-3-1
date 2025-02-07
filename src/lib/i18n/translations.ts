@@ -257,9 +257,5 @@ export const translations: Translation = {
   colorDark: {
     en: 'Dark',
     es: 'Oscuro'
-  },
-  colorError: {
-    en: 'Error',
-    es: 'Error'
   }
 }; 

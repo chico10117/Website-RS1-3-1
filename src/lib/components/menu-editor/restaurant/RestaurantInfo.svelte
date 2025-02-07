@@ -62,8 +62,7 @@
     { value: 1, label: t('colorLight') },
     { value: 2, label: t('colorGreen') },
     { value: 3, label: t('colorPink') },
-    { value: 4, label: t('colorDark') },
-    { value: 5, label: t('colorError') },
+    { value: 4, label: t('colorDark') }
   ];
 
   const currencyOptions = [
@@ -489,10 +488,17 @@
   function handleColorChange(value: number) {
     color = value;
     if ($currentRestaurant) {
+      // Update cache
       menuCache.updateRestaurant({
         ...$currentRestaurant,
         color: value,
         updatedAt: new Date()
+      });
+      
+      // Update the current restaurant store immediately
+      currentRestaurant.set({
+        ...$currentRestaurant,
+        color: value
       });
     }
     dispatch('update', {
