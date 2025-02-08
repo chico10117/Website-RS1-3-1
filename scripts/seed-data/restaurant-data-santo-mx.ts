@@ -7,7 +7,7 @@ export const seedData = {
     logo: '', // Will be set by generateAndStoreImage in seed.ts
     customPrompt: `
 SANTO MX
-Auténtica Cocina Mexicana
+Auténtica Cocina Japonesa
 
 ESPECIALIDADES:
 - Sashimis

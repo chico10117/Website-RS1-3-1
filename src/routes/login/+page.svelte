@@ -85,7 +85,7 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100">
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 rounded-xl">
   <div class="w-full max-w-md p-8 bg-white/80 backdrop-blur-md rounded-xl shadow-lg border border-white/50">
     <h1 class="text-2xl font-bold text-center mb-8 text-gray-800">Welcome back</h1>
     
@@ -103,11 +103,14 @@
   /* Asegurarse de que el botón de Google tenga el tamaño correcto */
   :global(#googleButton > div) {
     width: 100% !important;
+    border-radius: 9999px !important;
   }
   :global(#googleButton > div > div) {
     width: 250px !important;
+    border-radius: 9999px !important;
   }
   :global(#googleButton > div > iframe) {
     width: 250px !important;
+    border-radius: 9999px !important;
   }
 </style> 
