@@ -105,7 +105,8 @@
     if (!file) return;
 
     // Check if file is an image
-    if (!file.type.startsWith('image/')) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
       toasts.error(t('error') + ': ' + t('invalidFileType'));
       return;
     }
@@ -675,7 +676,7 @@
           <input
             id="logo-input"
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/svg+xml"
             class="hidden"
             on:change={handleLogoUpload}
           />
