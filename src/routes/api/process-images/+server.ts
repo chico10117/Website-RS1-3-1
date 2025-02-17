@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import OpenAI from "openai";
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
+import { mkdir } from 'fs/promises';
+import type { ChatCompletionContentPart } from 'openai/resources/chat/completions';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -72,48 +74,56 @@ como horarios, ubicación, etc.
   ]
 }
 </prompt> 
-
 `;
+
+interface ImageData {
+    page: number;
+    base64: string;
+}
+
+interface RequestData {
+    prompt?: string;
+    images: ImageData[];
+}
 
 export async function POST({ request }) {
     try {
         // Recibe el payload enviado desde el cliente
-        const { prompt, images } = await request.json();
-        const contentList = [];
+        const { prompt, images }: RequestData = await request.json();
+        const contentList: ChatCompletionContentPart[] = [
+            {
+                type: 'text' as const,
+                text: prompt || DEFAULT_PROMPT
+            },
+            ...images.map((img: ImageData) => ({
+                type: 'image_url' as const,
+                image_url: { url: `data:image/png;base64,${img.base64}` }
+            }))
+        ];
 
-        // Incluye el prompt de texto
-        contentList.push({
-            type: 'text',
-            text: prompt || DEFAULT_PROMPT
-        });
-
-        // Para cada imagen, reconstruye el data URL y añade el objeto a la lista
-        images.forEach(img => {
-            const base64 = img.base64; // Se asume que es la parte sin el prefijo
-            contentList.push({
-                type: 'image_url',
-                image_url: { url: `data:image/png;base64,${base64}` }
-            });
-        });
-
-        // Envía la petición a la API de OpenAI (se asume que se dispone de un modelo multimodal como "gpt-4o-mini")
+        // Envía la petición a la API de OpenAI
         const response = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4-vision-preview",
             messages: [
                 {
                     role: "user",
-                    // Se envía la lista de contenidos (texto + imágenes)
                     content: contentList
                 }
             ],
             response_format: {
-                "type": "json_object"
+                type: "json_object"
             },
-            temperature: 0
+            temperature: 0,
+            max_tokens: 4096
         });
         
         console.log("Respuesta de OpenAI:", response.choices[0]);
         const content = response.choices[0].message.content;
+        
+        if (!content) {
+            throw new Error('No content received from OpenAI');
+        }
+
         console.log("Content before writing:", content);
         
         // Parse the JSON to get restaurant name
@@ -122,8 +132,20 @@ export async function POST({ request }) {
         const sanitizedName = restaurantName.toLowerCase().replace(/[^a-z0-9]/g, '-');
         
         // Create the file path with correct directory
+        const dataDir = join(process.cwd(), 'src', 'lib', 'data', 'restaurants');
         const fileName = `restaurant-data-${sanitizedName}-${Date.now()}.ts`;
-        const filePath = join(process.cwd(), 'scripts', 'seed-data', fileName);
+        const filePath = join(dataDir, fileName);
+
+        // Ensure the directory exists
+        try {
+            await mkdir(dataDir, { recursive: true });
+        } catch (err) {
+            // Ignore if directory already exists
+            const error = err as { code?: string };
+            if (error.code !== 'EEXIST') {
+                throw err;
+            }
+        }
 
         // Format the content as a TypeScript export
         const fileContent = `export const seedData = ${content};\n`;
@@ -134,10 +156,11 @@ export async function POST({ request }) {
 
         // Return both the content and the file path to the client
         return json({
-            content: JSON.parse(content),
+            content: parsedContent,
             savedTo: fileName
         });
-    } catch (error) {
+    } catch (err) {
+        const error = err as Error;
         console.error("Error en /api/process-images:", error);
         return json({ error: error.message }, { status: 500 });
     }
