@@ -283,45 +283,45 @@
             <RestaurantSelector />
           {/if}
         </div>
-        
-        <div class="flex gap-8">
-          <!-- Left Section - Menu Editor -->
-          <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
-            <div class="space-y-8">
-              <RestaurantInfo
-                restaurantName={$menuState.restaurantName}
-                menuLogo={$menuState.menuLogo}
-                selectedRestaurant={$menuState.selectedRestaurant}
-                restaurants={$menuState.restaurants}
-                customPrompt={$currentRestaurant?.customPrompt ?? null}
-                currency={$currentRestaurant?.currency || '€'}
-                color={$currentRestaurant?.color || 1}
-                on:update={handleRestaurantUpdate}
-                on:select={handleRestaurantSelect}
-              />
 
-              <CategoryList
-                categories={$menuState.categories}
-                selectedRestaurant={$menuState.selectedRestaurant}
-                restaurantName={$menuState.restaurantName}
-                on:update={handleCategoriesUpdate}
-              />
-            </div>
-          </div>
+        <div class="flex flex-col lg:flex-row gap-8">
+                  <!-- Left Section - Menu Editor -->
+                  <div class="flex-1 p-8 rounded-3xl bg-white/70 backdrop-blur-lg border border-white/50 shadow-xl">
+                    <div class="space-y-8">
+                      <RestaurantInfo
+                        restaurantName={$menuState.restaurantName}
+                        menuLogo={$menuState.menuLogo}
+                        selectedRestaurant={$menuState.selectedRestaurant}
+                        restaurants={$menuState.restaurants}
+                        customPrompt={$currentRestaurant?.customPrompt ?? null}
+                        currency={$currentRestaurant?.currency || '€'}
+                        color={$currentRestaurant?.color || 1}
+                        on:update={handleRestaurantUpdate}
+                        on:select={handleRestaurantSelect}
+                      />
 
-          <!-- Vertical Divider -->
-          <div class="w-px bg-white/50 backdrop-blur-sm"></div>
+                      <CategoryList
+                        categories={$menuState.categories}
+                        selectedRestaurant={$menuState.selectedRestaurant}
+                        restaurantName={$menuState.restaurantName}
+                        on:update={handleCategoriesUpdate}
+                      />
+                    </div>
+                  </div>
 
-          <!-- Right Section - Preview -->
-          <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-3xl border border-white/50 shadow-xl">
-            <MenuPreview
-              restaurantName={$menuState.restaurantName}
-              menuLogo={$menuState.menuLogo}
-              categories={$menuState.categories}
-              currency={$currentRestaurant?.currency || '€'}
-            />
-          </div>
-        </div>
+                  <!-- Vertical Divider -->
+                  <div class="hidden lg:block w-px bg-white/50 backdrop-blur-sm"></div>
+
+                  <!-- Right Section - Preview -->
+                  <div class="flex-1 p-8 bg-white/70 backdrop-blur-lg rounded-3xl border border-white/50 shadow-xl">
+                    <MenuPreview
+                      restaurantName={$menuState.restaurantName}
+                      menuLogo={$menuState.menuLogo}
+                      categories={$menuState.categories}
+                      currency={$currentRestaurant?.currency || '€'}
+                    />
+                  </div>
+                </div>
 
         <!-- Save Menu Button (Fixed to viewport) -->
         {#if $menuCache.hasUnsavedChanges}
