@@ -257,5 +257,49 @@ export const translations: Translation = {
   colorDark: {
     en: 'Dark',
     es: 'Oscuro'
+  },
+  uploadMenu: {
+    en: 'Upload Menu',
+    es: 'Subir Menú'
+  },
+  uploadMenuFiles: {
+    en: 'Upload Menu Files',
+    es: 'Subir Archivos del Menú'
+  },
+  dragAndDropOrClick: {
+    en: 'Drag and drop files here or click to select',
+    es: 'Arrastra y suelta archivos aquí o haz clic para seleccionar'
+  },
+  dropToUpload: {
+    en: 'Drop files to upload',
+    es: 'Suelta los archivos para subir'
+  },
+  supportedFormats: {
+    en: 'Supported formats: PDF, JPG, PNG, WebP',
+    es: 'Formatos soportados: PDF, JPG, PNG, WebP'
+  },
+  processingFiles: {
+    en: 'Processing files...',
+    es: 'Procesando archivos...'
+  },
+  processingPage: {
+    en: 'Processing page',
+    es: 'Procesando página'
+  },
+  generatingRestaurantData: {
+    en: 'Generating restaurant data...',
+    es: 'Generando datos del restaurante...'
+  },
+  seedingDatabase: {
+    en: 'Saving to database...',
+    es: 'Guardando en la base de datos...'
+  },
+  completed: {
+    en: 'Completed',
+    es: 'Completado'
+  },
+  menuUploadSuccess: {
+    en: 'Menu uploaded and processed successfully',
+    es: 'Menú subido y procesado exitosamente'
   }
 }; 

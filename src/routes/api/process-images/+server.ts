@@ -88,8 +88,15 @@ interface RequestData {
 
 export async function POST({ request }) {
     try {
+        console.log('Starting process-images...');
+        
         // Recibe el payload enviado desde el cliente
         const { prompt, images }: RequestData = await request.json();
+        console.log('Received request:', {
+            hasPrompt: !!prompt,
+            imagesCount: images.length
+        });
+
         const contentList: ChatCompletionContentPart[] = [
             {
                 type: 'text' as const,
@@ -100,10 +107,15 @@ export async function POST({ request }) {
                 image_url: { url: `data:image/png;base64,${img.base64}` }
             }))
         ];
+        console.log('Prepared content for OpenAI:', {
+            contentListLength: contentList.length,
+            promptLength: (prompt || DEFAULT_PROMPT).length
+        });
 
         // Envía la petición a la API de OpenAI
+        console.log('Sending request to OpenAI...');
         const response = await openai.chat.completions.create({
-            model: "gpt-4-vision-preview",
+            model: "gpt-4o",
             messages: [
                 {
                     role: "user",
@@ -117,32 +129,47 @@ export async function POST({ request }) {
             max_tokens: 4096
         });
         
-        console.log("Respuesta de OpenAI:", response.choices[0]);
+        console.log('OpenAI response received:', {
+            hasChoices: !!response.choices.length,
+            firstChoiceHasContent: !!response.choices[0]?.message?.content
+        });
+        
         const content = response.choices[0].message.content;
         
         if (!content) {
+            console.error('No content received from OpenAI');
             throw new Error('No content received from OpenAI');
         }
 
-        console.log("Content before writing:", content);
-        
-        // Parse the JSON to get restaurant name
+        console.log('Parsing OpenAI response content...');
         const parsedContent = JSON.parse(content);
+        console.log('Content parsed successfully:', {
+            hasRestaurant: !!parsedContent.restaurant,
+            categoriesCount: parsedContent.categories?.length
+        });
+        
         const restaurantName = parsedContent.restaurant?.name || 'unknown';
         const sanitizedName = restaurantName.toLowerCase().replace(/[^a-z0-9]/g, '-');
         
-        // Create the file path with correct directory
-        const dataDir = join(process.cwd(), 'src', 'lib', 'data', 'restaurants');
+        // Create the file path with correct directory - using static/data instead of src/lib
+        const dataDir = join(process.cwd(), 'static', 'data', 'restaurants');
         const fileName = `restaurant-data-${sanitizedName}-${Date.now()}.ts`;
         const filePath = join(dataDir, fileName);
+
+        console.log('Preparing to save data:', {
+            directory: dataDir,
+            fileName,
+            fullPath: filePath
+        });
 
         // Ensure the directory exists
         try {
             await mkdir(dataDir, { recursive: true });
+            console.log('Directory created/verified');
         } catch (err) {
-            // Ignore if directory already exists
             const error = err as { code?: string };
             if (error.code !== 'EEXIST') {
+                console.error('Error creating directory:', error);
                 throw err;
             }
         }
@@ -151,8 +178,9 @@ export async function POST({ request }) {
         const fileContent = `export const seedData = ${content};\n`;
 
         // Write to file
+        console.log('Writing data to file...');
         await writeFile(filePath, fileContent, 'utf-8');
-        console.log(`Data saved to ${filePath}`);
+        console.log('Data saved successfully to:', filePath);
 
         // Return both the content and the file path to the client
         return json({
@@ -161,7 +189,12 @@ export async function POST({ request }) {
         });
     } catch (err) {
         const error = err as Error;
-        console.error("Error en /api/process-images:", error);
+        console.error('Error in process-images:', {
+            error,
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         return json({ error: error.message }, { status: 500 });
     }
 }
