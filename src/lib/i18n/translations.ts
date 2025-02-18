@@ -260,7 +260,7 @@ export const translations: Translation = {
   },
   uploadMenu: {
     en: 'Upload Menu',
-    es: 'Subir Menú'
+    es: 'Subir Carta'
   },
   uploadMenuFiles: {
     en: 'Upload Menu Files',

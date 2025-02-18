@@ -2,8 +2,15 @@
 
 ## Problemas Actuales
 
-### 1. Creación de Restaurantes Duplicados
-- **Problema**: El sistema está creando restaurantes duplicados con el mismo nombre
+
+
+
+
+### 1. Creación de Restaurantes Duplicados 
+# Usar archivo RestPrueba.png para probar
+
+
+- **Problema**: El sistema está creando restaurantes duplicados con el mismo nombre cuando se suben los archivos del menu para que cree todo automaticamente
 - **Correcciones Necesarias**:
   - [ ] Implementar verificación de unicidad antes de crear restaurantes
     - `src/lib/server/schema.ts` - Agregar restricción única a la tabla de restaurantes
@@ -18,6 +25,11 @@
   - [ ] Actualizar el frontend para manejar casos de restaurantes duplicados
     - `src/lib/components/menu-editor/restaurant/RestaurantInfo.svelte` - Agregar manejo de errores
     - `src/lib/stores/toast.ts` - Agregar mensajes de error específicos
+
+
+### 2. Imagenes o pdfs de carta grandes, el proceso de generar el menu puede tardar demasiado
+Hacer pruebas con varias cartas para ver cuanto tarda el proceso
+
 
 ### 2. Integración del Procesamiento de Imágenes
 - **Problema**: Necesidad de automatizar la creación y procesamiento de imágenes

@@ -1,5 +1,6 @@
 # Cursor Rules
 1. Dont remove comments
+2. The right vision model is gpt-4o. NEVER CHANGE IT!!!!
 2. Dont remove code used for debugging
 3. Dont remove existing funcionality.
 4. The user first will need to login, then they will be able to access the menu editor. We are using Oauth2 with Google.

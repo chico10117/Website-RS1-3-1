@@ -125,8 +125,8 @@ export async function POST({ request }) {
             response_format: {
                 type: "json_object"
             },
-            temperature: 0,
-            max_tokens: 4096
+            //max_tokens: 4096,
+            temperature: 0
         });
         
         console.log('OpenAI response received:', {
@@ -141,8 +141,30 @@ export async function POST({ request }) {
             throw new Error('No content received from OpenAI');
         }
 
+        // Try to extract the JSON content between <prompt> and </prompt> tags
+        const promptMatch = content.match(/<prompt>\s*([\s\S]*?)\s*<\/prompt>/);
+        const jsonContent = promptMatch ? promptMatch[1].trim() : content;
+
         console.log('Parsing OpenAI response content...');
-        const parsedContent = JSON.parse(content);
+        let parsedContent;
+        try {
+            // First try to parse it as is
+            parsedContent = JSON.parse(jsonContent);
+        } catch (parseError) {
+            try {
+                // If that fails, try to evaluate it as a TypeScript/JavaScript expression
+                // This is needed because the response might include the "export const seedData = " part
+                const cleanedContent = jsonContent.replace(/export\s+const\s+seedData\s*=\s*/, '').replace(/;$/, '');
+                parsedContent = JSON.parse(cleanedContent);
+            } catch (secondParseError) {
+                console.error('Failed to parse OpenAI response:', {
+                    content: jsonContent,
+                    error: secondParseError
+                });
+                throw new Error('Failed to parse OpenAI response: Invalid JSON format');
+            }
+        }
+
         console.log('Content parsed successfully:', {
             hasRestaurant: !!parsedContent.restaurant,
             categoriesCount: parsedContent.categories?.length
