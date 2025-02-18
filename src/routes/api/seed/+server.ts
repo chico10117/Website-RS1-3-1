@@ -45,8 +45,8 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
     console.log('User found:', { id: user.id, email: user.email });
 
     // Get request data
-    const { fileName, restaurantName, customPrompt } = await request.json();
-    console.log('Request data:', { fileName, restaurantName, hasCustomPrompt: !!customPrompt });
+    const { fileName, restaurantName, customPrompt, restaurantId } = await request.json();
+    console.log('Request data:', { fileName, restaurantName, hasCustomPrompt: !!customPrompt, restaurantId });
 
     if (!fileName || !restaurantName) {
       console.error('Missing required fields:', { fileName: !!fileName, restaurantName: !!restaurantName });
@@ -84,31 +84,60 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
       }, { status: 500 });
     }
 
-    // Generate slug for the restaurant
-    const slug = await generateSlug(restaurantName, fetch);
-    console.log('Generated slug:', slug);
-
-    // Check if restaurant exists
-    const existingRestaurant = await db.select()
-      .from(schema.restaurants)
-      .where(
-        and(
-          eq(schema.restaurants.slug, slug),
-          eq(schema.restaurants.userId, user.id)
-        )
-      );
-
-    if (existingRestaurant.length > 0) {
-      console.log('Found existing restaurant, will delete:', existingRestaurant[0].id);
-      await db.delete(schema.restaurants)
-        .where(eq(schema.restaurants.id, existingRestaurant[0].id));
-      console.log('Existing restaurant deleted');
-    }
-
-    // Create restaurant
-    console.log('Creating new restaurant...');
     let restaurant;
-    try {
+
+    // Check if we're updating an existing restaurant
+    if (restaurantId) {
+      // Verify the restaurant exists and belongs to the user
+      const [existingRestaurant] = await db.select()
+        .from(schema.restaurants)
+        .where(
+          and(
+            eq(schema.restaurants.id, restaurantId),
+            eq(schema.restaurants.userId, user.id)
+          )
+        );
+
+      if (!existingRestaurant) {
+        console.error('Restaurant not found or does not belong to user:', { restaurantId });
+        return json({ 
+          success: false, 
+          error: 'Restaurant not found or unauthorized' 
+        }, { status: 404 });
+      }
+
+      // Delete existing categories and dishes
+      const existingCategories = await db.select()
+        .from(schema.categories)
+        .where(eq(schema.categories.restaurantId, restaurantId));
+
+      for (const category of existingCategories) {
+        // Delete dishes in category
+        await db.delete(schema.dishes)
+          .where(eq(schema.dishes.categoryId, category.id));
+      }
+
+      // Delete categories
+      await db.delete(schema.categories)
+        .where(eq(schema.categories.restaurantId, restaurantId));
+
+      // Update existing restaurant
+      [restaurant] = await db.update(schema.restaurants)
+        .set({
+          name: restaurantName,
+          customPrompt: customPrompt || seedData.restaurant.customPrompt || null,
+          updatedAt: new Date()
+        })
+        .where(eq(schema.restaurants.id, restaurantId))
+        .returning();
+
+      console.log('Updated existing restaurant:', restaurant);
+    } else {
+      // Generate slug for new restaurant
+      const slug = await generateSlug(restaurantName, fetch);
+      console.log('Generated slug:', slug);
+
+      // Create new restaurant
       [restaurant] = await db.insert(schema.restaurants)
         .values({
           name: restaurantName,
@@ -118,10 +147,7 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
           customPrompt: customPrompt || seedData.restaurant.customPrompt || null
         })
         .returning();
-      console.log('Restaurant created:', restaurant);
-    } catch (dbError) {
-      console.error('Error creating restaurant:', dbError);
-      throw dbError;
+      console.log('Created new restaurant:', restaurant);
     }
 
     // Create categories and dishes

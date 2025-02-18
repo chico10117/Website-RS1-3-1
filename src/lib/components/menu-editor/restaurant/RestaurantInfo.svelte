@@ -702,25 +702,32 @@
     <MenuUploader
       {restaurantName}
       {customPrompt}
+      restaurantId={$currentRestaurant?.id || null}
       on:success={async (event) => {
         try {
           const { restaurantData } = event.detail;
           
           // Update the current restaurant with the new data
           if ($currentRestaurant) {
-            menuCache.updateRestaurant({
+            const updatedRestaurant = {
               ...$currentRestaurant,
-              ...restaurantData,
+              ...restaurantData, // Use all the data from the seed response
               updatedAt: new Date()
-            });
+            };
+            
+            // Update the cache with the complete restaurant data
+            menuCache.updateRestaurant(updatedRestaurant);
+            
+            // Update the current restaurant store
+            currentRestaurant.set(updatedRestaurant);
           }
 
-          // Dispatch update event
+          // Dispatch update event with the updated data
           dispatch('update', {
-            id: selectedRestaurant || undefined,
-            name: restaurantName,
-            logo: menuLogo,
-            customPrompt: customPrompt,
+            id: restaurantData.id, // Use the ID from the seed response
+            name: restaurantData.name,
+            logo: restaurantData.logo,
+            customPrompt: restaurantData.customPrompt,
             currency,
             color
           });

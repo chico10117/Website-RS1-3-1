@@ -2,7 +2,7 @@ export const seedData =
   {
   "userEmail": "chico10117@gmail.com",
   "restaurant": {
-    "name": "PRUEBA RECO",
+    "name": "Restaurante PRUEBA RECO",
     "logo": "",
     "customPrompt": "RESTAURANT INFO\nDirección: Calle Ficticia 123, Madrid\nTeléfono: 900 123 456\n¡Te esperamos en Fast Bite para una experiencia rápida, deliciosa y llena de sabor! 🚀🔥"
   },

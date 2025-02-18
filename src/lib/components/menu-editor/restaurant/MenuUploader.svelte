@@ -9,6 +9,7 @@
 
   export let restaurantName: string;
   export let customPrompt: string | null = null;
+  export let restaurantId: string | null = null;
 
   const dispatch = createEventDispatcher<{
     success: { restaurantData: any; fileName: string };
@@ -162,14 +163,15 @@
       currentStep = t('seedingDatabase');
       progress = 90;
 
-      // Call the seed endpoint with the generated data
+      // Call the seed endpoint with the generated data and restaurant ID if it exists
       const seedResponse = await fetch('/api/seed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileName: data.savedTo,
           restaurantName,
-          customPrompt
+          customPrompt,
+          restaurantId // Pass the restaurant ID if it exists
         })
       });
 
@@ -189,9 +191,9 @@
       progress = 100;
       currentStep = t('completed');
       
-      // Dispatch success event with the processed data
+      // Dispatch success event with the processed data and updated restaurant
       dispatch('success', {
-        restaurantData: data.content,
+        restaurantData: seedResult.data.restaurant, // Use the restaurant data from the seed response
         fileName: data.savedTo
       });
 
