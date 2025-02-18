@@ -694,6 +694,49 @@
     </div>
   </div>
 
+  <!-- Menu Uploader -->
+  <div class="space-y-2 mb-12">
+    <label class="block text-lg font-semibold mb-3 text-gray-800">
+      {t('uploadMenu')}
+    </label>
+    <MenuUploader
+      {restaurantName}
+      {customPrompt}
+      on:success={async (event) => {
+        try {
+          const { restaurantData } = event.detail;
+          
+          // Update the current restaurant with the new data
+          if ($currentRestaurant) {
+            menuCache.updateRestaurant({
+              ...$currentRestaurant,
+              ...restaurantData,
+              updatedAt: new Date()
+            });
+          }
+
+          // Dispatch update event
+          dispatch('update', {
+            id: selectedRestaurant || undefined,
+            name: restaurantName,
+            logo: menuLogo,
+            customPrompt: customPrompt,
+            currency,
+            color
+          });
+        } catch (error) {
+          console.error('Error handling menu upload success:', error);
+          if (error instanceof Error) {
+            toasts.error(t('error') + ': ' + error.message);
+          }
+        }
+      }}
+      on:error={(event) => {
+        toasts.error(t('error') + ': ' + event.detail);
+      }}
+    />
+  </div>
+
   <!-- Custom Prompt -->
   <div class="space-y-2">
     <label for="customPrompt" class="block text-sm font-medium text-gray-700">
@@ -757,49 +800,6 @@
         {/each}
       </div>
     </div>
-  </div>
-
-  <!-- Menu Uploader -->
-  <div class="space-y-2 mb-12">
-    <label class="block text-lg font-semibold mb-3 text-gray-800">
-      {t('uploadMenu')}
-    </label>
-    <MenuUploader
-      {restaurantName}
-      {customPrompt}
-      on:success={async (event) => {
-        try {
-          const { restaurantData } = event.detail;
-          
-          // Update the current restaurant with the new data
-          if ($currentRestaurant) {
-            menuCache.updateRestaurant({
-              ...$currentRestaurant,
-              ...restaurantData,
-              updatedAt: new Date()
-            });
-          }
-
-          // Dispatch update event
-          dispatch('update', {
-            id: selectedRestaurant || undefined,
-            name: restaurantName,
-            logo: menuLogo,
-            customPrompt: customPrompt,
-            currency,
-            color
-          });
-        } catch (error) {
-          console.error('Error handling menu upload success:', error);
-          if (error instanceof Error) {
-            toasts.error(t('error') + ': ' + error.message);
-          }
-        }
-      }}
-      on:error={(event) => {
-        toasts.error(t('error') + ': ' + event.detail);
-      }}
-    />
   </div>
 </div>
 

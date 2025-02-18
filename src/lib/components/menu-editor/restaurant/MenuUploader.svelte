@@ -4,10 +4,6 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
-  import { user } from '$lib/stores/user';
-  import { currentRestaurant } from '$lib/stores/restaurant';
-  import { menuCache } from '$lib/stores/menu-cache';
-  import { generateSlug } from '$lib/utils/slug';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
@@ -240,14 +236,6 @@
     on:dragover={handleDragOver}
     on:drop={handleDrop}
   >
-    <input
-      type="file"
-      id="menu-file-input"
-      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-      accept="application/pdf,image/*"
-      multiple
-      on:change={handleFileChange}
-    />
     <div class="absolute inset-0 flex flex-col items-center justify-center">
       {#if loading}
         <div class="space-y-4 w-full max-w-md px-4">
@@ -262,7 +250,7 @@
           </div>
         </div>
       {:else}
-        <div class="text-center space-y-2">
+        <div class="text-center space-y-4">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="h-12 w-12 text-blue-400 mx-auto"
@@ -277,7 +265,7 @@
               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
             />
           </svg>
-          <div class="space-y-1">
+          <div class="space-y-2">
             <p class="text-base font-medium text-gray-900">{t('uploadMenuFiles')}</p>
             <p class="text-sm text-gray-500">
               {isDragging ? t('dropToUpload') : t('dragAndDropOrClick')}
@@ -287,6 +275,14 @@
         </div>
       {/if}
     </div>
+    <input
+      type="file"
+      id="menu-file-input"
+      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+      accept="application/pdf,image/*"
+      multiple
+      on:change={handleFileChange}
+    />
   </div>
 
   {#if images.length > 0 && !loading}
