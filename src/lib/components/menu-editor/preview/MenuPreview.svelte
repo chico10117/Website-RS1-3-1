@@ -21,6 +21,16 @@
     currency = $currentRestaurant.currency;
   }
 
+  // Subscribe to menu state changes
+  $: {
+    const state = $menuState;
+    if (state) {
+      restaurantName = state.restaurantName || restaurantName;
+      menuLogo = state.menuLogo || menuLogo;
+      categories = state.categories || categories;
+    }
+  }
+
   // Format price as currency
   function formatPrice(price: number | string): string {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;

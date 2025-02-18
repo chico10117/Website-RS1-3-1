@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
+  import { menuState } from '$lib/stores/menu-state';
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
@@ -188,12 +189,19 @@
         throw new Error(seedResult.error);
       }
 
+      // Import the seed data to get categories and dishes
+      const { seedData } = await import(/* @vite-ignore */ `/static/data/restaurants/${data.savedTo}`);
+      
+      // Update menu state with the new data
+      menuState.updateRestaurantInfo(restaurantName, seedResult.data.restaurant.logo);
+      menuState.updateCategories(seedData.categories);
+
       progress = 100;
       currentStep = t('completed');
       
       // Dispatch success event with the processed data and updated restaurant
       dispatch('success', {
-        restaurantData: seedResult.data.restaurant, // Use the restaurant data from the seed response
+        restaurantData: seedResult.data.restaurant,
         fileName: data.savedTo
       });
 
