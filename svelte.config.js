@@ -4,18 +4,14 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			maxDuration: 300
+		}),
 		alias: {
 			$lib: './src/lib'
 		}
 	},
 	preprocess: vitePreprocess()
 };
-// This function can run for a maximum of 300 seconds
-export default {
-	kit: {
-	  adapter: adapter({
-		maxDuration: 300,
-	  }),
-	},
-  };
+
+export default config;
