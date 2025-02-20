@@ -11,5 +11,11 @@ const config = {
 	},
 	preprocess: vitePreprocess()
 };
-
-export default config; 
+// This function can run for a maximum of 300 seconds
+export default {
+	kit: {
+	  adapter: adapter({
+		maxDuration: 300,
+	  }),
+	},
+  };
