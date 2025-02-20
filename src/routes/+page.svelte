@@ -5,7 +5,7 @@
 
   export let data: PageData;
 
-  // Initialize the current restaurant from server data
+  // Initialize the current restaurant from server data ok
   $: if (data.restaurant) {
     currentRestaurant.set(data.restaurant);
   }
