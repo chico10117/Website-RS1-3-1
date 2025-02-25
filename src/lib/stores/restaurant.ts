@@ -10,8 +10,20 @@ function createRestaurantStore() {
     set,
     async loadRestaurants(): Promise<Restaurant[]> {
       try {
-        const response = await fetch('/api/restaurants');
+        console.log('Fetching restaurants from API...');
+        const response = await fetch('/api/restaurants', {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          console.error('Error response from API:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('Error details:', errorText);
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        console.log('API response:', data);
         
         if (!data.success) {
           throw new Error(data.error || 'Failed to load restaurants');
@@ -26,7 +38,17 @@ function createRestaurantStore() {
     },
     async loadRestaurant(id: string): Promise<void> {
       try {
-        const response = await fetch(`/api/restaurants?id=${id}`);
+        const response = await fetch(`/api/restaurants?id=${id}`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          console.error('Error response from API:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('Error details:', errorText);
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         if (!data.success) {

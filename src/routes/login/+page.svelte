@@ -10,16 +10,25 @@
   onMount(() => {
     if (!browser) return;
 
+    // Log the current origin for debugging
+    console.log('Current origin:', window.location.origin);
+    console.log('Google client ID:', authConfig.google.clientId);
+
     // Initialize Google Sign-In
     const initializeGoogleSignIn = () => {
       try {
+        console.log('Initializing Google Sign-In...');
         window.google.accounts.id.initialize({
           client_id: authConfig.google.clientId,
           callback: handleGoogleCredentialResponse,
           auto_select: false,
-          cancel_on_tap_outside: true
+          cancel_on_tap_outside: true,
+          error_callback: (error: any) => {
+            console.error('Google Sign-In error:', error);
+          }
         });
 
+        console.log('Rendering Google Sign-In button...');
         window.google.accounts.id.renderButton(
           googleButton,
           { 
@@ -32,6 +41,7 @@
             width: 250
           }
         );
+        console.log('Google Sign-In initialized successfully');
       } catch (error) {
         console.error('Error initializing Google Sign-In:', error);
       }
@@ -49,24 +59,38 @@
     if (!browser) return;
     
     try {
+      console.log('Google auth response received:', response);
+      
       // Decode the JWT token to get user info
       const token = response.credential;
+      console.log('Token received:', token ? 'Token present' : 'No token');
+      
+      if (!token) {
+        console.error('No credential token received from Google');
+        return;
+      }
+      
       const [, payloadBase64] = token.split('.');
       const payload = JSON.parse(atob(payloadBase64));
+      console.log('Token payload:', payload);
       
       // Update user store with persistence
+      console.log('Sending token to backend...');
       const result = await fetch('/api/auth/google', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          credential: response.credential 
-        })
+        body: JSON.stringify({ credential: token }),
+        credentials: 'include'
       });
 
+      console.log('Backend response status:', result.status);
+      
       if (result.ok) {
         const data = await result.json();
+        console.log('Login successful, user data:', data);
+        
         if (data.user) {
           user.set({
             id: data.user.id,
@@ -74,10 +98,13 @@
             email: data.user.email,
             picture: data.user.picture
           });
+          goto('/');
+        } else {
+          console.error('Login response missing user data');
         }
-        goto('/');
       } else {
-        console.error('Login failed');
+        const errorText = await result.text();
+        console.error('Login failed:', result.status, errorText);
       }
     } catch (error) {
       console.error('Error during login:', error);
@@ -95,6 +122,25 @@
         bind:this={googleButton} 
         class="w-full flex justify-center"
       ></div>
+      
+      <!-- Manual fallback button -->
+      <div class="mt-4 text-center">
+        <p class="text-sm text-gray-500 mb-2">If the Google button doesn't work:</p>
+        <button
+          class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          on:click={() => {
+            console.log('Manual login attempt');
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+              window.google.accounts.id.prompt();
+            } else {
+              console.error('Google Sign-In not initialized');
+              alert('Google Sign-In not initialized. Please check console for errors.');
+            }
+          }}
+        >
+          Try Manual Login
+        </button>
+      </div>
     </div>
   </div>
 </div>

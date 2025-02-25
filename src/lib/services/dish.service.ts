@@ -1,7 +1,9 @@
 import type { Dish } from '$lib/types/menu.types';
 
 export async function fetchDishes(restaurantId: string, categoryId: string): Promise<Dish[]> {
-  const response = await fetch(`/api/restaurants/${restaurantId}/categories/${categoryId}/dishes`);
+  const response = await fetch(`/api/restaurants/${restaurantId}/categories/${categoryId}/dishes`, {
+    credentials: 'include'
+  });
   const result = await response.json();
   
   if (!result.success) {
@@ -25,7 +27,8 @@ export async function createOrUpdateDish(
   const response = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...dishData, restaurantId, categoryId })
+    body: JSON.stringify({ ...dishData, restaurantId, categoryId }),
+    credentials: 'include'
   });
 
   if (!response.ok) {
@@ -46,7 +49,8 @@ export async function createOrUpdateDish(
 
 export async function deleteDish(restaurantId: string, categoryId: string, dishId: string): Promise<void> {
   const response = await fetch(`/api/restaurants/${restaurantId}/categories/${categoryId}/dishes/${dishId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    credentials: 'include'
   });
 
   if (!response.ok) {

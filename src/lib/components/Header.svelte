@@ -14,10 +14,17 @@
   $: isMenuEditor = $page.url.pathname === '/';
   let isDropdownOpen = false;
 
+  function handleImageError(e: Event) {
+    console.error('Error loading image:', e);
+    const img = e.target as HTMLImageElement;
+    console.log('Failed URL:', img.src);
+  }
+
   async function handleLogout() {
     try {
       const response = await fetch('/api/auth/logout', {
-        method: 'POST'
+        method: 'POST',
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -52,11 +59,7 @@
             src={userPicture} 
             alt="Profile" 
             class="w-10 h-10 rounded-full object-cover"
-            on:error={(e) => {
-              console.error('Error loading image:', e);
-              const img = e.currentTarget;
-              console.log('Failed URL:', img.src);
-            }}
+            on:error={handleImageError}
           />
         {:else}
           <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">

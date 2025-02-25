@@ -1,7 +1,9 @@
 import type { Category } from '$lib/types/menu.types';
 
 export async function fetchCategories(restaurantId: string): Promise<Category[]> {
-  const response = await fetch(`/api/restaurants/${restaurantId}/categories`);
+  const response = await fetch(`/api/restaurants/${restaurantId}/categories`, {
+    credentials: 'include'
+  });
   const result = await response.json();
   
   if (!result.success) {
@@ -24,7 +26,8 @@ export async function createOrUpdateCategory(
   const response = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...categoryData, restaurantId })
+    body: JSON.stringify({ ...categoryData, restaurantId }),
+    credentials: 'include'
   });
 
   if (!response.ok) {
@@ -45,7 +48,8 @@ export async function createOrUpdateCategory(
 
 export async function deleteCategory(restaurantId: string, categoryId: string): Promise<void> {
   const response = await fetch(`/api/restaurants/${restaurantId}/categories/${categoryId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    credentials: 'include'
   });
 
   if (!response.ok) {

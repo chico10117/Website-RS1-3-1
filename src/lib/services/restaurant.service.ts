@@ -2,7 +2,9 @@ import type { Restaurant } from '$lib/types';
 import { generateSlug } from '$lib/utils/slug';
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
-  const response = await fetch('/api/restaurants');
+  const response = await fetch('/api/restaurants', {
+    credentials: 'include'
+  });
   const data = await response.json();
   
   if (!data.success) {
@@ -67,7 +69,8 @@ export async function createOrUpdateRestaurant(
     const response = await fetch(url, {
       method: isUpdate ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bodyData)
+      body: JSON.stringify(bodyData),
+      credentials: 'include'
     });
 
     const result = await response.json();
@@ -92,7 +95,8 @@ export async function createOrUpdateRestaurant(
 
 export async function deleteRestaurant(restaurantId: string): Promise<void> {
   const response = await fetch(`/api/restaurants/${restaurantId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    credentials: 'include'
   });
 
   if (!response.ok) {

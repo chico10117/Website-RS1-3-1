@@ -126,7 +126,8 @@
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'include'
       });
 
       if (!uploadResponse.ok) {
@@ -750,8 +751,6 @@
       </div>
     </div>
   </div>
-
-
 
   <!-- Custom Prompt -->
   <div class="space-y-2">

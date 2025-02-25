@@ -76,7 +76,8 @@
 
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
+        credentials: 'include'
       });
 
       let data;
@@ -122,7 +123,7 @@
         id: crypto.randomUUID(),
         categoryId,
         title: newDish.title.trim(),
-        price: parseFloat(newDish.price) || 0,
+        price: newDish.price,
         description: newDish.description.trim(),
         imageUrl: newDish.imageUrl
       };
