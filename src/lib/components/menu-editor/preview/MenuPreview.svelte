@@ -6,6 +6,7 @@
   import { menuCache } from '$lib/stores/menu-cache';
   import { menuState } from '$lib/stores/menu-state';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { menuStore } from '$lib/stores/menu-store';
 
   export let restaurantName: string = '';
   export let menuLogo: string | null = null;
@@ -16,18 +17,25 @@
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
-  // Update currency when currentRestaurant changes
-  $: if ($currentRestaurant?.currency) {
-    currency = $currentRestaurant.currency;
+  // Update restaurant data when currentRestaurant changes
+  $: if ($currentRestaurant) {
+    restaurantName = $currentRestaurant.name || restaurantName;
+    menuLogo = $currentRestaurant.logo || menuLogo;
+    currency = $currentRestaurant.currency || currency;
   }
 
-  // Subscribe to menu state changes
+  // Subscribe to menu store changes to get categories
+  $: if ($menuStore.categories && $menuStore.categories.length > 0) {
+    categories = $menuStore.categories;
+  }
+
+  // Subscribe to menu state changes as fallback
   $: {
     const state = $menuState;
     if (state) {
-      restaurantName = state.restaurantName || restaurantName;
-      menuLogo = state.menuLogo || menuLogo;
-      categories = state.categories || categories;
+      if (state.restaurantName) restaurantName = state.restaurantName;
+      if (state.menuLogo) menuLogo = state.menuLogo;
+      if (state.categories) categories = state.categories;
     }
   }
 
@@ -37,15 +45,13 @@
     return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
   }
 
+  // We don't need to reset state on mount anymore
+  // This was causing the preview to clear when navigating
   onMount(() => {
-    // Clear all caches and state when component mounts
-    menuCache.clearCache();
-    menuState.updateRestaurantInfo('', null);
-    menuState.updateCategories([]);
-    currentRestaurant.set(null);
-    
-    // Reset menu state
-    menuState.reset();
+    // Only initialize if no restaurant is selected
+    if (!$currentRestaurant && !$menuStore.categories.length) {
+      menuState.reset();
+    }
   });
 </script>
 

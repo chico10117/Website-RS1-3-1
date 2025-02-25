@@ -227,7 +227,6 @@
       <div class="mb-8">
         <RestaurantSelector 
           on:select={handleRestaurantSelect}
-          minimized={$isRestaurantSelectorMinimized}
           on:toggleMinimized={() => isRestaurantSelectorMinimized.set(false)}
         />
       </div>
@@ -242,8 +241,8 @@
             customPrompt={$menuStore.customPrompt}
             selectedRestaurant={$menuStore.selectedRestaurant}
             restaurants={$menuStore.restaurants}
-            currency="€"
-            color={1}
+            currency={$currentRestaurant?.currency || '€'}
+            color={$currentRestaurant?.color || 1}
             on:update={handleRestaurantUpdate}
           />
           
@@ -263,7 +262,7 @@
             restaurantName={$menuStore.restaurantName}
             menuLogo={$menuStore.menuLogo}
             categories={$menuStore.categories}
-            currency="€"
+            currency={$currentRestaurant?.currency || '€'}
           />
         </div>
       </div>

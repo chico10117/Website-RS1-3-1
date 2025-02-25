@@ -99,6 +99,8 @@ function createMenuStore() {
     // Restaurant actions
     async selectRestaurant(restaurantId: string) {
       try {
+        console.log('Selecting restaurant:', restaurantId);
+        
         update(state => ({ 
           ...state, 
           selectedRestaurant: restaurantId,
@@ -112,13 +114,55 @@ function createMenuStore() {
           }
         }));
         
-        const restaurant = get(currentRestaurant);
+        // Get the restaurant from the current state or fetch it if needed
+        let restaurant: Restaurant | null = null;
+        const currentState = get({ subscribe });
+        const existingRestaurant = currentState.restaurants.find(r => r.id === restaurantId);
+        
+        if (existingRestaurant) {
+          restaurant = existingRestaurant;
+        } else {
+          // Fetch the restaurant data from the API
+          const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
+            credentials: 'include'
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch restaurant: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          if (!data.success) {
+            throw new Error(data.error || 'Failed to load restaurant');
+          }
+          
+          restaurant = data.data;
+          
+          // Update the restaurants list if needed
+          update(state => {
+            const existingIndex = state.restaurants.findIndex(r => r.id === restaurantId);
+            const updatedRestaurants = [...state.restaurants];
+            
+            if (existingIndex >= 0) {
+              updatedRestaurants[existingIndex] = restaurant as Restaurant;
+            } else {
+              updatedRestaurants.push(restaurant as Restaurant);
+            }
+            
+            return {
+              ...state,
+              restaurants: updatedRestaurants
+            };
+          });
+        }
+        
         if (restaurant) {
+          // Update restaurant info in the store
           update(state => ({
             ...state,
-            restaurantName: restaurant.name,
-            menuLogo: restaurant.logo || null,
-            customPrompt: restaurant.customPrompt || null
+            restaurantName: restaurant!.name,
+            menuLogo: restaurant!.logo || null,
+            customPrompt: restaurant!.customPrompt || null
           }));
 
           // Load categories for this restaurant
@@ -132,7 +176,13 @@ function createMenuStore() {
             })
           );
 
+          // Update categories in the store
           update(state => ({ ...state, categories: categoriesWithDishes }));
+          
+          console.log('Restaurant loaded successfully:', restaurant.name);
+          console.log('Categories loaded:', categoriesWithDishes.length);
+        } else {
+          throw new Error('Restaurant not found');
         }
       } catch (error) {
         console.error('Error selecting restaurant:', error);

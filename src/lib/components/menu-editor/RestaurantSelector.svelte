@@ -12,16 +12,8 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-  import { createEventDispatcher } from 'svelte';
   import { user } from '$lib/stores/user';
   import { page } from '$app/stores';
-
-  export let minimized: boolean = false;
-
-  const dispatch = createEventDispatcher<{
-    select: string;
-    toggleMinimized: void;
-  }>();
 
   let restaurants: Restaurant[] = [];
   let loading = true;
@@ -54,32 +46,14 @@
   onMount(async () => {
     try {
       loading = true;
-      
-      // Check if user is authenticated
-      if (!$user || !$user.id) {
-        console.log('User not authenticated, redirecting to login');
-        error = 'User not authenticated. Please log in.';
-        // Redirect to login page
-        goto('/login?redirect=' + encodeURIComponent($page.url.pathname));
-        return;
-      }
-      
       // Clear all state on page load
       menuStore.reset();
       currentRestaurant.set(null);
       
       // Load and sort restaurants
       const loadedRestaurants = await currentRestaurant.loadRestaurants();
-      
-      if (loadedRestaurants.length === 0) {
-        console.log('No restaurants found for user');
-      } else {
-        console.log(`Loaded ${loadedRestaurants.length} restaurants`);
-      }
-      
       restaurants = sortRestaurantsByDate(loadedRestaurants);
     } catch (err) {
-      console.error('Error in onMount:', err);
       error = err instanceof Error ? err.message : 'Failed to load restaurants';
     } finally {
       loading = false;
@@ -108,9 +82,6 @@
       
       // Load the restaurant data using the store
       await menuStore.selectRestaurant(restaurant.id);
-      
-      // Dispatch the select event
-      dispatch('select', restaurant.id);
       
     } catch (err) {
       console.error('Error switching restaurant:', err);
@@ -178,22 +149,8 @@
 
   async function refreshRestaurants() {
     try {
-      // Check if user is authenticated
-      if (!$user || !$user.id) {
-        console.log('User not authenticated, cannot refresh restaurants');
-        error = 'User not authenticated. Please log in.';
-        return;
-      }
-      
       // Load fresh data and sort
       const loadedRestaurants = await currentRestaurant.loadRestaurants();
-      
-      if (loadedRestaurants.length === 0) {
-        console.log('No restaurants found for user during refresh');
-      } else {
-        console.log(`Refreshed ${loadedRestaurants.length} restaurants`);
-      }
-      
       restaurants = sortRestaurantsByDate(loadedRestaurants);
     } catch (err) {
       console.error('Error refreshing restaurants:', err);
@@ -220,17 +177,7 @@
       </Button>
     </div>
     
-    {#if minimized}
-      <!-- Minimized view -->
-      <div class="text-center text-gray-500 text-sm py-2">
-        <button 
-          class="text-blue-500 hover:text-blue-700 underline"
-          on:click={() => dispatch('toggleMinimized')}
-        >
-          {t('showRestaurants')}
-        </button>
-      </div>
-    {:else if loading}
+    {#if loading}
       <div class="flex items-center justify-center py-12">
         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
         <span class="ml-3 text-gray-500">{t('loading')}</span>
@@ -279,37 +226,31 @@
                 </svg>
               </div>
             {/if}
-            <span class="text-sm font-medium truncate max-w-full">{restaurant.name}</span>
+            
+            <span class="text-sm font-medium truncate max-w-full px-1">
+              {restaurant.name}
+            </span>
             
             {#if switchingRestaurant === restaurant.id}
-              <div class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-xl">
-                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-              </div>
+              <span class="text-xs text-gray-500 mt-1">{t('loading')}</span>
             {/if}
-            
-            {#if deletingRestaurant === restaurant.id}
-              <div class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-xl">
-                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500"></div>
-              </div>
-            {/if}
-            
-            <!-- Action buttons -->
-            <div class="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 flex gap-1">
               <button
-                class="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                class="p-1 rounded-full hover:bg-black/5 transition-colors"
                 on:click={(e) => handleEditRestaurant(restaurant, e)}
-                title={t('edit')}
+                disabled={editingRestaurant === restaurant.id}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                 </svg>
               </button>
               <button
-                class="p-1 rounded-full bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600"
+                class="p-1 rounded-full hover:bg-red-50 transition-colors"
                 on:click={(e) => handleDeleteRestaurant(restaurant, e)}
-                title={t('delete')}
+                disabled={deletingRestaurant === restaurant.id}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-red-600" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                 </svg>
               </button>
