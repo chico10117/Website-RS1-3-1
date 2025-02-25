@@ -54,18 +54,10 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
       }, { status: 400 });
     }
 
-    console.log('Creating new restaurant:', {
-      id,
-      name,
-      slug: finalSlug,
-      logo,
-      userId: user.id
-    });
-
     // Create the new restaurant with the provided ID if available
     const [newRestaurant] = await db.insert(restaurants)
       .values({
-        id: id || undefined, // Use provided ID or let the database generate one
+        id: id || undefined,
         name,
         slug: finalSlug,
         logo: logo || null,
@@ -74,8 +66,6 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
         updatedAt: new Date()
       })
       .returning();
-
-    console.log('Restaurant created:', newRestaurant);
 
     return json({ 
       success: true, 
@@ -93,57 +83,38 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
 
 export async function GET({ url, cookies }: RequestEvent) {
   try {
-    console.log('GET /api/restaurants - Request received');
-    
     const token = cookies.get('auth_token');
     if (!token) {
-      console.log('GET /api/restaurants - No auth token found');
       return json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    console.log('GET /api/restaurants - Auth token found');
 
     const user = await getUserFromToken(token);
     if (!user) {
-      console.log('GET /api/restaurants - User not found for token');
       return json({ success: false, error: 'User not found' }, { status: 404 });
     }
-    console.log(`GET /api/restaurants - User found: ID=${user.id}, Email=${user.email}`);
 
     const restaurantId = url.searchParams.get('id');
     
     if (restaurantId) {
-      console.log(`GET /api/restaurants - Fetching specific restaurant: ${restaurantId}`);
-      // Get a specific restaurant with its relations
       const restaurant = await db.select()
         .from(restaurants)
         .where(eq(restaurants.id, restaurantId))
         .limit(1);
 
       if (!restaurant.length) {
-        console.log(`GET /api/restaurants - Restaurant not found: ${restaurantId}`);
         return json({ success: false, error: 'Restaurant not found' }, { status: 404 });
       }
 
-      // Verify ownership
       if (restaurant[0].userId !== user.id) {
-        console.log(`GET /api/restaurants - Unauthorized access: Restaurant userId=${restaurant[0].userId}, User ID=${user.id}`);
         return json({ success: false, error: 'Unauthorized' }, { status: 403 });
       }
 
-      console.log(`GET /api/restaurants - Returning restaurant: ${restaurant[0].name}`);
       return json({ success: true, data: restaurant[0] });
     }
     
-    // Get all restaurants for the authenticated user
-    console.log(`GET /api/restaurants - Fetching all restaurants for user: ${user.id}`);
     const userRestaurants = await db.select()
       .from(restaurants)
       .where(eq(restaurants.userId, user.id));
-
-    console.log(`GET /api/restaurants - Found ${userRestaurants.length} restaurants for user`);
-    if (userRestaurants.length > 0) {
-      userRestaurants.forEach(r => console.log(`Restaurant: ${r.name}, ID: ${r.id}, User ID: ${r.userId}`));
-    }
 
     return json({ success: true, data: userRestaurants });
   } catch (error) {

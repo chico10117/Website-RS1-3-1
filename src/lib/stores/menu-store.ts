@@ -27,6 +27,7 @@ export interface MenuStore {
   // UI state
   isSaving: boolean;
   lastSaveTime: Date | null;
+  isLoading: boolean;
 }
 
 // Helper to create a new ID for temporary items
@@ -54,7 +55,8 @@ function createMenuStore() {
     
     // UI state
     isSaving: false,
-    lastSaveTime: null
+    lastSaveTime: null,
+    isLoading: false
   };
 
   const { subscribe, set, update } = writable<MenuStore>(initialState);
@@ -82,6 +84,21 @@ function createMenuStore() {
       set(initialState);
     },
 
+    // Reset change tracking without resetting the data
+    resetChanges() {
+      update(state => ({
+        ...state,
+        changedItems: {
+          restaurant: false,
+          categories: new Set<string>(),
+          dishes: new Set<string>(),
+          deletedCategories: new Set<string>(),
+          deletedDishes: new Set<string>()
+        },
+        lastSaveTime: new Date()
+      }));
+    },
+
     // Load initial data
     async loadRestaurants() {
       try {
@@ -98,94 +115,67 @@ function createMenuStore() {
 
     // Restaurant actions
     async selectRestaurant(restaurantId: string) {
+      console.log('selectRestaurant called with ID:', restaurantId);
+      
+      if (!restaurantId) {
+        console.error('No restaurant ID provided to selectRestaurant');
+        throw new Error('No restaurant ID provided');
+      }
+      
       try {
-        console.log('Selecting restaurant:', restaurantId);
-        
-        update(state => ({ 
-          ...state, 
-          selectedRestaurant: restaurantId,
-          // Reset change tracking when selecting a restaurant
-          changedItems: {
-            restaurant: false,
-            categories: new Set<string>(),
-            dishes: new Set<string>(),
-            deletedCategories: new Set<string>(),
-            deletedDishes: new Set<string>()
-          }
-        }));
-        
-        // Get the restaurant from the current state or fetch it if needed
-        let restaurant: Restaurant | null = null;
+        // Log the current state
         const currentState = get({ subscribe });
-        const existingRestaurant = currentState.restaurants.find(r => r.id === restaurantId);
+        console.log('Current state before selecting restaurant:', {
+          selectedRestaurant: currentState.selectedRestaurant,
+          restaurantName: currentState.restaurantName
+        });
         
-        if (existingRestaurant) {
-          restaurant = existingRestaurant;
-        } else {
-          // Fetch the restaurant data from the API
-          const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
-            credentials: 'include'
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch restaurant: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          if (!data.success) {
-            throw new Error(data.error || 'Failed to load restaurant');
-          }
-          
-          restaurant = data.data;
-          
-          // Update the restaurants list if needed
-          update(state => {
-            const existingIndex = state.restaurants.findIndex(r => r.id === restaurantId);
-            const updatedRestaurants = [...state.restaurants];
-            
-            if (existingIndex >= 0) {
-              updatedRestaurants[existingIndex] = restaurant as Restaurant;
-            } else {
-              updatedRestaurants.push(restaurant as Restaurant);
+        // First update the state to indicate we're loading
+        update(s => ({ ...s, isLoading: true }));
+        
+        // Fetch the restaurant data using the service
+        const restaurant = await restaurantService.fetchRestaurantById(restaurantId);
+        console.log('Fetched restaurant data:', restaurant);
+        
+        // Fetch categories for this restaurant using the service
+        console.log('Fetching categories for restaurant:', restaurantId);
+        const categories = await categoryService.fetchCategories(restaurantId);
+        console.log('Found categories:', categories);
+        
+        // Update the store with the restaurant and categories
+        update(s => {
+          // Make sure we're setting the selectedRestaurant
+          return {
+            ...s,
+            selectedRestaurant: restaurantId,
+            restaurantName: restaurant.name,
+            menuLogo: restaurant.logo,
+            customPrompt: restaurant.customPrompt,
+            categories: categories,
+            isLoading: false,
+            // Reset change tracking when selecting a new restaurant
+            changedItems: {
+              restaurant: false,
+              categories: new Set<string>(),
+              dishes: new Set<string>(),
+              deletedCategories: new Set<string>(),
+              deletedDishes: new Set<string>()
             }
-            
-            return {
-              ...state,
-              restaurants: updatedRestaurants
-            };
-          });
-        }
+          };
+        });
         
-        if (restaurant) {
-          // Update restaurant info in the store
-          update(state => ({
-            ...state,
-            restaurantName: restaurant!.name,
-            menuLogo: restaurant!.logo || null,
-            customPrompt: restaurant!.customPrompt || null
-          }));
-
-          // Load categories for this restaurant
-          const categories = await categoryService.fetchCategories(restaurantId);
-          
-          // Load dishes for each category
-          const categoriesWithDishes = await Promise.all(
-            categories.map(async category => {
-              const dishes = await dishService.fetchDishes(restaurantId, category.id);
-              return { ...category, dishes };
-            })
-          );
-
-          // Update categories in the store
-          update(state => ({ ...state, categories: categoriesWithDishes }));
-          
-          console.log('Restaurant loaded successfully:', restaurant.name);
-          console.log('Categories loaded:', categoriesWithDishes.length);
-        } else {
-          throw new Error('Restaurant not found');
-        }
+        // Log the updated state
+        const updatedState = get({ subscribe });
+        console.log('State after selecting restaurant:', {
+          selectedRestaurant: updatedState.selectedRestaurant,
+          restaurantName: updatedState.restaurantName,
+          categoriesCount: updatedState.categories.length
+        });
+        
+        return restaurant;
       } catch (error) {
         console.error('Error selecting restaurant:', error);
+        update(s => ({ ...s, isLoading: false }));
         throw error;
       }
     },
@@ -414,20 +404,38 @@ function createMenuStore() {
       
       if (!state.selectedRestaurant && !state.changedItems.restaurant) {
         console.error('No restaurant selected and no restaurant changes to save');
-        return;
+        throw new Error('No restaurant selected and no restaurant changes to save');
       }
+      
+      // Log the current state for debugging
+      console.log('SaveChanges state:', {
+        selectedRestaurant: state.selectedRestaurant,
+        restaurantName: state.restaurantName,
+        changedItems: {
+          restaurant: state.changedItems.restaurant,
+          categories: Array.from(state.changedItems.categories),
+          dishes: Array.from(state.changedItems.dishes),
+          deletedCategories: Array.from(state.changedItems.deletedCategories),
+          deletedDishes: Array.from(state.changedItems.deletedDishes)
+        }
+      });
       
       try {
         update(s => ({ ...s, isSaving: true }));
         
-        // Prepare restaurant data
+        // Get the current restaurant to access its properties
+        const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
+        
+        // Prepare restaurant data with valid color and currency values
         const restaurantData = {
           name: state.restaurantName,
           logo: state.menuLogo,
           customPrompt: state.customPrompt,
-          currency: 'USD', // Default or get from current restaurant
-          color: 0 // Default or get from current restaurant
+          currency: currentRestaurantObj?.currency || 'EUR', // Use current value or default to EUR
+          color: (currentRestaurantObj?.color && currentRestaurantObj.color > 0) ? currentRestaurantObj.color : 1 // Ensure color is at least 1
         };
+        
+        console.log('Restaurant data for save:', restaurantData);
         
         // Prepare cache-like structure for the menu service
         const cache: {
@@ -497,9 +505,20 @@ function createMenuStore() {
           };
         });
         
+        console.log('Saving changes with:', {
+          restaurantData,
+          currentRestaurantId: state.selectedRestaurant,
+          hasChanges: {
+            restaurant: state.changedItems.restaurant,
+            categories: state.changedItems.categories.size > 0,
+            dishes: state.changedItems.dishes.size > 0,
+            deletedCategories: state.changedItems.deletedCategories.size > 0,
+            deletedDishes: state.changedItems.deletedDishes.size > 0
+          }
+        });
+        
         // Save changes using the existing menu service
         const result = await menuService.saveMenuChanges(
-          cache,
           restaurantData,
           state.selectedRestaurant
         );

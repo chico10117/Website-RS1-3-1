@@ -3,7 +3,7 @@
   import type { Dish } from '$lib/types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuCache } from '$lib/stores/menu-cache';
+  import { menuStore } from '$lib/stores/menu-store';
   import { toasts } from '$lib/stores/toast';
 
   export let categoryId: string;
@@ -17,7 +17,7 @@
     title: string;
     price: string;  // Keep as string for form input
     description: string;
-    imageUrl: string;
+    imageUrl: string | null;
     categoryId: string;
   }
 
@@ -26,7 +26,7 @@
     title: '',
     price: '',
     description: '',
-    imageUrl: '',
+    imageUrl: null,
     categoryId: ''
   };
 
@@ -118,7 +118,15 @@
     }
 
     try {
-      // Create a new dish with a temporary ID
+      // Add the dish directly to the menuStore
+      menuStore.addDish(categoryId, {
+        title: newDish.title.trim(),
+        price: newDish.price,
+        description: newDish.description.trim(),
+        imageUrl: newDish.imageUrl
+      });
+      
+      // Also dispatch the event for backward compatibility
       const dish: Dish = {
         id: crypto.randomUUID(),
         categoryId,
@@ -127,9 +135,6 @@
         description: newDish.description.trim(),
         imageUrl: newDish.imageUrl
       };
-
-      // Update cache
-      menuCache.updateDish(dish.id, 'create', dish);
       
       // Dispatch the event
       dispatch('add', dish);
@@ -140,7 +145,7 @@
         title: '',
         price: '',
         description: '',
-        imageUrl: '',
+        imageUrl: null,
         categoryId: ''
       };
     } catch (error) {

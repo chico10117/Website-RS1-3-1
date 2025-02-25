@@ -1,19 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { currentRestaurant } from '$lib/stores/restaurant';
-  import type { Restaurant, Category } from '$lib/types/menu.types';
+  import type { Restaurant } from '$lib/types/menu.types';
   import { Button } from '$lib/components/ui/button';
-  import { goto } from '$app/navigation';
   import { menuStore } from '$lib/stores/menu-store';
-  import * as categoryService from '$lib/services/category.service';
-  import * as dishService from '$lib/services/dish.service';
   import * as restaurantService from '$lib/services/restaurant.service';
   import { toasts } from '$lib/stores/toast';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-  import { user } from '$lib/stores/user';
-  import { page } from '$app/stores';
 
   let restaurants: Restaurant[] = [];
   let loading = true;
@@ -80,8 +75,15 @@
       url.searchParams.set('restaurant', restaurant.id);
       window.history.replaceState({}, '', url.toString());
       
+      console.log('Selecting restaurant in menuStore:', restaurant.id, restaurant.name);
+      
       // Load the restaurant data using the store
       await menuStore.selectRestaurant(restaurant.id);
+      
+      console.log('Restaurant selected successfully:', {
+        restaurantId: restaurant.id,
+        menuStoreSelectedRestaurant: menuStore.subscribe(state => state.selectedRestaurant)
+      });
       
     } catch (err) {
       console.error('Error switching restaurant:', err);

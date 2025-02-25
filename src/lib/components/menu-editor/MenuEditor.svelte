@@ -16,12 +16,18 @@
   import { writable, derived, get } from 'svelte/store';
   import { generateSlug } from '$lib/utils/slug';
   import { goto } from '$app/navigation';
+  import SaveButton from './SaveButton.svelte';
 
   const isRestaurantSelectorMinimized = writable(false);
 
-  // Make translations reactive
-  $: currentLanguage = $language;
-  $: t = (key: string): string => translations[key][currentLanguage];
+  // Make translations reactive - ensure default values to prevent undefined errors
+  $: currentLanguage = $language || 'en';
+  $: t = (key: string): string => {
+    if (!translations || !translations[key] || !translations[key][currentLanguage]) {
+      return key; // Return the key itself as fallback
+    }
+    return translations[key][currentLanguage];
+  };
 
   // Create derived stores for UI state
   const hasUnsavedChanges = derived(menuStore, $state => {
@@ -223,6 +229,13 @@
     </div>
   {:else}
     <div class="glass rounded-3xl p-8">
+      <!-- Title and save button -->
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <img src="/recologo.svg" alt="Reco Logo" class="h-8 w-auto" />
+            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
+          </div>
+        </div>
       <!-- Restaurant selector -->
       <div class="mb-8">
         <RestaurantSelector 
@@ -269,17 +282,7 @@
       
       <!-- Save button -->
       <div class="mt-8 flex justify-end">
-        <button 
-          class="btn btn-primary" 
-          disabled={!$hasUnsavedChanges || $isSaving}
-          on:click={saveAllChanges}
-        >
-          {#if $isSaving}
-            {t('saving')}...
-          {:else}
-            {t('save')}
-          {/if}
-        </button>
+        <SaveButton />
       </div>
     </div>
   {/if}

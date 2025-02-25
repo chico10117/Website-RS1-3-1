@@ -3,7 +3,7 @@
   import type { Category, Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuCache } from '$lib/stores/menu-cache';
+  import { menuStore } from '$lib/stores/menu-store';
   import CategoryItem from './CategoryItem.svelte';
   import AddCategory from './AddCategory.svelte';
   import { toasts } from '$lib/stores/toast';
@@ -41,8 +41,12 @@
       return;
     }
     
-    // Update cache
-    menuCache.updateCategory(category.id, 'create', category);
+    // Add the category to the menuStore
+    // Note: This is redundant since AddCategory.svelte already calls menuStore.addCategory
+    // but we keep it for backward compatibility
+    if (!$menuStore.categories.find((c: Category) => c.id === category.id)) {
+      menuStore.addCategory(category.name);
+    }
     
     // Update the map and convert back to array
     categoryMap.set(category.id, category);
@@ -79,8 +83,8 @@
       dishes: category.dishes || existingCategory?.dishes || []
     };
     
-    // Update cache with appropriate action
-    menuCache.updateCategory(updatedCategory.id, 'update', updatedCategory);
+    // Update the category in menuStore
+    menuStore.updateCategory(updatedCategory.id, updatedCategory.name);
     
     // Update the map and convert back to array
     categoryMap.set(updatedCategory.id, updatedCategory);
@@ -93,15 +97,8 @@
     const index = event.detail;
     const category = orderedCategories[index];
     
-    // Update cache to delete the category
-    menuCache.updateCategory(category.id, 'delete', category);
-    
-    // Also mark all dishes in this category for deletion
-    if (category.dishes) {
-      for (const dish of category.dishes) {
-        menuCache.updateDish(dish.id, 'delete', dish);
-      }
-    }
+    // Delete the category from menuStore
+    menuStore.deleteCategory(category.id);
     
     // Remove from map and update array
     categoryMap.delete(category.id);

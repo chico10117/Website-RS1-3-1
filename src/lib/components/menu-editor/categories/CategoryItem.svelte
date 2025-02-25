@@ -3,7 +3,7 @@
   import type { Category, Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuCache } from '$lib/stores/menu-cache';
+  import { menuStore } from '$lib/stores/menu-store';
   import DishList from '../dishes/DishList.svelte';
   import { toasts } from '$lib/stores/toast';
 
@@ -38,12 +38,17 @@
     if (!editingName.trim()) return;
 
     try {
+      // Update the category in menuStore directly
+      menuStore.updateCategory(category.id, editingName.trim());
+      
+      // Create updated category object for the parent component
       const updatedCategory = {
         ...category,
         name: editingName.trim(),
         dishes: category.dishes || [] // Preserve dishes
       };
 
+      // Dispatch update event for backward compatibility
       dispatch('update', {
         index,
         category: updatedCategory
@@ -60,6 +65,11 @@
 
   async function deleteCategory() {
     if (!confirm(t('confirmDeleteCategory'))) return;
+    
+    // Delete the category in menuStore directly
+    menuStore.deleteCategory(category.id);
+    
+    // Dispatch delete event for backward compatibility
     dispatch('delete', index);
   }
 

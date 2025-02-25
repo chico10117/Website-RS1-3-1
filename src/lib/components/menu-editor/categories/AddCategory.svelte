@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
+  import { menuStore } from '$lib/stores/menu-store';
 
   export let selectedRestaurant: string | null;
   export let restaurantName: string = '';
@@ -22,15 +23,19 @@
     // Allow adding category if we have either a selectedRestaurant ID or a restaurant name
     if (newCategory.trim() && (selectedRestaurant || restaurantName)) {
       try {
-        // Create a new category object
+        // Add the category directly to the menuStore
+        menuStore.addCategory(newCategory.trim());
+        
+        // Also dispatch the event for backward compatibility
         const category: Category = {
           id: crypto.randomUUID(), // Generate a temporary ID
           name: newCategory.trim(),
           dishes: [],
           restaurantId: selectedRestaurant || crypto.randomUUID() // Use temporary ID if no restaurant ID yet
         };
-
         dispatch('add', category);
+        
+        // Clear the input field
         newCategory = '';
       } catch (error) {
         console.error('Error adding category:', error);

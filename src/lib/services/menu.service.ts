@@ -1,9 +1,10 @@
 import type { Restaurant, Category, Dish } from '$lib/types/menu.types';
-import type { MenuCache, CacheChange } from '$lib/stores/menu-cache';
+import type { MenuStore } from '$lib/stores/menu-store';
 import * as restaurantService from './restaurant.service';
 import * as categoryService from './category.service';
 import * as dishService from './dish.service';
-import { menuCache } from '$lib/stores/menu-cache';
+import { menuStore } from '$lib/stores/menu-store';
+import { get } from 'svelte/store';
 
 interface SaveResult {
   restaurant: Restaurant;
@@ -12,7 +13,6 @@ interface SaveResult {
 }
 
 export async function saveMenuChanges(
-  cache: MenuCache,
   restaurantData: {
     name: string;
     logo: string | null;
@@ -24,29 +24,32 @@ export async function saveMenuChanges(
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
   console.log('Starting saveMenuChanges with:', {
-    cache,
     restaurantData,
-    currentRestaurantId,
-    cacheRestaurant: cache.restaurant
+    currentRestaurantId
   });
+
+  // Get the store state
+  const store = menuStore;
+  const storeState = get(store);
 
   // Step 1: Save restaurant
   // If we have a currentRestaurantId, it's an update. Otherwise, it's a new restaurant.
-  const isNewRestaurant = !currentRestaurantId;
+  const isNewRestaurant = !currentRestaurantId || currentRestaurantId.startsWith('temp_');
   
   console.log('Restaurant operation type:', {
     isNewRestaurant,
-    currentRestaurantId,
-    cacheRestaurantId: cache.restaurant?.id
+    currentRestaurantId
   });
+
+  // Find the current restaurant in the store
+  const currentRestaurant = storeState.restaurants.find(r => r.id === currentRestaurantId);
 
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
     {
-      ...(isNewRestaurant && cache.restaurant?.id && { id: cache.restaurant.id }),
       name: restaurantData.name,
       logo: restaurantData.logo,
-      slug: restaurantData.slug || cache.restaurant?.slug,
-      customPrompt: restaurantData.customPrompt ?? cache.restaurant?.customPrompt,
+      slug: restaurantData.slug || currentRestaurant?.slug,
+      customPrompt: restaurantData.customPrompt ?? currentRestaurant?.customPrompt,
       currency: restaurantData.currency,
       color: restaurantData.color
     },
@@ -57,7 +60,7 @@ export async function saveMenuChanges(
   
   const restaurantId = savedRestaurant.id;
   
-  // Step 2: Get existing categories
+  // Step 2: Get existing categories from the API
   const existingCategories = await categoryService.fetchCategories(restaurantId);
   const existingCategoryMap = new Map(existingCategories.map(cat => [cat.id, cat]));
   const existingCategoryNameMap = new Map(existingCategories.map(cat => [cat.name.toLowerCase(), cat]));
@@ -66,114 +69,136 @@ export async function saveMenuChanges(
   const savedDishes: Dish[] = [];
   const tempToRealIdMap = new Map<string, string>();
 
-  // Step 3: First process deletions
-  for (const [tempId, categoryChange] of Object.entries(cache.categories)) {
-    const change = categoryChange as CacheChange<Category>;
-    
-    if (change.action === 'delete') {
-      await categoryService.deleteCategory(restaurantId, tempId);
+  // Step 3: First process category deletions
+  for (const deletedCategoryId of storeState.changedItems.deletedCategories) {
+    // Only delete if it's not a temporary ID (starts with 'temp_')
+    if (!deletedCategoryId.startsWith('temp_')) {
+      await categoryService.deleteCategory(restaurantId, deletedCategoryId);
       // Remove from existingCategoryMap so it won't be considered when checking for duplicates
-      existingCategoryMap.delete(tempId);
-      existingCategoryNameMap.delete(change.data.name.toLowerCase());
+      existingCategoryMap.delete(deletedCategoryId);
+      
+      // Find and remove from existingCategoryNameMap
+      for (const [name, cat] of existingCategoryNameMap.entries()) {
+        if (cat.id === deletedCategoryId) {
+          existingCategoryNameMap.delete(name);
+          break;
+        }
+      }
     }
   }
 
-  // Step 4: Process creates and updates
-  for (const [tempId, categoryChange] of Object.entries(cache.categories)) {
-    const change = categoryChange as CacheChange<Category>;
-    
-    // Skip if this was a deletion
-    if (change.action === 'delete') {
-      continue;
-    }
+  // Step 4: Process category creates and updates
+  for (const categoryId of storeState.changedItems.categories) {
+    // Find the category in the store
+    const category = storeState.categories.find(c => c.id === categoryId);
+    if (!category) continue;
 
-    // For updates, verify the category still exists
-    if (change.action === 'update') {
-      const existingCategory = existingCategoryMap.get(tempId);
-      if (!existingCategory) {
-        // If category was deleted, treat this as a create
-        change.action = 'create';
-      }
+    // Check if this is a temporary ID (new category)
+    const isNewCategory = categoryId.startsWith('temp_');
+    
+    // For existing categories, verify it still exists
+    if (!isNewCategory && !existingCategoryMap.has(categoryId)) {
+      // If category was deleted on the server, treat this as a create
+      const savedCategory = await categoryService.createOrUpdateCategory(
+        restaurantId,
+        { name: category.name }
+      );
+      savedCategories.push(savedCategory);
+      tempToRealIdMap.set(categoryId, savedCategory.id);
+      continue;
     }
 
     // Check if a category with this name already exists
-    const existingCategoryWithName = existingCategoryNameMap.get(change.data.name.toLowerCase());
+    const existingCategoryWithName = existingCategoryNameMap.get(category.name.toLowerCase());
     
-    if (existingCategoryWithName && change.action === 'create') {
-      // If we're trying to create a category that already exists, just use the existing one
+    if (existingCategoryWithName && existingCategoryWithName.id !== categoryId) {
+      // If a category with this name already exists, use that one instead
+      tempToRealIdMap.set(categoryId, existingCategoryWithName.id);
       savedCategories.push(existingCategoryWithName);
-      tempToRealIdMap.set(tempId, existingCategoryWithName.id);
-      continue;
-    }
-
-    // Create or update the category
-    if (change.action === 'create' || change.action === 'update') {
+    } else {
+      // Create or update the category
       const savedCategory = await categoryService.createOrUpdateCategory(
         restaurantId,
-        { name: change.data.name },
-        change.action === 'update' ? tempId : undefined
+        { name: category.name },
+        isNewCategory ? undefined : categoryId
       );
-      savedCategories.push({ ...savedCategory, dishes: [] });
+      savedCategories.push(savedCategory);
       
-      // Store the mapping between temporary and real IDs
-      tempToRealIdMap.set(tempId, savedCategory.id);
-      
-      // Update the name map
-      existingCategoryNameMap.set(savedCategory.name.toLowerCase(), savedCategory);
+      // Map temporary ID to real ID
+      if (isNewCategory) {
+        tempToRealIdMap.set(categoryId, savedCategory.id);
+      }
     }
   }
 
-  // Step 5: Save dishes
-  for (const [tempId, dishChange] of Object.entries(cache.dishes)) {
-    const change = dishChange as CacheChange<Dish>;
+  // Step 5: Process dish deletions
+  for (const deletedDishId of storeState.changedItems.deletedDishes) {
+    // Find the dish in any category
+    let categoryId: string | undefined;
     
-    // Handle deletion
-    if (change.action === 'delete') {
-      try {
-        await dishService.deleteDish(restaurantId, change.data.categoryId, tempId);
-      } catch (error) {
-        console.error('Error deleting dish:', error);
-        // Continue with other operations even if one deletion fails
+    // Only delete if it's not a temporary ID
+    if (!deletedDishId.startsWith('temp_')) {
+      // Find which category this dish belongs to
+      for (const category of storeState.categories) {
+        if (category.dishes?.some(d => d.id === deletedDishId)) {
+          categoryId = category.id;
+          break;
+        }
       }
-      continue;
+      
+      if (categoryId) {
+        // If the category has a temporary ID, map it to the real ID
+        const realCategoryId = tempToRealIdMap.get(categoryId) || categoryId;
+        await dishService.deleteDish(restaurantId, realCategoryId, deletedDishId);
+      }
     }
+  }
 
-    // Map the temporary category ID to the real one if needed
-    const realCategoryId = tempToRealIdMap.get(change.data.categoryId) || change.data.categoryId;
-
-    // For updates, use the existing ID
-    const dishId = change.action === 'update' ? tempId : undefined;
+  // Step 6: Process dish creates and updates
+  for (const dishId of storeState.changedItems.dishes) {
+    // Find the dish in any category
+    let dish: Dish | undefined;
+    let categoryId: string | undefined;
     
+    for (const category of storeState.categories) {
+      const foundDish = category.dishes?.find(d => d.id === dishId);
+      if (foundDish) {
+        dish = foundDish;
+        categoryId = category.id;
+        break;
+      }
+    }
+    
+    if (!dish || !categoryId) continue;
+    
+    // Check if this is a temporary ID (new dish)
+    const isNewDish = dishId.startsWith('temp_');
+    
+    // Map category ID if it's a temporary ID
+    const realCategoryId = tempToRealIdMap.get(categoryId) || categoryId;
+    
+    // Create or update the dish
     const savedDish = await dishService.createOrUpdateDish(
       restaurantId,
       realCategoryId,
-      { 
-        title: change.data.title,
-        price: change.data.price,
-        description: change.data.description,
-        imageUrl: change.data.imageUrl
+      {
+        title: dish.title,
+        description: dish.description,
+        price: dish.price,
+        imageUrl: dish.imageUrl
       },
-      dishId
+      isNewDish ? undefined : dishId
     );
-
+    
     savedDishes.push(savedDish);
   }
 
-  // Step 6: Fetch final state
-  const finalCategories = await categoryService.fetchCategories(restaurantId);
-  const categoriesWithDishes = await Promise.all(
-    finalCategories.map(async category => {
-      const dishes = await dishService.fetchDishes(restaurantId, category.id);
-      return { ...category, dishes };
-    })
-  );
-
-  // Step 7: Clear the cache since everything is saved
-  menuCache.clearCache();
+  // Step 7: Reset the change tracking in the store
+  menuStore.resetChanges();
 
   return {
     restaurant: savedRestaurant,
-    categories: categoriesWithDishes,
+    categories: savedCategories,
     dishes: savedDishes
   };
 } 

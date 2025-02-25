@@ -14,6 +14,26 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
   return data.data;
 }
 
+export async function fetchRestaurantById(restaurantId: string): Promise<Restaurant> {
+  console.log('Fetching restaurant by ID:', restaurantId);
+  
+  const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch restaurant: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  
+  if (!data.success) {
+    throw new Error(data.error || 'Failed to load restaurant');
+  }
+  
+  return data.data;
+}
+
 export async function createOrUpdateRestaurant(
   restaurantData: { 
     id?: string; 
@@ -28,7 +48,8 @@ export async function createOrUpdateRestaurant(
   restaurantId?: string
 ): Promise<Restaurant> {
   // For updates, we use the explicit restaurantId parameter
-  const isUpdate = !!restaurantId;
+  // Don't use restaurantId if it's a temporary ID
+  const isUpdate = !!restaurantId && !restaurantId.startsWith('temp_');
   
   const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
   
@@ -36,7 +57,7 @@ export async function createOrUpdateRestaurant(
   const slug = restaurantData.slug || await generateSlug(restaurantData.name);
   
   try {
-    // For POST (new restaurant), include all data including the generated ID
+    // For POST (new restaurant), include all data EXCEPT temporary IDs
     // For PUT (update), don't include id in body since it's in URL
     const bodyData = isUpdate 
       ? { 
@@ -48,7 +69,8 @@ export async function createOrUpdateRestaurant(
           color: restaurantData.color
         }
       : { 
-          ...(restaurantData.id && { id: restaurantData.id }), 
+          // Only include ID if it's not a temporary ID
+          ...(restaurantData.id && !restaurantData.id.startsWith('temp_') ? { id: restaurantData.id } : {}), 
           name: restaurantData.name, 
           logo: restaurantData.logo,
           slug,

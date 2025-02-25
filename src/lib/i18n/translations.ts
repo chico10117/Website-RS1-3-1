@@ -301,5 +301,9 @@ export const translations: Translation = {
   menuUploadSuccess: {
     en: 'Menu uploaded and processed successfully',
     es: 'Menú subido y procesado exitosamente'
+  },
+  changesSaved: {
+    es: "Cambios guardados",
+    en: "Changes saved"
   }
 }; 

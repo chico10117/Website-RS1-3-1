@@ -3,8 +3,7 @@
   import type { Restaurant } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuCache } from '$lib/stores/menu-cache';
-  import { menuState } from '$lib/stores/menu-state';
+  import { menuStore } from '$lib/stores/menu-store';
   import { toasts } from '$lib/stores/toast';
   import { user } from '$lib/stores/user';
   import { currentRestaurant } from '$lib/stores/restaurant';
@@ -151,12 +150,12 @@
           logo: uploadResult.url
         });
 
-        // Update cache with new logo
-        menuCache.updateRestaurant({
-          ...$currentRestaurant,
-          logo: uploadResult.url || null,
-          updatedAt: new Date()
-        });
+        // Update store with new logo
+        menuStore.updateRestaurantInfo(
+          $currentRestaurant.name,
+          uploadResult.url || null,
+          $currentRestaurant.customPrompt
+        );
 
         // Dispatch update event with the correct ID
         dispatch('update', {
@@ -168,28 +167,25 @@
           color
         });
       } else {
-        // For new restaurant, generate slug first
-        const slug = await generateSlug(restaurantName);
-        const now = new Date();
-        const newId = crypto.randomUUID();
+        // For new restaurant, create it in the store
+        if (!restaurantName) {
+          throw new Error('Restaurant name is required');
+        }
         
-        const newRestaurant = {
-          id: newId,
-          name: restaurantName,
-          logo: uploadResult.url || null,
-          customPrompt: customPrompt,
-          slug,
-          userId,
-          createdAt: now,
-          updatedAt: now,
-          currency,
-          color
-        };
+        // Create new restaurant in store
+        menuStore.createRestaurant(
+          restaurantName,
+          uploadResult.url || null,
+          customPrompt
+        );
 
-        console.log('Creating new restaurant:', newRestaurant);
+        // Get the newly created restaurant ID from the store
+        const storeState = $menuStore;
+        const newId = storeState.selectedRestaurant;
 
-        // Create new restaurant in cache
-        menuCache.updateRestaurant(newRestaurant);
+        if (!newId) {
+          throw new Error('Failed to create restaurant');
+        }
 
         // Dispatch update event
         dispatch('update', {
@@ -237,34 +233,28 @@
         throw new Error('User not authenticated');
       }
 
-      // Generate slug first and wait for it to complete
-      const slug = await generateSlug(restaurantName);
-      if (!slug) {
-        throw new Error('Failed to generate slug');
+      // Create restaurant in the new store
+      menuStore.createRestaurant(
+        restaurantName,
+        menuLogo,
+        customPrompt
+      );
+
+      // Get the newly created restaurant ID from the store
+      const storeState = $menuStore;
+      const newId = storeState.selectedRestaurant;
+
+      if (!newId) {
+        throw new Error('Failed to create restaurant');
       }
 
-      const newId = crypto.randomUUID();
-      const now = new Date();
-      
-      const newRestaurant = {
-        id: newId,
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt: customPrompt,
-        slug,
-        userId,
-        createdAt: now,
-        updatedAt: now,
-        currency,
-        color
-      };
-
-      // Update cache with new restaurant only after slug is generated
-      console.log('Creating new restaurant:', newRestaurant);
-      menuCache.updateRestaurant(newRestaurant);
-      
-      // Update the currentRestaurant store immediately
-      currentRestaurant.set(newRestaurant);
+      // Update the currentRestaurant store for compatibility
+      if ($currentRestaurant === null) {
+        const newRestaurant = storeState.restaurants.find(r => r.id === newId);
+        if (newRestaurant) {
+          currentRestaurant.set(newRestaurant);
+        }
+      }
       
       // Dispatch update event
       dispatch('update', {
@@ -316,12 +306,12 @@
         return;
       }
 
-      // Only update the name in the cache
-      menuCache.updateRestaurant({
-        ...$currentRestaurant!, // Keep all existing restaurant data
-        name: editingRestaurantName.trim(), // Only update the name
-        updatedAt: new Date() // Update the modification date
-      });
+      // Update restaurant name in the store
+      menuStore.updateRestaurantInfo(
+        editingRestaurantName.trim(),
+        menuLogo,
+        customPrompt
+      );
 
       // Update local state
       restaurantName = editingRestaurantName.trim();
@@ -330,8 +320,8 @@
       dispatch('update', {
         id: selectedRestaurant,
         name: editingRestaurantName.trim(),
-        logo: menuLogo, // Keep existing logo
-        customPrompt: customPrompt, // Keep existing custom prompt
+        logo: menuLogo,
+        customPrompt: customPrompt,
         currency,
         color
       });
@@ -360,7 +350,7 @@
 
   async function handleCustomPromptInput(event: Event) {
     const textarea = event.target as HTMLTextAreaElement;
-    // Limit to 5000 characters yeah
+    // Limit to 5000 characters
     if (textarea.value.length > 5000) {
       textarea.value = textarea.value.slice(0, 5000);
     }
@@ -375,36 +365,12 @@
       }
 
       try {
-        const currentRestaurantData = $currentRestaurant;
-        let restaurantData;
-
-        if (currentRestaurantData) {
-          restaurantData = {
-            ...currentRestaurantData,
-            customPrompt: customPrompt,
-            updatedAt: new Date(),
-            currency,
-            color
-          };
-        } else {
-          // For new restaurant, generate slug
-          const slug = await generateSlug(restaurantName);
-          restaurantData = {
-            id: crypto.randomUUID(),
-            name: restaurantName.trim(),
-            logo: menuLogo,
-            customPrompt: customPrompt,
-            slug,
-            userId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            currency,
-            color
-          };
-        }
-
-        // Update cache with new custom prompt
-        menuCache.updateRestaurant(restaurantData);
+        // Update restaurant info in the store
+        menuStore.updateRestaurantInfo(
+          restaurantName,
+          menuLogo,
+          customPrompt
+        );
 
         // Dispatch update event
         dispatch('update', {
@@ -435,54 +401,22 @@
         throw new Error('User not authenticated');
       }
 
-      // For existing restaurant, use the ID from the currentRestaurant store
-      if ($currentRestaurant) {
-        // Update cache with null logo
-        menuCache.updateRestaurant({
-          ...$currentRestaurant,
-          logo: null,
-          updatedAt: new Date()
-        });
+      // Update restaurant info in the store with null logo
+      menuStore.updateRestaurantInfo(
+        restaurantName,
+        null,
+        customPrompt
+      );
 
-        // Dispatch update event with the correct ID
-        dispatch('update', {
-          id: $currentRestaurant.id,
-          name: $currentRestaurant.name,
-          logo: null,
-          customPrompt: $currentRestaurant.customPrompt,
-          currency,
-          color
-        });
-      } else if (restaurantName) {
-        // For new restaurant
-        const now = new Date();
-        const newId = crypto.randomUUID();
-        const slug = await generateSlug(restaurantName);
-        
-        // Create new restaurant in cache
-        menuCache.updateRestaurant({
-          id: newId,
-          name: restaurantName,
-          logo: null,
-          customPrompt: customPrompt,
-          slug,
-          userId,
-          createdAt: now,
-          updatedAt: now,
-          currency,
-          color
-        });
-
-        // Dispatch update event
-        dispatch('update', {
-          id: newId,
-          name: restaurantName,
-          logo: null,
-          customPrompt: customPrompt,
-          currency,
-          color
-        });
-      }
+      // Dispatch update event
+      dispatch('update', {
+        id: selectedRestaurant || undefined,
+        name: restaurantName,
+        logo: null,
+        customPrompt: customPrompt,
+        currency,
+        color
+      });
 
       // Update local state
       menuLogo = null;
@@ -496,20 +430,24 @@
 
   function handleColorChange(value: number) {
     color = value;
-    if ($currentRestaurant) {
-      // Update cache
-      menuCache.updateRestaurant({
-        ...$currentRestaurant,
-        color: value,
-        updatedAt: new Date()
-      });
+    
+    // Update restaurant info in the store
+    if (restaurantName) {
+      menuStore.updateRestaurantInfo(
+        restaurantName,
+        menuLogo,
+        customPrompt
+      );
       
-      // Update the current restaurant store immediately
-      currentRestaurant.set({
-        ...$currentRestaurant,
-        color: value
-      });
+      // Update the current restaurant store for compatibility
+      if ($currentRestaurant) {
+        currentRestaurant.set({
+          ...$currentRestaurant,
+          color: value
+        });
+      }
     }
+    
     dispatch('update', {
       id: selectedRestaurant || undefined,
       name: restaurantName,
@@ -522,18 +460,24 @@
 
   function handleCurrencyChange(value: string) {
     currency = value;
-    if ($currentRestaurant) {
-      menuCache.updateRestaurant({
-        ...$currentRestaurant,
-        currency: value,
-        updatedAt: new Date()
-      });
-      // Update the current restaurant store immediately
-      currentRestaurant.set({
-        ...$currentRestaurant,
-        currency: value
-      });
+    
+    // Update restaurant info in the store
+    if (restaurantName) {
+      menuStore.updateRestaurantInfo(
+        restaurantName,
+        menuLogo,
+        customPrompt
+      );
+      
+      // Update the current restaurant store for compatibility
+      if ($currentRestaurant) {
+        currentRestaurant.set({
+          ...$currentRestaurant,
+          currency: value
+        });
+      }
     }
+    
     dispatch('update', {
       id: selectedRestaurant || undefined,
       name: restaurantName,
@@ -568,8 +512,12 @@
               ...restaurantData.restaurant, // Use all the data from the seed response
               updatedAt: new Date()
             };
-            // Update the cache with the complete restaurant data
-            menuCache.updateRestaurant(updatedRestaurant);
+            // Update the store with the complete restaurant data
+            menuStore.updateRestaurantInfo(
+              updatedRestaurant.name,
+              updatedRestaurant.logo,
+              updatedRestaurant.customPrompt
+            );
             // Update the current restaurant store
             currentRestaurant.set(updatedRestaurant);
             // Update categories
@@ -585,8 +533,26 @@
             phoneNumber: restaurantData.restaurant.phoneNumber,
             color
           });
-          if(restaurantData.categories.length > 0)
-            menuState.updateCategories(restaurantData.categories);
+          if(restaurantData.categories.length > 0) {
+            // Process each category from the uploaded data
+            for (const category of restaurantData.categories) {
+              // Add the category to the menuStore
+              menuStore.addCategory(category.name);
+              
+              // If the category has dishes, add them too
+              if (category.dishes && category.dishes.length > 0) {
+                for (const dish of category.dishes) {
+                  // Add each dish with the correct parameter structure
+                  menuStore.addDish(category.id, {
+                    title: dish.title,
+                    description: dish.description,
+                    price: dish.price,
+                    imageUrl: dish.imageUrl
+                  });
+                }
+              }
+            }
+          }
 
         } catch (error) {
           console.error('Error handling menu upload success:', error);
