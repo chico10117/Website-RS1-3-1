@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuCache } from '$lib/stores/menu-cache';
+  import { menuState } from '$lib/stores/menu-state';
   import { toasts } from '$lib/stores/toast';
   import { user } from '$lib/stores/user';
   import { currentRestaurant } from '$lib/stores/restaurant';
@@ -23,6 +24,7 @@
     name: string;
     logo: string | null;
     customPrompt: string | null;
+    phoneNumber?: string;
     currency: string;
     color: number;
   }
@@ -543,6 +545,61 @@
 </script>
 
 <div class="space-y-4">
+  <!-- Check if restaurant is not selected -->
+    {#if !selectedRestaurant}
+  <!-- Menu Uploader -->
+    <div class="space-y-2 mb-12">
+    <label class="block text-lg font-semibold mb-3 text-gray-800">
+      {t('uploadMenu')}
+    </label>
+    <MenuUploader
+            {restaurantName}
+            {customPrompt}
+            restaurantId={$currentRestaurant?.id || null}
+            on:success={async (event) => {
+        try {
+
+          let restaurantData = event.detail.restaurantData;
+          // Update the current restaurant with the new data
+          if ($currentRestaurant) {
+            const updatedRestaurant = {
+              ...$currentRestaurant,
+              ...restaurantData.restaurant, // Use all the data from the seed response
+              updatedAt: new Date()
+            };
+            // Update the cache with the complete restaurant data
+            menuCache.updateRestaurant(updatedRestaurant);
+            // Update the current restaurant store
+            currentRestaurant.set(updatedRestaurant);
+            // Update categories
+          }
+
+          // Dispatch update event with the updated data
+          dispatch('update', {
+            id: restaurantData.restaurant.id, // Use the ID from the seed response
+            name: restaurantData.restaurant.name,
+            logo: restaurantData.restaurant.logo,
+            customPrompt: restaurantData.restaurant.customPrompt,
+            currency: restaurantData.restaurant.currency,
+            phoneNumber: restaurantData.restaurant.phoneNumber,
+            color
+          });
+          if(restaurantData.categories.length > 0)
+            menuState.updateCategories(restaurantData.categories);
+
+        } catch (error) {
+          console.error('Error handling menu upload success:', error);
+          if (error instanceof Error) {
+            toasts.error(t('error') + ': ' + error.message);
+          }
+        }
+      }}
+            on:error={(event) => {
+        toasts.error(t('error') + ': ' + event.detail);
+      }}
+    />
+  </div>
+    {/if}
   <!-- Restaurant Name Input -->
   <div class="flex items-center gap-2">
     {#if isEditingRestaurant}
@@ -572,7 +629,7 @@
         <input
           type="text"
           bind:value={restaurantName}
-          on:input={handleRestaurantNameInput}
+          on:blur={handleRestaurantNameInput}
           placeholder={t('enterRestaurantName')}
           class="flex-1"
           readonly={!!selectedRestaurant}
@@ -694,55 +751,7 @@
     </div>
   </div>
 
-  <!-- Menu Uploader -->
-  <div class="space-y-2 mb-12">
-    <label class="block text-lg font-semibold mb-3 text-gray-800">
-      {t('uploadMenu')}
-    </label>
-    <MenuUploader
-      {restaurantName}
-      {customPrompt}
-      restaurantId={$currentRestaurant?.id || null}
-      on:success={async (event) => {
-        try {
-          const { restaurantData } = event.detail;
-          
-          // Update the current restaurant with the new data
-          if ($currentRestaurant) {
-            const updatedRestaurant = {
-              ...$currentRestaurant,
-              ...restaurantData, // Use all the data from the seed response
-              updatedAt: new Date()
-            };
-            
-            // Update the cache with the complete restaurant data
-            menuCache.updateRestaurant(updatedRestaurant);
-            
-            // Update the current restaurant store
-            currentRestaurant.set(updatedRestaurant);
-          }
 
-          // Dispatch update event with the updated data
-          dispatch('update', {
-            id: restaurantData.id, // Use the ID from the seed response
-            name: restaurantData.name,
-            logo: restaurantData.logo,
-            customPrompt: restaurantData.customPrompt,
-            currency,
-            color
-          });
-        } catch (error) {
-          console.error('Error handling menu upload success:', error);
-          if (error instanceof Error) {
-            toasts.error(t('error') + ': ' + error.message);
-          }
-        }
-      }}
-      on:error={(event) => {
-        toasts.error(t('error') + ': ' + event.detail);
-      }}
-    />
-  </div>
 
   <!-- Custom Prompt -->
   <div class="space-y-2">

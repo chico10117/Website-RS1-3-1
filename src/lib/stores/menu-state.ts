@@ -10,6 +10,7 @@ export interface MenuState {
   restaurantName: string;
   menuLogo: string | null;
   customPrompt: string | null;
+  phoneNumber: string | null;
   categories: Category[];
   isSaving: boolean;
   lastSaveTime: Date | null;
@@ -22,6 +23,7 @@ function createMenuState() {
     restaurantName: '',
     menuLogo: null,
     customPrompt: null,
+    phoneNumber: null,
     categories: [],
     isSaving: false,
     lastSaveTime: null
@@ -44,6 +46,7 @@ function createMenuState() {
         selectedRestaurant: null,
         restaurantName: '',
         menuLogo: null,
+        phoneNumber: null,
         customPrompt: null,
         categories: [],
         isSaving: false,
@@ -60,6 +63,7 @@ function createMenuState() {
         restaurants: [],
         selectedRestaurant: null,
         restaurantName: '',
+        phoneNumber: '',
         menuLogo: null,
         customPrompt: null
       }));

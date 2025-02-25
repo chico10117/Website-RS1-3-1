@@ -4,7 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
-  import { menuState } from '$lib/stores/menu-state';
+
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
@@ -13,7 +13,7 @@
   export let restaurantId: string | null = null;
 
   const dispatch = createEventDispatcher<{
-    success: { restaurantData: any; fileName: string };
+    success: { restaurantData: any;};
     error: string;
   }>();
 
@@ -70,6 +70,7 @@
       }
 
       if (images.length > 0) {
+        console.log('Images:', images.length);
         await generateRestaurantData();
       }
     } catch (error) {
@@ -126,96 +127,82 @@
   }
 
   async function generateRestaurantData() {
+  try {
+
+    currentStep = t('generatingRestaurantData');
+    progress = 75;
+
+    const payload = {
+      prompt: customPrompt,
+      images: images.map(img => ({
+        page: img.page,
+        base64: img.dataURL.split(',')[1]
+      }))
+    };
+
+    const response = await fetch('/api/process-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullResponse = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      fullResponse += chunk;
+
+      if (chunk.includes('[DONE]')) {
+        console.log("Stream finalizado. Procesando la respuesta...");
+
+        // Extract the JSON data after the [DONE] marker
+        const jsonData = fullResponse.split('[DONE]')[1].trim();
+
+        try {
+          const parsedData = JSON.parse(jsonData);
+          console.log('Parsed data:', parsedData);
+          saveRestaurantData(parsedData);
+        } catch (error) {
+          console.error("Error al procesar la respuesta del stream:", error);
+          toasts.error(t('error') + ': Error procesando la respuesta del chatbot');
+        }
+
+        progress = 100;
+        currentStep = t('completed');
+        break;
+      }
+    }
+  } catch (error) {
+    console.error('Error en la carga del menú:', error);
+    loading = false;
+    progress = 0;
+    currentStep = '';
+    if (error instanceof Error) {
+      toasts.error(t('error') + ': ' + error.message);
+      dispatch('error', error.message);
+    }
+  }
+}
+
+
+  // ✅ Función para guardar la respuesta final y actualizar el estado del menú
+  async function saveRestaurantData(result: any) {
     try {
-      if (!restaurantName) {
-        throw new Error(t('pleaseEnterRestaurantNameFirst'));
-      }
-
-      currentStep = t('generatingRestaurantData');
-      progress = 75;
-
-      const payload = {
-        prompt: customPrompt,
-        images: images.map(img => ({
-          page: img.page,
-          base64: img.dataURL.split(',')[1]
-        }))
-      };
-
-      const response = await fetch('/api/process-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to process images:', response.status, errorText);
-        throw new Error(`Failed to process images: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.error) {
-        console.error('Process-images error:', data.error);
-        throw new Error(data.error);
-      }
-
-      currentStep = t('seedingDatabase');
-      progress = 90;
-
-      // Call the seed endpoint with the generated data and restaurant ID if it exists
-      const seedResponse = await fetch('/api/seed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: data.savedTo,
-          restaurantName,
-          customPrompt,
-          restaurantId // Pass the restaurant ID if it exists
-        })
-      });
-
-      if (!seedResponse.ok) {
-        const errorData = await seedResponse.json();
-        console.error('Failed to seed database:', errorData);
-        throw new Error(errorData.error || `Failed to seed database: ${seedResponse.status}`);
-      }
-
-      const seedResult = await seedResponse.json();
-      
-      if (seedResult.error) {
-        console.error('Seed error:', seedResult.error);
-        throw new Error(seedResult.error);
-      }
-
-      // Import the seed data to get categories and dishes
-      const { seedData } = await import(/* @vite-ignore */ `/static/data/restaurants/${data.savedTo}`);
-      
-      // Update menu state with the new data
-      menuState.updateRestaurantInfo(restaurantName, seedResult.data.restaurant.logo);
-      menuState.updateCategories(seedData.categories);
-
-      progress = 100;
-      currentStep = t('completed');
-      
-      // Dispatch success event with the processed data and updated restaurant
-      dispatch('success', {
-        restaurantData: seedResult.data.restaurant,
-        fileName: data.savedTo
-      });
-
+      dispatch('success', { restaurantData: result });
       toasts.success(t('menuUploadSuccess'));
+
     } catch (error) {
-      console.error('Menu upload error:', error instanceof Error ? error.message : 'Unknown error');
-      loading = false;
-      progress = 0;
-      currentStep = '';
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-        dispatch('error', error.message);
-      }
-      throw error;
+      console.error('Error guardando datos del restaurante:', error);
+      toasts.error(t('error') + ': No se pudo guardar la información');
     }
   }
 
