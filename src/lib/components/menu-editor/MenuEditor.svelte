@@ -248,30 +248,27 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <!-- Left column: Restaurant info and categories -->
         <div>
-          <RestaurantInfo 
-            restaurantName={$menuStore.restaurantName}
-            menuLogo={$menuStore.menuLogo}
-            customPrompt={$menuStore.customPrompt}
-            selectedRestaurant={$menuStore.selectedRestaurant}
-            restaurants={$menuStore.restaurants}
-            currency={$currentRestaurant?.currency || '€'}
-            color={$currentRestaurant?.color || 1}
-            on:update={handleRestaurantUpdate}
-          />
-          
-          <div class="mt-8">
-            <CategoryList 
-              categories={$menuStore.categories}
-              selectedRestaurant={$menuStore.selectedRestaurant}
+          <div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-6">
+            <RestaurantInfo 
               restaurantName={$menuStore.restaurantName}
+              menuLogo={$menuStore.menuLogo}
+              customPrompt={$menuStore.customPrompt}
+              selectedRestaurant={$menuStore.selectedRestaurant}
+              restaurants={$menuStore.restaurants}
               currency={$currentRestaurant?.currency || '€'}
-              on:update={handleCategoriesUpdate}
+              color={$currentRestaurant?.color || 1}
+              on:update={handleRestaurantUpdate}
             />
-          </div>
           
-          <!-- Save button moved below categories -->
-          <div class="mt-6 flex">
-            <SaveButton />
+            <div class="mt-8">
+              <CategoryList 
+                categories={$menuStore.categories}
+                selectedRestaurant={$menuStore.selectedRestaurant}
+                restaurantName={$menuStore.restaurantName}
+                currency={$currentRestaurant?.currency || '€'}
+                on:update={handleCategoriesUpdate}
+              />
+            </div>
           </div>
         </div>
         
@@ -287,6 +284,11 @@
       </div>
     </div>
   {/if}
+</div>
+
+<!-- Sticky save button that moves with scroll -->
+<div class="sticky bottom-8 float-right mr-8 z-50">
+  <SaveButton />
 </div>
 
 <!-- Toast notifications -->

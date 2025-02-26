@@ -136,6 +136,37 @@ The UI is composed of modular components:
   - Displays restaurant, categories, and dishes
   - Updates reactively as changes are made
 
+#### 3.1 Dish Components Architecture
+The dish management functionality is split across three complementary components:
+
+- **DishList.svelte**
+  - Acts as a container/manager for all dishes in a category
+  - Renders a list of DishItem components (one for each existing dish)
+  - Includes a DishForm component at the bottom for adding new dishes
+  - Manages the state of which dish is being edited
+  - Coordinates updates between individual dish components
+  - Handles communication with the menuStore for dish operations
+
+- **DishItem.svelte**
+  - Handles the display and editing of a single dish
+  - Shows dish details (title, price, description, image)
+  - Provides buttons to edit or delete the dish
+  - When in edit mode, displays a form to modify the dish's properties
+  - Handles image upload and removal for existing dishes
+  - Communicates with menuStore for dish updates and deletion
+
+- **DishForm.svelte**
+  - Provides a form for creating new dishes
+  - Contains input fields for all dish properties (title, price, description)
+  - Handles image upload functionality for new dishes
+  - Validates user input before submission
+  - Communicates with menuStore to add new dishes to a category
+
+This modular approach follows the single responsibility principle, making the code more maintainable and easier to test. The separation of concerns allows each component to focus on a specific aspect of dish management:
+- Container/list management (DishList)
+- Individual item display and editing (DishItem)
+- New item creation (DishForm)
+
 #### 4. Type System
 Strong TypeScript typing for all entities:
 

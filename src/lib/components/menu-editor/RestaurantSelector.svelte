@@ -219,11 +219,11 @@
               <img 
                 src={restaurant.logo} 
                 alt={restaurant.name} 
-                class="w-12 h-12 rounded-lg object-cover mb-2"
+                class="w-16 h-16 rounded-lg object-cover mb-2"
               />
             {:else}
-              <div class="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+              <div class="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                 </svg>
               </div>
@@ -239,20 +239,22 @@
 
             <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 flex gap-1">
               <button
-                class="p-1 rounded-full hover:bg-black/5 transition-colors"
+                class="p-1 rounded-full transition-colors
+                {$currentRestaurant?.id === restaurant.id ? 'bg-white/40 hover:bg-white/60' : 'hover:bg-black/5'}"
                 on:click={(e) => handleEditRestaurant(restaurant, e)}
                 disabled={editingRestaurant === restaurant.id}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 {$currentRestaurant?.id === restaurant.id ? 'text-white' : 'text-gray-600'}" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                 </svg>
               </button>
               <button
-                class="p-1 rounded-full hover:bg-red-50 transition-colors"
+                class="p-1 rounded-full transition-colors
+                {$currentRestaurant?.id === restaurant.id ? 'bg-white/40 hover:bg-white/60' : 'hover:bg-red-50'}"
                 on:click={(e) => handleDeleteRestaurant(restaurant, e)}
                 disabled={deletingRestaurant === restaurant.id}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 {$currentRestaurant?.id === restaurant.id ? 'text-red-300' : 'text-red-600'}" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                 </svg>
               </button>
