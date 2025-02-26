@@ -102,6 +102,9 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
 
       updateSet.name = updateData.name;
       updateSet.slug = slug;
+    } else if (updateData.slug !== undefined && updateData.slug !== restaurant.slug) {
+      // If slug is provided directly and has changed, use it
+      updateSet.slug = updateData.slug;
     }
 
     // Handle logo update if provided

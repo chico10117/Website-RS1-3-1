@@ -28,6 +28,7 @@
     phoneNumber?: string;
     currency: string;
     color: number;
+    slug?: string;
   }
 
   const dispatch = createEventDispatcher<{
@@ -47,6 +48,13 @@
 
   // Make user store reactive
   $: userName = $user?.name;
+  
+  // Debug current restaurant slug
+  $: console.log('Current restaurant state:', {
+    currentRestaurant: $currentRestaurant,
+    hasSlug: !!$currentRestaurant?.slug,
+    slug: $currentRestaurant?.slug
+  });
 
   // Helper function to ensure string for UI
   function ensureString(value: string | null | undefined): string {
@@ -156,7 +164,8 @@
         menuStore.updateRestaurantInfo(
           $currentRestaurant.name,
           uploadResult.url || null,
-          $currentRestaurant.customPrompt
+          $currentRestaurant.customPrompt,
+          $currentRestaurant.slug
         );
 
         // Dispatch update event with the correct ID
@@ -166,7 +175,8 @@
           logo: uploadResult.url || null,
           customPrompt: $currentRestaurant.customPrompt,
           currency,
-          color
+          color,
+          slug: $currentRestaurant.slug
         });
       } else {
         // For new restaurant, create it in the store
@@ -174,6 +184,9 @@
           throw new Error('Restaurant name is required');
         }
         
+        // Generate a proper slug for the new restaurant
+        const newSlug = await generateSlug(restaurantName);
+
         // Create new restaurant in store
         menuStore.createRestaurant(
           restaurantName,
@@ -189,6 +202,14 @@
           throw new Error('Failed to create restaurant');
         }
 
+        // Update the restaurant with the proper slug
+        menuStore.updateRestaurantInfo(
+          restaurantName,
+          uploadResult.url || null,
+          customPrompt,
+          newSlug
+        );
+
         // Dispatch update event
         dispatch('update', {
           id: newId,
@@ -196,7 +217,8 @@
           logo: uploadResult.url || null,
           customPrompt: customPrompt,
           currency,
-          color
+          color,
+          slug: newSlug
         });
       }
     } catch (error) {
@@ -228,53 +250,15 @@
         return;
       }
 
-      isCreatingRestaurant = true;
-
-      const userId = $user?.id;
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-
-      // Create restaurant in the new store
-      menuStore.createRestaurant(
-        restaurantName,
-        menuLogo,
-        customPrompt
-      );
-
-      // Get the newly created restaurant ID from the store
-      const storeState = $menuStore;
-      const newId = storeState.selectedRestaurant;
-
-      if (!newId) {
-        throw new Error('Failed to create restaurant');
-      }
-
-      // Update the currentRestaurant store for compatibility
-      if ($currentRestaurant === null) {
-        const newRestaurant = storeState.restaurants.find(r => r.id === newId);
-        if (newRestaurant) {
-          currentRestaurant.set(newRestaurant);
-        }
-      }
-      
-      // Dispatch update event
-      dispatch('update', {
-        id: newId,
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt: customPrompt,
-        currency,
-        color
-      });
+      // Just update the local state without creating a restaurant yet
+      // The actual restaurant creation will happen when the save button is clicked
+      menuStore.updateLocalRestaurantName(restaurantName);
 
     } catch (error) {
-      console.error('Error creating restaurant:', error);
+      console.error('Error updating restaurant name:', error);
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
       }
-    } finally {
-      isCreatingRestaurant = false;
     }
   }
 
@@ -308,12 +292,25 @@
         return;
       }
 
+      // Generate a new slug for the updated restaurant name
+      const newSlug = await generateSlug(editingRestaurantName.trim());
+      
       // Update restaurant name in the store
       menuStore.updateRestaurantInfo(
         editingRestaurantName.trim(),
         menuLogo,
-        customPrompt
+        customPrompt,
+        newSlug
       );
+
+      // Update the current restaurant store with the new slug
+      if ($currentRestaurant) {
+        currentRestaurant.set({
+          ...$currentRestaurant,
+          name: editingRestaurantName.trim(),
+          slug: newSlug
+        });
+      }
 
       // Update local state
       restaurantName = editingRestaurantName.trim();
@@ -325,7 +322,8 @@
         logo: menuLogo,
         customPrompt: customPrompt,
         currency,
-        color
+        color,
+        slug: newSlug
       });
 
       // Exit edit mode
@@ -371,7 +369,8 @@
         menuStore.updateRestaurantInfo(
           restaurantName,
           menuLogo,
-          customPrompt
+          customPrompt,
+          $currentRestaurant?.slug || null
         );
 
         // Dispatch update event
@@ -381,7 +380,8 @@
           logo: menuLogo,
           customPrompt: customPrompt,
           currency,
-          color
+          color,
+          slug: $currentRestaurant?.slug || ''
         });
       } catch (error) {
         console.error('Error updating custom prompt:', error);
@@ -407,7 +407,8 @@
       menuStore.updateRestaurantInfo(
         restaurantName,
         null,
-        customPrompt
+        customPrompt,
+        $currentRestaurant?.slug || null
       );
 
       // Dispatch update event
@@ -417,7 +418,8 @@
         logo: null,
         customPrompt: customPrompt,
         currency,
-        color
+        color,
+        slug: $currentRestaurant?.slug || ''
       });
 
       // Update local state
@@ -438,7 +440,8 @@
       menuStore.updateRestaurantInfo(
         restaurantName,
         menuLogo,
-        customPrompt
+        customPrompt,
+        $currentRestaurant?.slug || null
       );
       
       // Update the current restaurant store for compatibility
@@ -456,7 +459,8 @@
       logo: menuLogo,
       customPrompt: customPrompt,
       currency,
-      color: value
+      color: value,
+      slug: $currentRestaurant?.slug || ''
     });
   }
 
@@ -468,7 +472,8 @@
       menuStore.updateRestaurantInfo(
         restaurantName,
         menuLogo,
-        customPrompt
+        customPrompt,
+        $currentRestaurant?.slug || null
       );
       
       // Update the current restaurant store for compatibility
@@ -486,7 +491,8 @@
       logo: menuLogo,
       customPrompt: customPrompt,
       currency: value,
-      color
+      color,
+      slug: $currentRestaurant?.slug || ''
     });
   }
 </script>
@@ -518,7 +524,8 @@
             menuStore.updateRestaurantInfo(
               updatedRestaurant.name,
               updatedRestaurant.logo,
-              updatedRestaurant.customPrompt
+              updatedRestaurant.customPrompt,
+              updatedRestaurant.slug
             );
             // Update the current restaurant store
             currentRestaurant.set(updatedRestaurant);
@@ -532,7 +539,8 @@
             customPrompt: restaurantData.restaurant.customPrompt,
             currency: restaurantData.restaurant.currency,
             phoneNumber: restaurantData.restaurant.phoneNumber,
-            color
+            color,
+            slug: $currentRestaurant?.slug || ''
           });
           
           if(restaurantData.categories && restaurantData.categories.length > 0) {

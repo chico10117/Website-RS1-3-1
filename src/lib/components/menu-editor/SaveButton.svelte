@@ -5,6 +5,7 @@
   import { toasts } from '$lib/stores/toast';
   import * as menuService from '$lib/services/menu.service';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { generateSlug } from '$lib/utils/slug';
 
   // Make translations reactive with fallbacks to prevent errors
   $: currentLanguage = $language || 'en';
@@ -25,10 +26,12 @@
   $: isSaving = $menuStore.isSaving;
   $: lastSaveTime = $menuStore.lastSaveTime;
   $: selectedRestaurant = $menuStore.selectedRestaurant;
+  $: restaurantName = $menuStore.restaurantName;
 
   // For debugging
   $: console.log('Save button state:', {
     selectedRestaurant,
+    restaurantName,
     restaurantChanged: $menuStore.changedItems.restaurant,
     categoriesChanged: $menuStore.changedItems.categories.size,
     dishesChanged: $menuStore.changedItems.dishes.size,
@@ -64,18 +67,53 @@
   }
 
   async function saveChanges() {
-    if (!selectedRestaurant) {
+    if (!selectedRestaurant && !restaurantName) {
       toasts.error(t('noRestaurantSelected') || 'No restaurant selected');
       return;
     }
     
-    if (!hasUnsavedChanges) {
-      toasts.info(t('noChangesToSave') || 'No changes to save');
-      return;
-    }
-    
     try {
-      // Use the menuStore's saveChanges method directly
+      // If we have a restaurant name but no selected restaurant, we need to create a new one
+      if (restaurantName && !selectedRestaurant) {
+        // Generate a slug for the new restaurant
+        const newSlug = await generateSlug(restaurantName);
+        
+        // Create the restaurant in the store
+        menuStore.createRestaurant(
+          restaurantName,
+          $menuStore.menuLogo,
+          $menuStore.customPrompt
+        );
+        
+        // Get the newly created restaurant ID
+        const storeState = $menuStore;
+        const newId = storeState.selectedRestaurant;
+        
+        if (!newId) {
+          throw new Error('Failed to create restaurant');
+        }
+        
+        // Update with the proper slug
+        menuStore.updateRestaurantInfo(
+          restaurantName,
+          $menuStore.menuLogo,
+          $menuStore.customPrompt,
+          newSlug
+        );
+        
+        // Update the current restaurant store
+        if ($currentRestaurant === null) {
+          const newRestaurant = storeState.restaurants.find(r => r.id === newId);
+          if (newRestaurant) {
+            currentRestaurant.set({
+              ...newRestaurant,
+              slug: newSlug
+            });
+          }
+        }
+      }
+      
+      // Use the menuStore's saveChanges method to save all changes
       await menuStore.saveChanges();
       
       // Show success message
@@ -96,7 +134,7 @@
   <button
     class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
     on:click={saveChanges}
-    disabled={!selectedRestaurant || (!hasUnsavedChanges && !$menuStore.changedItems.restaurant) || isSaving}
+    disabled={(!selectedRestaurant && !restaurantName) || (!hasUnsavedChanges && !$menuStore.changedItems.restaurant) || isSaving}
   >
     {#if isSaving}
       <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

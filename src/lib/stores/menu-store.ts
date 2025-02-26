@@ -417,17 +417,50 @@ function createMenuStore() {
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null) {
-      update(state => ({
-        ...state,
-        restaurantName: name,
-        menuLogo: logo,
-        customPrompt,
-        changedItems: {
-          ...state.changedItems,
-          restaurant: true
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null) {
+      update(state => {
+        // Find the current restaurant in the state
+        const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
+        
+        // If we have a restaurant and a slug, update it
+        let updatedRestaurants = [...state.restaurants];
+        if (currentRestaurantIndex >= 0 && slug) {
+          updatedRestaurants[currentRestaurantIndex] = {
+            ...updatedRestaurants[currentRestaurantIndex],
+            name,
+            logo,
+            customPrompt,
+            slug,
+            updatedAt: new Date()
+          };
         }
-      }));
+        
+        return {
+          ...state,
+          restaurantName: name,
+          menuLogo: logo,
+          customPrompt,
+          restaurants: updatedRestaurants,
+          changedItems: {
+            ...state.changedItems,
+            restaurant: true
+          }
+        };
+      });
+    },
+
+    // Update only the restaurant name without creating a restaurant yet
+    updateLocalRestaurantName(name: string) {
+      update(state => {
+        return {
+          ...state,
+          restaurantName: name,
+          changedItems: {
+            ...state.changedItems,
+            restaurant: true
+          }
+        };
+      });
     },
 
     // Category actions
