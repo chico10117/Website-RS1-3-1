@@ -198,6 +198,49 @@
   // ✅ Función para guardar la respuesta final y actualizar el estado del menú
   async function saveRestaurantData(result: any) {
     try {
+      // Validate the structure of the response
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response format');
+      }
+
+      // Ensure restaurant data exists
+      if (!result.restaurant || typeof result.restaurant !== 'object') {
+        result.restaurant = { name: restaurantName };
+      }
+
+      // Ensure categories array exists
+      if (!result.categories || !Array.isArray(result.categories)) {
+        result.categories = [];
+      }
+
+      // Process categories and dishes to ensure they have the required fields
+      result.categories = result.categories.map((category: any, index: number) => {
+        // Ensure category has an id (temporary)
+        if (!category.id) {
+          category.id = `temp_category_${index}`;
+        }
+
+        // Ensure dishes array exists
+        if (!category.dishes || !Array.isArray(category.dishes)) {
+          category.dishes = [];
+        }
+
+        // Process dishes to ensure they have the required fields
+        category.dishes = category.dishes.map((dish: any, dishIndex: number) => {
+          return {
+            id: dish.id || `temp_dish_${index}_${dishIndex}`,
+            title: dish.title || 'Untitled Dish',
+            description: dish.description || '',
+            price: dish.price?.toString() || '0',
+            imageUrl: dish.imageUrl || null,
+            categoryId: category.id
+          };
+        });
+
+        return category;
+      });
+
+      // Dispatch the success event with the processed data
       dispatch('success', { restaurantData: result });
       toasts.success(t('menuUploadSuccess'));
 

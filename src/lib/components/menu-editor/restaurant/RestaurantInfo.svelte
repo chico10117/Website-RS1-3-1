@@ -8,6 +8,8 @@
   import { user } from '$lib/stores/user';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { generateSlug } from '$lib/utils/slug';
+  import { get } from 'svelte/store';
+  import type { Category } from '$lib/types/menu.types';
   import MenuUploader from './MenuUploader.svelte';
 
   export let restaurantName = '';
@@ -520,7 +522,6 @@
             );
             // Update the current restaurant store
             currentRestaurant.set(updatedRestaurant);
-            // Update categories
           }
 
           // Dispatch update event with the updated data
@@ -533,22 +534,36 @@
             phoneNumber: restaurantData.restaurant.phoneNumber,
             color
           });
-          if(restaurantData.categories.length > 0) {
+          
+          if(restaurantData.categories && restaurantData.categories.length > 0) {
             // Process each category from the uploaded data
+            const categoryIdMap = new Map(); // Map to store original category IDs to new ones
+            
             for (const category of restaurantData.categories) {
-              // Add the category to the menuStore
+              // Add the category to the menuStore and get the new ID
               menuStore.addCategory(category.name);
               
-              // If the category has dishes, add them too
-              if (category.dishes && category.dishes.length > 0) {
-                for (const dish of category.dishes) {
-                  // Add each dish with the correct parameter structure
-                  menuStore.addDish(category.id, {
-                    title: dish.title,
-                    description: dish.description,
-                    price: dish.price,
-                    imageUrl: dish.imageUrl
-                  });
+              // Get the latest state to find the newly created category
+              const storeState = get(menuStore);
+              const newCategory = storeState.categories.find(c => 
+                c.name === category.name && c.id.startsWith('temp_')
+              );
+              
+              if (newCategory) {
+                // Store the mapping from original ID to new ID
+                categoryIdMap.set(category.id, newCategory.id);
+                
+                // If the category has dishes, add them too
+                if (category.dishes && category.dishes.length > 0) {
+                  for (const dish of category.dishes) {
+                    // Add each dish with the correct parameter structure and the new category ID
+                    menuStore.addDish(newCategory.id, {
+                      title: dish.title,
+                      description: dish.description || '',
+                      price: dish.price?.toString() || '0',
+                      imageUrl: dish.imageUrl || null
+                    });
+                  }
                 }
               }
             }
