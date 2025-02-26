@@ -3,7 +3,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { onMount } from 'svelte';
-  import { menuCache } from '$lib/stores/menu-cache';
+  //import { menuCache } from '$lib/stores/menu-cache';
   import { menuState } from '$lib/stores/menu-state';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { menuStore } from '$lib/stores/menu-store';
@@ -26,7 +26,11 @@
 
   // Subscribe to menu store changes to get categories
   $: if ($menuStore.categories && $menuStore.categories.length > 0) {
-    categories = $menuStore.categories;
+    // Ensure each category has a dishes array
+    categories = $menuStore.categories.map(category => ({
+      ...category,
+      dishes: category.dishes || []
+    }));
   }
 
   // Subscribe to menu state changes as fallback
@@ -102,8 +106,12 @@
               </div>
             {/each}
           </div>
+        {:else}
+          <p class="text-gray-500 italic">No dishes in this category</p>
         {/if}
       </div>
     {/each}
+  {:else}
+    <p class="text-gray-500 italic">No categories available</p>
   {/if}
 </div> 

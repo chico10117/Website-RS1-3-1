@@ -264,8 +264,14 @@
               categories={$menuStore.categories}
               selectedRestaurant={$menuStore.selectedRestaurant}
               restaurantName={$menuStore.restaurantName}
+              currency={$currentRestaurant?.currency || '€'}
               on:update={handleCategoriesUpdate}
             />
+          </div>
+          
+          <!-- Save button moved below categories -->
+          <div class="mt-6 flex">
+            <SaveButton />
           </div>
         </div>
         
@@ -278,11 +284,6 @@
             currency={$currentRestaurant?.currency || '€'}
           />
         </div>
-      </div>
-      
-      <!-- Save button -->
-      <div class="mt-8 flex justify-end">
-        <SaveButton />
       </div>
     </div>
   {/if}

@@ -3,24 +3,37 @@
   import type { Dish } from '$lib/types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuCache } from '$lib/stores/menu-cache';
+  import { menuStore } from '$lib/stores/menu-store';
   import { toasts } from '$lib/stores/toast';
+  import { currentRestaurant } from '$lib/stores/restaurant';
 
   export let dish: Dish;
   export let isEditing: boolean;
   export let categoryId: string;
+  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     edit: void;
     update: Dish;
-    delete: void;
+    delete: string;
   }>();
 
   let editingDish: Dish = { ...dish };
 
   // Make translations reactive
   $: currentLanguage = $language;
-  $: t = (key: string): string => translations[key][currentLanguage];
+  $: t = (key: string): string => {
+    if (!translations[key]) {
+      console.warn(`Translation key not found: ${key}`);
+      return key;
+    }
+    return translations[key][currentLanguage] || key;
+  };
+
+  // Use the currency from currentRestaurant if available
+  $: if ($currentRestaurant && $currentRestaurant.currency) {
+    currency = $currentRestaurant.currency;
+  }
 
   async function handleImageUpload(event: Event) {
     try {
@@ -101,8 +114,15 @@
 
   async function saveDishChanges() {
     try {
-      // Update cache instead of saving
-      menuCache.updateDish(dish.id, 'update', editingDish);
+      // Update dish in menuStore
+      menuStore.updateDish(dish.id, {
+        title: editingDish.title,
+        price: editingDish.price,
+        description: editingDish.description,
+        imageUrl: editingDish.imageUrl
+      });
+      
+      // Also dispatch update event for backward compatibility
       dispatch('update', editingDish);
     } catch (error) {
       console.error('Error updating dish:', error);
@@ -113,8 +133,21 @@
   }
 
   async function deleteDish() {
-    if (!confirm(t('confirmDeleteDish'))) return;
-    dispatch('delete');
+    try {
+      // Delete the dish in menuStore directly
+      menuStore.deleteDish(dish.id);
+      
+      // Dispatch delete event for backward compatibility
+      dispatch('delete', dish.id);
+      
+      // Show success toast
+      toasts.success(t('dishDeleteSuccess') || t('deleteSuccess'));
+    } catch (error) {
+      console.error('Error deleting dish:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    }
   }
 </script>
 
@@ -145,7 +178,7 @@
           </div>
         </div>
         {#if dish.price}
-          <span class="text-sm font-medium">${dish.price}</span>
+          <span class="text-sm font-medium">{currency}{dish.price}</span>
         {/if}
         {#if dish.description}
           <p class="text-sm font-normal text-gray-300 mt-1">{dish.description}</p>
@@ -189,11 +222,23 @@
           <label class="text-xs font-semibold text-gray-600">{t('image')}</label>
           <div class="flex items-center space-x-2">
             {#if editingDish.imageUrl}
-              <img 
-                src={editingDish.imageUrl} 
-                alt={editingDish.title}
-                class="w-16 h-16 object-cover rounded"
-              />
+              <div class="relative">
+                <img 
+                  src={editingDish.imageUrl} 
+                  alt={editingDish.title}
+                  class="w-16 h-16 object-cover rounded"
+                />
+                <button
+                  type="button"
+                  class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                  on:click={() => editingDish = { ...editingDish, imageUrl: null }}
+                  title={t('removeImage') || 'Remove image'}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
             {/if}
             <div class="relative">
               <form

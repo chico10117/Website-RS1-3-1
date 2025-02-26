@@ -7,10 +7,12 @@
   import CategoryItem from './CategoryItem.svelte';
   import AddCategory from './AddCategory.svelte';
   import { toasts } from '$lib/stores/toast';
+  import { currentRestaurant } from '$lib/stores/restaurant';
 
   export let categories: Category[] = [];
   export let selectedRestaurant: string | null;
   export let restaurantName: string = '';
+  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     update: Category[];
@@ -21,6 +23,11 @@
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
+
+  // Use the currency from currentRestaurant if available
+  $: if ($currentRestaurant && $currentRestaurant.currency) {
+    currency = $currentRestaurant.currency;
+  }
 
   // Keep track of categories by ID to prevent duplicates
   $: categoryMap = new Map(categories.map(cat => [cat.id, cat]));
@@ -42,11 +49,7 @@
     }
     
     // Add the category to the menuStore
-    // Note: This is redundant since AddCategory.svelte already calls menuStore.addCategory
-    // but we keep it for backward compatibility
-    if (!$menuStore.categories.find((c: Category) => c.id === category.id)) {
-      menuStore.addCategory(category.name);
-    }
+    menuStore.addCategory(category.name);
     
     // Update the map and convert back to array
     categoryMap.set(category.id, category);
@@ -157,6 +160,7 @@
       <CategoryItem
         {category}
         {index}
+        {currency}
         isSelected={selectedCategoryId === category.id}
         on:update={handleCategoryUpdate}
         on:delete={handleCategoryDelete}

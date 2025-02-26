@@ -196,9 +196,31 @@ export async function saveMenuChanges(
   // Step 7: Reset the change tracking in the store
   menuStore.resetChanges();
 
+  // Step 8: Fetch all categories to return complete data
+  const allCategories = await categoryService.fetchCategories(restaurantId);
+  
+  // Fetch dishes for each category
+  const categoriesWithDishes = await Promise.all(
+    allCategories.map(async (category) => {
+      try {
+        const dishes = await dishService.fetchDishes(restaurantId, category.id);
+        return {
+          ...category,
+          dishes
+        };
+      } catch (error) {
+        console.error(`Error fetching dishes for category ${category.id}:`, error);
+        return {
+          ...category,
+          dishes: []
+        };
+      }
+    })
+  );
+
   return {
     restaurant: savedRestaurant,
-    categories: savedCategories,
+    categories: categoriesWithDishes,
     dishes: savedDishes
   };
 } 

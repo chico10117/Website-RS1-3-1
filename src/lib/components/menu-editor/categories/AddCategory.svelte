@@ -23,26 +23,35 @@
     // Allow adding category if we have either a selectedRestaurant ID or a restaurant name
     if (newCategory.trim() && (selectedRestaurant || restaurantName)) {
       try {
-        // Add the category directly to the menuStore
-        menuStore.addCategory(newCategory.trim());
+        // Create a temporary ID for the new category
+        const tempId = `temp_${Math.random().toString(36).substring(2, 11)}`;
         
-        // Also dispatch the event for backward compatibility
+        // Dispatch the event with the new category
         const category: Category = {
-          id: crypto.randomUUID(), // Generate a temporary ID
+          id: tempId,
           name: newCategory.trim(),
           dishes: [],
-          restaurantId: selectedRestaurant || crypto.randomUUID() // Use temporary ID if no restaurant ID yet
+          restaurantId: selectedRestaurant || tempId // Use temporary ID if no restaurant ID yet
         };
         dispatch('add', category);
         
         // Clear the input field
         newCategory = '';
+        
+        // Show success toast
+        toasts.success(t('categoryAddSuccess') || 'Category added successfully');
       } catch (error) {
         console.error('Error adding category:', error);
         if (error instanceof Error) {
           toasts.error(t('error') + ': ' + error.message);
         }
       }
+    } else if (!newCategory.trim()) {
+      // Show error if category name is empty
+      toasts.error(t('error') + ': ' + (t('categoryNameRequired') || 'Category name is required'));
+    } else {
+      // Show error if no restaurant selected
+      toasts.error(t('pleaseEnterRestaurantNameFirst'));
     }
   }
 

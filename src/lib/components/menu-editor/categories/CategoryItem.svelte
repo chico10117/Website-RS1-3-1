@@ -6,10 +6,12 @@
   import { menuStore } from '$lib/stores/menu-store';
   import DishList from '../dishes/DishList.svelte';
   import { toasts } from '$lib/stores/toast';
+  import { currentRestaurant } from '$lib/stores/restaurant';
 
   export let category: Category;
   export let index: number;
   export let isSelected: boolean;
+  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     update: { index: number; category: Category };
@@ -23,6 +25,11 @@
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
+
+  // Use the currency from currentRestaurant if available
+  $: if ($currentRestaurant && $currentRestaurant.currency) {
+    currency = $currentRestaurant.currency;
+  }
 
   function startEditing() {
     isEditing = true;
@@ -64,13 +71,22 @@
   }
 
   async function deleteCategory() {
-    if (!confirm(t('confirmDeleteCategory'))) return;
-    
-    // Delete the category in menuStore directly
-    menuStore.deleteCategory(category.id);
-    
-    // Dispatch delete event for backward compatibility
-    dispatch('delete', index);
+    // Remove the confirmation dialog and directly delete the category
+    try {
+      // Delete the category in menuStore directly
+      menuStore.deleteCategory(category.id);
+      
+      // Dispatch delete event for backward compatibility
+      dispatch('delete', index);
+      
+      // Show success toast
+      toasts.success(t('categoryDeleteSuccess') || t('deleteSuccess'));
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    }
   }
 
   async function handleKeyPress(event: KeyboardEvent) {
@@ -159,6 +175,7 @@
       <DishList
         dishes={category.dishes || []}
         categoryId={category.id}
+        {currency}
         on:update={handleDishesUpdate}
       />
     </div>

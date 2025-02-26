@@ -94,7 +94,7 @@
 
 <div class="flex items-center gap-4">
   <button
-    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
+    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
     on:click={saveChanges}
     disabled={!selectedRestaurant || (!hasUnsavedChanges && !$menuStore.changedItems.restaurant) || isSaving}
   >
@@ -112,11 +112,11 @@
     {/if}
   </button>
   
-  {#if lastSaveTime}
+  <!-- {#if lastSaveTime}
     <span class="text-sm text-gray-500">
       {(t('lastSaved') || 'Last saved')}: {formatLastSaveTime(lastSaveTime)}
     </span>
-  {/if}
+  {/if} -->
 </div>
 
 <style>

@@ -33,6 +33,99 @@ export interface MenuStore {
 // Helper to create a new ID for temporary items
 const createTempId = () => `temp_${Math.random().toString(36).substring(2, 11)}`;
 
+// Helper function to merge database data with unsaved changes
+function mergeWithUnsavedChanges(
+  dbCategories: Category[], 
+  currentCategories: Category[], 
+  changedCategoryIds: Set<string>,
+  changedDishIds: Set<string>,
+  deletedCategoryIds: Set<string>,
+  deletedDishIds: Set<string>
+): Category[] {
+  // Create a map of database categories by ID for easy lookup
+  const dbCategoriesMap = new Map<string, Category>();
+  dbCategories.forEach(category => {
+    dbCategoriesMap.set(category.id, { 
+      ...category,
+      dishes: category.dishes || [] // Ensure dishes array exists
+    });
+  });
+  
+  // Create a map of current categories by ID for easy lookup
+  const currentCategoriesMap = new Map<string, Category>();
+  currentCategories.forEach(category => {
+    // Skip categories that are marked for deletion
+    if (!deletedCategoryIds.has(category.id)) {
+      currentCategoriesMap.set(category.id, { 
+        ...category,
+        dishes: category.dishes || [] // Ensure dishes array exists
+      });
+    }
+  });
+  
+  // Start with all database categories
+  const mergedCategories: Category[] = [];
+  
+  // Add all database categories that aren't marked for deletion
+  dbCategories.forEach(dbCategory => {
+    if (!deletedCategoryIds.has(dbCategory.id)) {
+      // If this category has been changed, use the current version
+      if (changedCategoryIds.has(dbCategory.id)) {
+        const currentCategory = currentCategoriesMap.get(dbCategory.id);
+        if (currentCategory) {
+          mergedCategories.push({
+            ...currentCategory,
+            dishes: currentCategory.dishes || [] // Ensure dishes array exists
+          });
+        }
+      } else {
+        // Otherwise use the database version, but check for changed dishes
+        const mergedCategory = { 
+          ...dbCategory,
+          dishes: dbCategory.dishes || [] // Ensure dishes array exists
+        };
+        
+        // If the category has dishes, check for changes
+        if (mergedCategory.dishes && mergedCategory.dishes.length > 0) {
+          mergedCategory.dishes = mergedCategory.dishes.filter(dish => !deletedDishIds.has(dish.id));
+          
+          // Replace changed dishes with their current versions
+          mergedCategory.dishes = mergedCategory.dishes.map(dish => {
+            if (changedDishIds.has(dish.id)) {
+              // Find the current version of this dish
+              const currentCategory = currentCategoriesMap.get(dbCategory.id);
+              if (currentCategory && currentCategory.dishes) {
+                const currentDish = currentCategory.dishes.find(d => d.id === dish.id);
+                if (currentDish) {
+                  return currentDish;
+                }
+              }
+            }
+            return dish;
+          });
+        }
+        
+        mergedCategories.push(mergedCategory);
+      }
+    }
+  });
+  
+  // Add new categories (those with temp IDs)
+  currentCategories.forEach(category => {
+    if (category.id.startsWith('temp_') && !dbCategoriesMap.has(category.id)) {
+      mergedCategories.push({
+        ...category,
+        dishes: category.dishes || [] // Ensure dishes array exists
+      });
+    }
+  });
+  
+  return mergedCategories;
+}
+
+// Create a persistent map to store unsaved changes across restaurant switches
+const restaurantStates = new Map();
+
 function createMenuStore() {
   const initialState: MenuStore = {
     // Current data
@@ -74,6 +167,120 @@ function createMenuStore() {
            $state.changedItems.deletedCategories.size > 0 ||
            $state.changedItems.deletedDishes.size > 0;
   });
+
+  // Helper function to save the current state before switching restaurants
+  function saveCurrentState() {
+    const state = get({ subscribe });
+    if (!state.selectedRestaurant) return;
+    
+    // Only save if there are unsaved changes
+    if (state.changedItems.restaurant || 
+        state.changedItems.categories.size > 0 || 
+        state.changedItems.dishes.size > 0 || 
+        state.changedItems.deletedCategories.size > 0 || 
+        state.changedItems.deletedDishes.size > 0) {
+      
+      restaurantStates.set(state.selectedRestaurant, {
+        restaurantName: state.restaurantName,
+        menuLogo: state.menuLogo,
+        customPrompt: state.customPrompt,
+        categories: [...state.categories],
+        changedItems: {
+          restaurant: state.changedItems.restaurant,
+          categories: new Set(state.changedItems.categories),
+          dishes: new Set(state.changedItems.dishes),
+          deletedCategories: new Set(state.changedItems.deletedCategories),
+          deletedDishes: new Set(state.changedItems.deletedDishes)
+        }
+      });
+      
+      console.log('Saved state for restaurant:', state.selectedRestaurant);
+    }
+  }
+  
+  // Helper function to load and merge data for a restaurant
+  async function loadAndMergeData(restaurantId: string) {
+    try {
+      // Fetch the restaurant data
+      const restaurant = await restaurantService.fetchRestaurantById(restaurantId);
+      console.log('Fetched restaurant data:', restaurant);
+      
+      // Fetch categories for this restaurant
+      const fetchedCategories = await categoryService.fetchCategories(restaurantId);
+      console.log('Found categories:', fetchedCategories);
+      
+      // Fetch dishes for each category
+      const categoriesWithDishes = await Promise.all(
+        fetchedCategories.map(async (category) => {
+          try {
+            const dishes = await dishService.fetchDishes(restaurantId, category.id);
+            console.log(`Fetched ${dishes.length} dishes for category ${category.name}`);
+            return {
+              ...category,
+              dishes
+            } as Category;
+          } catch (error) {
+            console.error(`Error fetching dishes for category ${category.id}:`, error);
+            return {
+              ...category,
+              dishes: []
+            } as Category;
+          }
+        })
+      );
+      
+      // Check if we have saved state for this restaurant
+      let finalCategories = categoriesWithDishes;
+      let changedItems = {
+        restaurant: false,
+        categories: new Set<string>(),
+        dishes: new Set<string>(),
+        deletedCategories: new Set<string>(),
+        deletedDishes: new Set<string>()
+      };
+      
+      if (restaurantStates.has(restaurantId)) {
+        const savedState = restaurantStates.get(restaurantId);
+        console.log('Found saved state for restaurant:', restaurantId);
+        
+        // Merge the database categories with the saved changes
+        finalCategories = mergeWithUnsavedChanges(
+          categoriesWithDishes,
+          savedState.categories || [],
+          savedState.changedItems.categories,
+          savedState.changedItems.dishes,
+          savedState.changedItems.deletedCategories,
+          savedState.changedItems.deletedDishes
+        );
+        
+        // Restore the change tracking
+        changedItems = {
+          restaurant: savedState.changedItems.restaurant,
+          categories: new Set(savedState.changedItems.categories),
+          dishes: new Set(savedState.changedItems.dishes),
+          deletedCategories: new Set(savedState.changedItems.deletedCategories),
+          deletedDishes: new Set(savedState.changedItems.deletedDishes)
+        };
+        
+        console.log('Merged categories:', finalCategories);
+      }
+      
+      // Ensure all categories have a dishes array
+      finalCategories = finalCategories.map(category => ({
+        ...category,
+        dishes: category.dishes || []
+      }));
+      
+      return {
+        restaurant,
+        categories: finalCategories,
+        changedItems
+      };
+    } catch (error) {
+      console.error('Error loading data for restaurant:', restaurantId, error);
+      throw error;
+    }
+  }
 
   return {
     subscribe,
@@ -130,21 +337,23 @@ function createMenuStore() {
           restaurantName: currentState.restaurantName
         });
         
+        // Check if we're already on this restaurant
+        if (currentState.selectedRestaurant === restaurantId) {
+          console.log('Already on this restaurant, no need to reload');
+          return currentState.restaurants.find(r => r.id === restaurantId);
+        }
+        
         // First update the state to indicate we're loading
         update(s => ({ ...s, isLoading: true }));
         
-        // Fetch the restaurant data using the service
-        const restaurant = await restaurantService.fetchRestaurantById(restaurantId);
-        console.log('Fetched restaurant data:', restaurant);
+        // Save the current restaurant's state if there are unsaved changes
+        saveCurrentState();
         
-        // Fetch categories for this restaurant using the service
-        console.log('Fetching categories for restaurant:', restaurantId);
-        const categories = await categoryService.fetchCategories(restaurantId);
-        console.log('Found categories:', categories);
+        // Load and merge data for the selected restaurant
+        const { restaurant, categories, changedItems } = await loadAndMergeData(restaurantId);
         
         // Update the store with the restaurant and categories
         update(s => {
-          // Make sure we're setting the selectedRestaurant
           return {
             ...s,
             selectedRestaurant: restaurantId,
@@ -153,14 +362,7 @@ function createMenuStore() {
             customPrompt: restaurant.customPrompt,
             categories: categories,
             isLoading: false,
-            // Reset change tracking when selecting a new restaurant
-            changedItems: {
-              restaurant: false,
-              categories: new Set<string>(),
-              dishes: new Set<string>(),
-              deletedCategories: new Set<string>(),
-              deletedDishes: new Set<string>()
-            }
+            changedItems: changedItems
           };
         });
         
@@ -333,7 +535,7 @@ function createMenuStore() {
       update(state => {
         // Find and update the dish in its category
         const updatedCategories = state.categories.map(category => {
-          if (!category.dishes) return category;
+          if (!category.dishes) return { ...category, dishes: [] };
           
           const dishIndex = category.dishes.findIndex(dish => dish.id === dishId);
           if (dishIndex === -1) return category;
@@ -365,7 +567,7 @@ function createMenuStore() {
       update(state => {
         // Find and remove the dish from its category
         const updatedCategories = state.categories.map(category => {
-          if (!category.dishes) return category;
+          if (!category.dishes) return { ...category, dishes: [] };
           
           const dishIndex = category.dishes.findIndex(dish => dish.id === dishId);
           if (dishIndex === -1) return category;
@@ -431,7 +633,7 @@ function createMenuStore() {
           name: state.restaurantName,
           logo: state.menuLogo,
           customPrompt: state.customPrompt,
-          currency: currentRestaurantObj?.currency || 'EUR', // Use current value or default to EUR
+          currency: currentRestaurantObj?.currency || '€', // Use current value or default to €
           color: (currentRestaurantObj?.color && currentRestaurantObj.color > 0) ? currentRestaurantObj.color : 1 // Ensure color is at least 1
         };
         
@@ -523,6 +725,12 @@ function createMenuStore() {
           state.selectedRestaurant
         );
         
+        // Clear the saved state for this restaurant since we've saved all changes
+        if (state.selectedRestaurant) {
+          restaurantStates.delete(state.selectedRestaurant);
+          console.log('Cleared saved state for restaurant:', state.selectedRestaurant);
+        }
+        
         // Update state with saved data
         update(s => {
           // Update restaurants list
@@ -542,7 +750,7 @@ function createMenuStore() {
             restaurantName: result.restaurant.name,
             menuLogo: result.restaurant.logo,
             customPrompt: result.restaurant.customPrompt,
-            categories: result.categories,
+            categories: result.categories, // Use the complete categories returned from saveMenuChanges
             isSaving: false,
             lastSaveTime: new Date(),
             // Reset change tracking

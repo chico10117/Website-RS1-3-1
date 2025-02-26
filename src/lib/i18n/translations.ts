@@ -126,6 +126,18 @@ export const translations: Translation = {
     es: "Logo eliminado exitosamente",
     en: "Logo successfully deleted"
   },
+  categoryAddSuccess: {
+    es: "Categoría agregada exitosamente",
+    en: "Category added successfully"
+  },
+  categoryNameRequired: {
+    es: "El nombre de la categoría es obligatorio",
+    en: "Category name is required"
+  },
+  categoryDeleteSuccess: {
+    es: "Categoría eliminada exitosamente",
+    en: "Category successfully deleted"
+  },
   dishUpdateSuccess: {
     es: "Plato actualizado exitosamente",
     en: "Dish successfully updated"
@@ -157,6 +169,10 @@ export const translations: Translation = {
   uploadImage: {
     es: "Subir imagen",
     en: "Upload image"
+  },
+  removeImage: {
+    es: "Eliminar imagen",
+    en: "Remove image"
   },
   saveMenu: {
     es: "Guardar Menú",
@@ -206,66 +222,6 @@ export const translations: Translation = {
     es: "o arrastrar y soltar",
     en: "or drag and drop"
   },
-  dropToUpload: {
-    es: "Soltar para subir",
-    en: "Drop to upload"
-  },
-  yourRestaurants: {
-    es: "Tus Restaurantes",
-    en: "Your Restaurants"
-  },
-  selectRestaurantManage: {
-    es: "Selecciona un restaurante para administrar su menú",
-    en: "Select a restaurant to manage its menu"
-  },
-  addRestaurant: {
-    es: "Agregar Restaurante",
-    en: "Add Restaurant"
-  },
-  noRestaurantsFound: {
-    es: "No se encontraron restaurantes",
-    en: "No restaurants found"
-  },
-  addFirstRestaurant: {
-    es: "Agrega tu primer restaurante para comenzar",
-    en: "Add your first restaurant to get started"
-  },
-  loading: {
-    es: "Cargando...",
-    en: "Loading..."
-  },
-  themeColor: {
-    en: 'Theme Color',
-    es: 'Color del Tema'
-  },
-  currency: {
-    en: 'Currency',
-    es: 'Moneda'
-  },
-  colorLight: {
-    en: 'Light',
-    es: 'Claro'
-  },
-  colorGreen: {
-    en: 'Green',
-    es: 'Verde'
-  },
-  colorPink: {
-    en: 'Pink',
-    es: 'Rosa'
-  },
-  colorDark: {
-    en: 'Dark',
-    es: 'Oscuro'
-  },
-  uploadMenu: {
-    en: 'Upload Menu',
-    es: 'Subir Carta'
-  },
-  uploadMenuFiles: {
-    en: 'Upload Menu Files',
-    es: 'Subir Archivos del Menú'
-  },
   dragAndDropOrClick: {
     en: 'Drag and drop files here or click to select',
     es: 'Arrastra y suelta archivos aquí o haz clic para seleccionar'
@@ -305,5 +261,65 @@ export const translations: Translation = {
   changesSaved: {
     es: "Cambios guardados",
     en: "Changes saved"
+  },
+  themeColor: {
+    en: 'Theme Color',
+    es: 'Color del Tema'
+  },
+  currency: {
+    en: 'Currency',
+    es: 'Moneda'
+  },
+  colorLight: {
+    en: 'Light',
+    es: 'Claro'
+  },
+  colorGreen: {
+    en: 'Green',
+    es: 'Verde'
+  },
+  colorPink: {
+    en: 'Pink',
+    es: 'Rosa'
+  },
+  colorDark: {
+    en: 'Dark',
+    es: 'Oscuro'
+  },
+  uploadMenu: {
+    en: 'Upload Menu',
+    es: 'Subir Carta'
+  },
+  uploadMenuFiles: {
+    en: 'Upload Menu Files',
+    es: 'Subir Archivos del Menú'
+  },
+  yourRestaurants: {
+    es: "Tus Restaurantes",
+    en: "Your Restaurants"
+  },
+  selectRestaurantManage: {
+    es: "Selecciona un restaurante para administrar su menú",
+    en: "Select a restaurant to manage its menu"
+  },
+  addRestaurant: {
+    es: "Agregar Restaurante",
+    en: "Add Restaurant"
+  },
+  noRestaurantsFound: {
+    es: "No se encontraron restaurantes",
+    en: "No restaurants found"
+  },
+  addFirstRestaurant: {
+    es: "Agrega tu primer restaurante para comenzar",
+    en: "Add your first restaurant to get started"
+  },
+  loading: {
+    es: "Cargando...",
+    en: "Loading..."
+  },
+  saving: {
+    es: "Guardando...",
+    en: "Saving..."
   }
 }; 

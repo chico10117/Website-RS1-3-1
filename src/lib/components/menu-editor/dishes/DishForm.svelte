@@ -5,8 +5,10 @@
   import { language } from '$lib/stores/language';
   import { menuStore } from '$lib/stores/menu-store';
   import { toasts } from '$lib/stores/toast';
+  import { currentRestaurant } from '$lib/stores/restaurant';
 
   export let categoryId: string;
+  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     add: Dish;
@@ -32,7 +34,18 @@
 
   // Make translations reactive
   $: currentLanguage = $language;
-  $: t = (key: string): string => translations[key][currentLanguage];
+  $: t = (key: string): string => {
+    if (!translations[key]) {
+      console.warn(`Translation key not found: ${key}`);
+      return key;
+    }
+    return translations[key][currentLanguage] || key;
+  };
+
+  // Use the currency from currentRestaurant if available
+  $: if ($currentRestaurant && $currentRestaurant.currency) {
+    currency = $currentRestaurant.currency;
+  }
 
   async function handleImageUpload(event: Event) {
     try {
@@ -179,13 +192,16 @@
       </div>
       <div>
         <label class="text-xs font-semibold text-gray-700 mb-1 block w-[25px]">{t('price')}*</label>
-        <input
-          type="text"
-          class="w-[120px] px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-normal transition-all duration-200"
-          bind:value={newDish.price}
-          on:keydown={handleKeyPress}
-          required
-        />
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">{currency}</span>
+          <input
+            type="text"
+            class="w-[120px] pl-7 pr-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-normal transition-all duration-200"
+            bind:value={newDish.price}
+            on:keydown={handleKeyPress}
+            required
+          />
+        </div>
       </div>
     </div>
     <div>
@@ -200,11 +216,23 @@
       <label class="text-xs font-semibold text-gray-700 mb-1 block">{t('image')}</label>
       <div class="flex flex-col space-y-3">
         {#if newDish.imageUrl}
-          <img 
-            src={newDish.imageUrl} 
-            alt="New dish"
-            class="w-20 h-20 object-cover rounded-lg shadow-sm transition-transform duration-200 hover:scale-105"
-          />
+          <div class="relative inline-block">
+            <img 
+              src={newDish.imageUrl} 
+              alt="New dish"
+              class="w-20 h-20 object-cover rounded-lg shadow-sm transition-transform duration-200 hover:scale-105"
+            />
+            <button
+              type="button"
+              class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+              on:click={() => newDish = { ...newDish, imageUrl: null }}
+              title={t('removeImage') || 'Remove image'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
         {/if}
         <div class="relative">
           <form
