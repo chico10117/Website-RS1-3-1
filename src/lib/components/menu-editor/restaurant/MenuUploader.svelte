@@ -208,6 +208,11 @@
         result.restaurant = { name: restaurantName };
       }
 
+      // Ensure userEmail is present
+      if (!result.userEmail) {
+        console.warn('User email not found in response, this might cause issues with data association');
+      }
+
       // Ensure categories array exists
       if (!result.categories || !Array.isArray(result.categories)) {
         result.categories = [];

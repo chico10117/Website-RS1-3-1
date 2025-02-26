@@ -1,6 +1,7 @@
 import {json} from '@sveltejs/kit';
 import OpenAI from "openai";
 import type {ChatCompletionContentPart} from 'openai/resources/chat/completions';
+import type { RequestEvent } from '@sveltejs/kit';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -10,31 +11,22 @@ const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene 
     
     - Identifica las categorías o secciones de la carta (por ejemplo: Entradas, Platos Principales, Postres, Bebidas). Trata de utilizar todo el contenido visible de la imagen, no dejes nada sin procesar que esté relacionado a platos de la carta
     - Para cada categoría, extrae los nombres de los platos y sus respectivos precios.
-    - Si hay descripciones adicionales, inclúyelas en el campo "descripcion".
-    -Para los precios, utiliza el formato precio: 10.00. Sin comillas.
+    - Si hay descripciones adicionales, inclúyelas en el campo "description".
+    - Para los precios, utiliza el formato numérico (ejemplo: 10.00) sin símbolos de moneda.
+    - Es CRÍTICO que cada plato tenga un título (title) y un precio (price).
+    - Si no puedes determinar el precio, usa 0.00 como valor predeterminado.
     
     Devuelve la información en formato JSON bexactamente como el texto de abajo encerrado entre <json>  y  </json>
     Por ejemplo, el formato de salida debe ser similar a:
     
-    <json>
-    export const seedData = {
-      userEmail: "chico10117@gmail.com",
-      restaurant: {
-        name: Name of the restaurant,
+    {
+      "restaurant": {
+        name: "Nombre del restaurante",
         logo: "",
-        customPrompt: ",
+        customPrompt: "",
         currency: "€",
         phoneNumber: "+34 123 456 789",
-    RESTAURANT INFO
-    Descripción del restaurante
-    y toda la información relevante
-    como horarios, ubicación, etc.
-    "
-      },
-    
-      restaurant: {
-        name: "Burger",
-        description: "all relevant data from restaurant on image"
+        description: "Descripción del restaurante y toda la información relevante como horarios, ubicación, etc."
       },
       categories: [
         {
@@ -84,9 +76,18 @@ interface RequestData {
     images: ImageData[];
 }
 
-export async function POST({request}) {
+export async function POST({ request, locals }: RequestEvent) {
     try {
         console.log('Starting process-images...');
+
+        // Get the current user from locals
+        const user = locals.user;
+        
+        if (!user) {
+            return json({ error: 'User not authenticated' }, { status: 401 });
+        }
+
+        console.log('Processing request for user:', user.email);
 
         const {prompt, images}: RequestData = await request.json();
         console.log('Received request:', {
@@ -142,6 +143,18 @@ export async function POST({request}) {
                     let parsedContent = null;
                     try {
                         parsedContent = JSON.parse(generatedAnswer);
+                        
+                        // Add user information to the response
+                        if (parsedContent && typeof parsedContent === 'object') {
+                            // Ensure we have a restaurant object
+                            if (!parsedContent.restaurant) {
+                                parsedContent.restaurant = {};
+                            }
+                            
+                            // Add user email to the response
+                            parsedContent.userEmail = user.email;
+                        }
+                        
                     } catch (parseError) {
                         console.error('Failed to parse OpenAI response:', {
                             content: parsedContent,
@@ -150,12 +163,11 @@ export async function POST({request}) {
                         throw new Error('Failed to parse OpenAI response: Invalid JSON format');
                     }
 
-
                     console.log('Content parsed successfully:', {
                         hasRestaurant: !!parsedContent.restaurant,
-                        categoriesCount: parsedContent.categories?.length
+                        categoriesCount: parsedContent.categories?.length,
+                        userEmail: parsedContent.userEmail
                     });
-
 
                     controller.enqueue(encoder.encode(`data: [DONE]${JSON.stringify(parsedContent)}`));
                     controller.close();
