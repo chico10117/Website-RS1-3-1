@@ -6,6 +6,11 @@
   import * as menuService from '$lib/services/menu.service';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { generateSlug } from '$lib/utils/slug';
+  import { io } from 'socket.io-client';
+  import {onMount} from "svelte";
+  console.log("SERVER IO",process.env.SMART_SERVER_HOST )
+  // Initialize the socket connection with user id as namespace
+  const socket = io(process.env.SMART_SERVER_HOST || 'http://178.156.158.110:3001');
 
   // Make translations reactive with fallbacks to prevent errors
   $: currentLanguage = $language || 'en';
@@ -15,6 +20,28 @@
     }
     return translations[key][currentLanguage];
   };
+
+  onMount(()=> {
+
+    socket.on('connect', () => {
+      console.log('Connected to server', $menuStore);
+    })
+    socket.emit('check', 'Hello from the client');
+
+    socket.on('images-generating', () => {
+      console.log('Procesando imagenes');
+    });
+    socket.on('image-generated', () => {
+      console.log('Imagen Generada');
+    });
+    socket.on('queue-finished', () => {
+      console.log('Queue finished');
+      toasts.success(t('completedProcessingImages') || 'Images created');
+    });
+  })
+
+
+
 
   // Reactive variables for UI state
   $: hasUnsavedChanges = $menuStore.changedItems.restaurant || 
@@ -71,6 +98,7 @@
       toasts.error(t('noRestaurantSelected') || 'No restaurant selected');
       return;
     }
+
     
     try {
       // If we have a restaurant name but no selected restaurant, we need to create a new one
@@ -112,10 +140,14 @@
           }
         }
       }
-      
       // Use the menuStore's saveChanges method to save all changes
       await menuStore.saveChanges();
-      
+      const restId = $menuStore.selectedRestaurant;
+      if (restId){
+        socket.emit('request-images', restId);
+      }
+
+
       // Show success message
       toasts.success(t('changesSaved') || 'Changes saved');
       

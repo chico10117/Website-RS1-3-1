@@ -10,6 +10,14 @@ export const translations: Translation = {
     es: "Creador de Carta",
     en: "Menu Builder"
   },
+  processingImages: {
+    es: "Procesando imágenes",
+    en: "Processing images"
+  },
+  completedProcessingImages: {
+    es: "Procesamiento de imágenes completado",
+    en: "Image processing completed"
+  },
   restaurantName: {
     es: "Nombre del Restaurante",
     en: "Restaurant Name"
