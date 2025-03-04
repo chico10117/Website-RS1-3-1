@@ -15,7 +15,7 @@ const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene 
     - Para los precios, utiliza el formato numérico (ejemplo: 10.00) sin símbolos de moneda.
     - Es CRÍTICO que cada plato tenga un título (title) y un precio (price).
     - Si no puedes determinar el precio, usa 0.00 como valor predeterminado.
-    
+    - Si no identificas el nombre intenta crear uno corto basado en la informacion que aparece en la tabla
     Devuelve la información en formato JSON bexactamente como el texto de abajo encerrado entre <json>  y  </json>
     Por ejemplo, el formato de salida debe ser similar a:
     

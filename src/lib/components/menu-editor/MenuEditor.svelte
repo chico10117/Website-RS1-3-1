@@ -89,7 +89,7 @@
   onMount(async () => {
     try {
       loading = true;
-      
+
       // Check if user is authenticated
       if (!$user || !$user.id) {
         console.log('User not authenticated, redirecting to login');

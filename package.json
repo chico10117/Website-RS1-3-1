@@ -25,6 +25,8 @@
     "pdfjs-dist": "^4.10.38",
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.4",
     "tailwind-variants": "^0.2.1",
     "unsplash-js": "^7.0.19",
