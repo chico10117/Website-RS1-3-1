@@ -1,4 +1,4 @@
-# Sistema de Menú de Restaurante - Lista de Tareas
+# Sistema de Menú de Restaurante - Lista de Tareas.
 
 ## Problemas Actuales
 
