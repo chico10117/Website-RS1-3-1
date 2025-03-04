@@ -10,7 +10,7 @@
   import {onMount} from "svelte";
   console.log("SERVER IO",process.env.SMART_SERVER_HOST )
   // Initialize the socket connection with user id as namespace
-  const socket = io(process.env.SMART_SERVER_HOST || 'http://178.156.158.110:3001');
+  const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
 
   // Make translations reactive with fallbacks to prevent errors
   $: currentLanguage = $language || 'en';
