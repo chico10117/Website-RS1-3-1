@@ -59,21 +59,21 @@
   });
 </script>
 
-<div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-6">
-  <h2 class="text-2xl font-bold mb-6 text-gray-800 tracking-tight">{t('menuPreview')}</h2>
+<div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-4 sm:p-6">
+  <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800 tracking-tight">{t('menuPreview')}</h2>
   
   <!-- Restaurant Info -->
   {#if restaurantName || menuLogo}
-    <div class="flex items-center space-x-4 mb-8">
+    <div class="flex items-center space-x-3 sm:space-x-4 mb-6 sm:mb-8">
       {#if menuLogo}
         <img 
           src={menuLogo} 
           alt="Restaurant logo" 
-          class="w-16 h-16 object-cover rounded-lg shadow-md"
+          class="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg shadow-md"
         />
       {/if}
       {#if restaurantName}
-        <h1 class="text-3xl font-bold text-gray-800 tracking-tight">{restaurantName}</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">{restaurantName}</h1>
       {/if}
     </div>
   {/if}
@@ -81,26 +81,26 @@
   <!-- Categories and Dishes -->
   {#if categories.length > 0}
     {#each categories as category}
-      <div class="mb-8">
-        <h3 class="text-xl font-semibold mb-4 text-gray-800 tracking-tight">{category.name}</h3>
+      <div class="mb-6 sm:mb-8">
+        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-800 tracking-tight">{category.name}</h3>
         {#if category.dishes && category.dishes.length > 0}
-          <div class="space-y-4">
+          <div class="space-y-3 sm:space-y-4">
             {#each category.dishes as dish}
-              <div class="flex items-start space-x-4 p-4 bg-white/40 backdrop-blur-sm rounded-lg border border-white/50 hover:bg-white/50 transition-colors">
+              <div class="flex flex-col sm:flex-row items-start space-y-2 sm:space-y-0 sm:space-x-4 p-3 sm:p-4 bg-white/40 backdrop-blur-sm rounded-lg border border-white/50 hover:bg-white/50 transition-colors">
                 {#if dish.imageUrl}
                   <img 
                     src={dish.imageUrl} 
                     alt={dish.title}
-                    class="w-24 h-24 object-cover rounded-lg shadow-md"
+                    class="w-full sm:w-24 h-48 sm:h-24 object-cover rounded-lg shadow-md"
                   />
                 {/if}
-                <div class="flex-1">
-                  <div class="flex justify-between items-start">
-                    <h4 class="text-lg font-semibold text-gray-800">{dish.title}</h4>
-                    <p class="text-lg font-bold text-gray-800">{currency}{formatPrice(dish.price)}</p>
+                <div class="flex-1 w-full">
+                  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-2">
+                    <h4 class="text-base sm:text-lg font-semibold text-gray-800">{dish.title}</h4>
+                    <p class="text-base sm:text-lg font-bold text-gray-800">{currency}{formatPrice(dish.price)}</p>
                   </div>
                   {#if dish.description}
-                    <p class="text-gray-600 mt-1 font-normal">{dish.description}</p>
+                    <p class="text-sm sm:text-base text-gray-600 mt-1 font-normal">{dish.description}</p>
                   {/if}
                 </div>
               </div>

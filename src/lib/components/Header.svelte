@@ -47,26 +47,26 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<header class="fixed top-0 right-0 p-4 flex items-center gap-4 z-50">
+<header class="fixed top-0 right-0 p-2 sm:p-4 flex items-center gap-2 sm:gap-4 z-50">
   {#if userName && isMenuEditor}
     <div class="relative user-menu">
       <button
-        class="px-4 py-2 bg-black/30 backdrop-blur-md rounded-lg border border-white/10 hover:bg-black/40 transition-colors flex items-center gap-2"
+        class="px-2 sm:px-4 py-1.5 sm:py-2 bg-black/30 backdrop-blur-md rounded-lg border border-white/10 hover:bg-black/40 transition-colors flex items-center gap-2"
         on:click={() => isDropdownOpen = !isDropdownOpen}
       >
         {#if userPicture}
           <img 
             src={userPicture} 
             alt="Profile" 
-            class="w-10 h-10 rounded-full object-cover"
+            class="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover"
             on:error={handleImageError}
           />
         {:else}
-          <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
-            <span class="text-white text-sm">{userName?.[0]?.toUpperCase()}</span>
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-600 flex items-center justify-center">
+            <span class="text-white text-xs sm:text-sm">{userName?.[0]?.toUpperCase()}</span>
           </div>
         {/if}
-        <span class="text-sm font-medium text-white whitespace-nowrap">
+        <span class="text-xs sm:text-sm font-medium text-white whitespace-nowrap hidden sm:inline">
           {userName}
         </span>
       </button>

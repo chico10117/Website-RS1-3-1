@@ -68,7 +68,7 @@
 
 <Header />
 <main class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-  <div class="container mx-auto px-4 py-8">
+  <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
     <slot />
   </div>
 </main>
