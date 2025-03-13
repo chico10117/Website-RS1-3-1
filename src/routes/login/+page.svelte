@@ -42,7 +42,7 @@
             theme: 'outline', 
             size: 'large',
             text: 'signin_with',
-            shape: 'rectangular',
+            shape: 'pill',
             logo_alignment: 'left',
             width: 250
           }
@@ -136,7 +136,7 @@
           ></div>
           
           <!-- Manual fallback button -->
-          <div class="mt-4 text-center">
+          <!-- <div class="mt-4 text-center">
             <p class="text-sm text-gray-500 mb-2 text-base">{t('manualLoginPrompt')}</p>
             <button
               class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-base"
@@ -152,7 +152,7 @@
             >
               {t('tryManualLogin')}
             </button>
-          </div>
+          </div> -->
         </div>
       </div>
     </div>

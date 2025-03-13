@@ -307,7 +307,7 @@ export const translations: Translation = {
     en: "Your Restaurants"
   },
   selectRestaurantManage: {
-    es: "Selecciona un restaurante para administrar su menú",
+    es: "Selecciona un restaurante para administrar su carta",
     en: "Select a restaurant to manage its menu"
   },
   addRestaurant: {
