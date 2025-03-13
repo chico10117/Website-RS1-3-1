@@ -360,6 +360,7 @@ function createMenuStore() {
             restaurantName: restaurant.name,
             menuLogo: restaurant.logo,
             customPrompt: restaurant.customPrompt,
+            phoneNumber: restaurant.phoneNumber,
             categories: categories,
             isLoading: false,
             changedItems: changedItems
@@ -383,7 +384,7 @@ function createMenuStore() {
     },
 
     // Create a new restaurant
-    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null) {
+    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: string | null = null) {
       const tempId = createTempId();
       
       update(state => {
@@ -394,6 +395,7 @@ function createMenuStore() {
           slug: name.toLowerCase().replace(/\s+/g, '-'),
           logo,
           customPrompt,
+          phoneNumber,
           userId: '', // Will be set by the server
           currency: 'USD', // Default
           color: 0, // Default
@@ -408,6 +410,7 @@ function createMenuStore() {
           restaurantName: name,
           menuLogo: logo,
           customPrompt,
+          phoneNumber,
           changedItems: {
             ...state.changedItems,
             restaurant: true
@@ -417,7 +420,7 @@ function createMenuStore() {
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null) {
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: string | null = null) {
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
@@ -430,6 +433,7 @@ function createMenuStore() {
             name,
             logo,
             customPrompt,
+            phoneNumber,
             slug,
             updatedAt: new Date()
           };
@@ -440,6 +444,7 @@ function createMenuStore() {
           restaurantName: name,
           menuLogo: logo,
           customPrompt,
+          phoneNumber,
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
@@ -666,6 +671,7 @@ function createMenuStore() {
           name: state.restaurantName,
           logo: state.menuLogo,
           customPrompt: state.customPrompt,
+          phoneNumber: state.phoneNumber,
           currency: currentRestaurantObj?.currency || '€', // Use current value or default to €
           color: (currentRestaurantObj?.color && currentRestaurantObj.color > 0) ? currentRestaurantObj.color : 1 // Ensure color is at least 1
         };
@@ -783,10 +789,10 @@ function createMenuStore() {
             restaurantName: result.restaurant.name,
             menuLogo: result.restaurant.logo,
             customPrompt: result.restaurant.customPrompt,
-            categories: result.categories, // Use the complete categories returned from saveMenuChanges
+            phoneNumber: result.restaurant.phoneNumber,
+            categories: result.categories,
             isSaving: false,
             lastSaveTime: new Date(),
-            // Reset change tracking
             changedItems: {
               restaurant: false,
               categories: new Set<string>(),

@@ -18,6 +18,7 @@ export const restaurants = pgTable('restaurants', {
   customPrompt: text('custom_prompt'),
   currency: text('currency').notNull().default('€'),
   color: integer('color').notNull().default(1),
+  phoneNumber: text('phoneNumber'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });

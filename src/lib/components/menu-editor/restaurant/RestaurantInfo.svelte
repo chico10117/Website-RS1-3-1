@@ -11,6 +11,7 @@
   import { get } from 'svelte/store';
   import type { Category } from '$lib/types/menu.types';
   import MenuUploader from './MenuUploader.svelte';
+  import PhoneInput from './PhoneInput.svelte';
 
   export let restaurantName = '';
   export let menuLogo: string | null = null;
@@ -19,13 +20,14 @@
   export let customPrompt: string | null = null;
   export let currency: string = '€';
   export let color: number = 1;
+  export let phoneNumber: string | null = null;
 
   interface UpdateEvent {
     id?: string;
     name: string;
     logo: string | null;
     customPrompt: string | null;
-    phoneNumber?: string;
+    phoneNumber: string | null;
     currency: string;
     color: number;
     slug?: string;
@@ -174,6 +176,7 @@
           name: $currentRestaurant.name,
           logo: uploadResult.url || null,
           customPrompt: $currentRestaurant.customPrompt,
+          phoneNumber: $currentRestaurant.phoneNumber,
           currency,
           color,
           slug: $currentRestaurant.slug
@@ -216,6 +219,7 @@
           name: restaurantName,
           logo: uploadResult.url || null,
           customPrompt: customPrompt,
+          phoneNumber: phoneNumber,
           currency,
           color,
           slug: newSlug
@@ -254,6 +258,16 @@
       // The actual restaurant creation will happen when the save button is clicked
       menuStore.updateLocalRestaurantName(restaurantName);
 
+      dispatch('update', {
+        id: selectedRestaurant || undefined,
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt: customPrompt,
+        phoneNumber: phoneNumber,
+        currency,
+        color,
+        slug: $currentRestaurant?.slug || ''
+      });
     } catch (error) {
       console.error('Error updating restaurant name:', error);
       if (error instanceof Error) {
@@ -300,7 +314,8 @@
         editingRestaurantName.trim(),
         menuLogo,
         customPrompt,
-        newSlug
+        newSlug,
+        phoneNumber
       );
 
       // Update the current restaurant store with the new slug
@@ -321,6 +336,7 @@
         name: editingRestaurantName.trim(),
         logo: menuLogo,
         customPrompt: customPrompt,
+        phoneNumber: phoneNumber,
         currency,
         color,
         slug: newSlug
@@ -370,7 +386,8 @@
           restaurantName,
           menuLogo,
           customPrompt,
-          $currentRestaurant?.slug || null
+          $currentRestaurant?.slug || null,
+          phoneNumber
         );
 
         // Dispatch update event
@@ -379,6 +396,7 @@
           name: restaurantName,
           logo: menuLogo,
           customPrompt: customPrompt,
+          phoneNumber: phoneNumber,
           currency,
           color,
           slug: $currentRestaurant?.slug || ''
@@ -417,6 +435,7 @@
         name: restaurantName,
         logo: null,
         customPrompt: customPrompt,
+        phoneNumber: phoneNumber,
         currency,
         color,
         slug: $currentRestaurant?.slug || ''
@@ -458,6 +477,7 @@
       name: restaurantName,
       logo: menuLogo,
       customPrompt: customPrompt,
+      phoneNumber: phoneNumber,
       currency,
       color: value,
       slug: $currentRestaurant?.slug || ''
@@ -473,7 +493,8 @@
         restaurantName,
         menuLogo,
         customPrompt,
-        $currentRestaurant?.slug || null
+        $currentRestaurant?.slug || null,
+        phoneNumber
       );
       
       // Update the current restaurant store for compatibility
@@ -490,6 +511,7 @@
       name: restaurantName,
       logo: menuLogo,
       customPrompt: customPrompt,
+      phoneNumber: phoneNumber,
       currency: value,
       color,
       slug: $currentRestaurant?.slug || ''
@@ -537,8 +559,8 @@
             name: restaurantData.restaurant.name,
             logo: restaurantData.restaurant.logo,
             customPrompt: restaurantData.restaurant.customPrompt,
-            currency: restaurantData.restaurant.currency,
             phoneNumber: restaurantData.restaurant.phoneNumber,
+            currency: restaurantData.restaurant.currency,
             color,
             slug: $currentRestaurant?.slug || ''
           });
@@ -807,6 +829,45 @@
           </label>
         {/each}
       </div>
+    </div>
+
+    <!-- Phone Number -->
+    <div class="space-y-2 mb-12">
+      <PhoneInput 
+        {phoneNumber}
+        on:change={(event) => {
+          const { phoneNumber: newPhoneNumber } = event.detail;
+          phoneNumber = newPhoneNumber;
+          
+          // Update restaurant info in the store
+          menuStore.updateRestaurantInfo(
+            restaurantName,
+            menuLogo,
+            customPrompt,
+            $currentRestaurant?.slug || null,
+            newPhoneNumber
+          );
+          
+          // Update the current restaurant store for compatibility
+          if ($currentRestaurant) {
+            currentRestaurant.set({
+              ...$currentRestaurant,
+              phoneNumber: newPhoneNumber
+            });
+          }
+          
+          dispatch('update', {
+            id: selectedRestaurant || undefined,
+            name: restaurantName,
+            logo: menuLogo,
+            customPrompt: customPrompt,
+            phoneNumber: newPhoneNumber,
+            currency,
+            color,
+            slug: $currentRestaurant?.slug || ''
+          });
+        }}
+      />
     </div>
   </div>
 </div>

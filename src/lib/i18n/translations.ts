@@ -357,5 +357,21 @@ export const translations: Translation = {
   recoWebsite: {
     es: "reco.chat",
     en: "reco.chat"
+  },
+  phoneNumber: {
+    en: 'Phone Number',
+    es: 'Número de Teléfono'
+  },
+  enterPhoneNumber: {
+    en: 'Enter phone number',
+    es: 'Introduce el número de teléfono'
+  },
+  phoneNumberTooShort: {
+    en: 'Phone number must be at least 6 digits',
+    es: 'El número de teléfono debe tener al menos 6 dígitos'
+  },
+  phoneNumberTooLong: {
+    en: 'Phone number must not exceed 15 digits',
+    es: 'El número de teléfono no debe exceder los 15 dígitos'
   }
 }; 

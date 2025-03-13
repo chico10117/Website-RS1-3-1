@@ -110,7 +110,8 @@
         menuStore.createRestaurant(
           restaurantName,
           $menuStore.menuLogo,
-          $menuStore.customPrompt
+          $menuStore.customPrompt,
+          $menuStore.phoneNumber
         );
         
         // Get the newly created restaurant ID
@@ -126,7 +127,8 @@
           restaurantName,
           $menuStore.menuLogo,
           $menuStore.customPrompt,
-          newSlug
+          newSlug,
+          $menuStore.phoneNumber
         );
         
         // Update the current restaurant store

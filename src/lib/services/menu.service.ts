@@ -18,6 +18,7 @@ export async function saveMenuChanges(
     logo: string | null;
     slug?: string;
     customPrompt?: string | null;
+    phoneNumber?: string | null;
     currency: string;
     color: number;
   },
@@ -50,6 +51,7 @@ export async function saveMenuChanges(
       logo: restaurantData.logo,
       slug: restaurantData.slug || currentRestaurant?.slug,
       customPrompt: restaurantData.customPrompt ?? currentRestaurant?.customPrompt,
+      phoneNumber: restaurantData.phoneNumber ?? currentRestaurant?.phoneNumber,
       currency: restaurantData.currency,
       color: restaurantData.color
     },

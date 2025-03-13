@@ -51,14 +51,31 @@ export const GET = async () => {
  * Endpoint POST para crear un nuevo restaurante
  * @param {Request} request - Objeto de solicitud HTTP
  */
-export const POST = async ({ request }) => {
+export const POST = async ({ request }: { request: Request }) => {
   try {
     const data = await request.json();
+    
+    // Generate a slug from the name if not provided
+    const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-');
+    
+    // Check if userId is provided
+    if (!data.userId) {
+      return json({ 
+        success: false, 
+        error: 'User ID is required' 
+      }, { status: 400 });
+    }
     
     const [newRestaurant] = await db.insert(restaurants)
       .values({
         name: data.name,
-        logo: data.logo
+        slug: slug,
+        userId: data.userId,
+        logo: data.logo || null,
+        customPrompt: data.customPrompt || null,
+        phoneNumber: data.phoneNumber || null,
+        currency: data.currency || '€',
+        color: data.color || 1
       })
       .returning();
 

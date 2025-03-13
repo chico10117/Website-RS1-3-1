@@ -46,46 +46,6 @@
   let loading = true;
   let error: string | null = null;
 
-  // Load restaurant data when currentRestaurant changes
-  $: if ($currentRestaurant && $page.url.searchParams.get('restaurant')) {
-    const restaurantId = $page.url.searchParams.get('restaurant');
-    // Only load data if there's a restaurant ID in the URL and it matches
-    if (restaurantId === $currentRestaurant.id) {
-      loadRestaurantData($currentRestaurant);
-    } else {
-      // Clear state if no match
-      menuStore.reset();
-      currentRestaurant.set(null);
-      
-      // Remove URL parameter
-      const url = new URL(window.location.href);
-      url.searchParams.delete('restaurant');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }
-
-  async function loadRestaurantData(restaurant: Restaurant) {
-    try {
-      loading = true;
-      console.log('Loading restaurant data:', restaurant);
-      
-      const restaurantId = $page.url.searchParams.get('restaurant');
-      // Only load if there's a matching restaurant ID in the URL
-      if (restaurantId === restaurant.id) {
-        // Update restaurant info in menu store
-        menuStore.updateRestaurantInfo(restaurant.name, restaurant.logo, restaurant.customPrompt);
-        
-        // Load the restaurant data using the store
-        await menuStore.selectRestaurant(restaurant.id);
-      }
-    } catch (err) {
-      console.error('Error loading restaurant data:', err);
-      error = err instanceof Error ? err.message : 'Failed to load menu data';
-    } finally {
-      loading = false;
-    }
-  }
-
   onMount(async () => {
     try {
       loading = true;
@@ -103,10 +63,28 @@
       menuStore.reset();
       currentRestaurant.set(null);
       
-      // Remove any URL parameters
-      const url = new URL(window.location.href);
-      url.searchParams.delete('restaurant');
-      window.history.replaceState({}, '', url.toString());
+      // Check for restaurant ID in URL
+      const restaurantId = $page.url.searchParams.get('restaurant');
+      if (restaurantId) {
+        try {
+          // Load the restaurant data using the store
+          await menuStore.selectRestaurant(restaurantId);
+          await currentRestaurant.loadRestaurant(restaurantId);
+        } catch (err) {
+          console.error('Error loading restaurant data:', err);
+          error = err instanceof Error ? err.message : 'Failed to load menu data';
+          
+          // Remove URL parameter if loading fails
+          const url = new URL(window.location.href);
+          url.searchParams.delete('restaurant');
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else {
+        // Remove any URL parameters
+        const url = new URL(window.location.href);
+        url.searchParams.delete('restaurant');
+        window.history.replaceState({}, '', url.toString());
+      }
       
       // Load restaurants
       await refreshRestaurants();
@@ -119,10 +97,10 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null; customPrompt: string | null; currency: string; color: number }>) {
+  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null; customPrompt: string | null; currency: string; color: number; phoneNumber: string | null }>) {
     console.log('handleRestaurantUpdate called with event:', event.detail);
     
-    const { id, name, logo, customPrompt } = event.detail;
+    const { id, name, logo, customPrompt, phoneNumber } = event.detail;
     
     if (!name.trim()) {
       console.error('No restaurant name provided');
@@ -140,10 +118,10 @@
 
     if (id) {
       // Update existing restaurant
-      menuStore.updateRestaurantInfo(name, logo, customPrompt);
+      menuStore.updateRestaurantInfo(name, logo, customPrompt, $currentRestaurant?.slug || null, phoneNumber);
     } else {
       // Create new restaurant
-      menuStore.createRestaurant(name, logo, customPrompt);
+      menuStore.createRestaurant(name, logo, customPrompt, phoneNumber);
       
       // Update the current restaurant store
       const newRestaurant = $menuStore.restaurants.find(r => r.name === name);
@@ -257,6 +235,7 @@
               restaurants={$menuStore.restaurants}
               currency={$currentRestaurant?.currency || '€'}
               color={$currentRestaurant?.color || 1}
+              phoneNumber={$currentRestaurant?.phoneNumber || null}
               on:update={handleRestaurantUpdate}
             />
           

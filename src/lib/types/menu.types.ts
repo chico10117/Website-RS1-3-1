@@ -7,6 +7,7 @@ export interface Restaurant {
   userId: string;
   currency: string;
   color: number;
+  phoneNumber: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

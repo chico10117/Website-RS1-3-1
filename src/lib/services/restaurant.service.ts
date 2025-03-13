@@ -41,6 +41,7 @@ export async function createOrUpdateRestaurant(
     logo: string | null; 
     slug?: string;
     customPrompt?: string | null;
+    phoneNumber?: string | null;
     userId?: string;
     currency: string;
     color: number;
@@ -53,8 +54,8 @@ export async function createOrUpdateRestaurant(
   
   const url = isUpdate ? `/api/restaurants/${restaurantId}` : '/api/restaurants';
   
-  // Generate slug if not provided
-  const slug = restaurantData.slug || await generateSlug(restaurantData.name);
+  // Only generate slug for new restaurants when no slug is provided
+  const slug = isUpdate ? restaurantData.slug : (restaurantData.slug || await generateSlug(restaurantData.name));
   
   try {
     // For POST (new restaurant), include all data EXCEPT temporary IDs
@@ -63,8 +64,8 @@ export async function createOrUpdateRestaurant(
       ? { 
           name: restaurantData.name, 
           logo: restaurantData.logo, 
-          slug,
           customPrompt: restaurantData.customPrompt,
+          phoneNumber: restaurantData.phoneNumber,
           currency: restaurantData.currency,
           color: restaurantData.color
         }
@@ -75,6 +76,7 @@ export async function createOrUpdateRestaurant(
           logo: restaurantData.logo,
           slug,
           customPrompt: restaurantData.customPrompt,
+          phoneNumber: restaurantData.phoneNumber,
           currency: restaurantData.currency,
           color: restaurantData.color
         };

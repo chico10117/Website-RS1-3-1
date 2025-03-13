@@ -117,6 +117,11 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
       updateSet.customPrompt = updateData.customPrompt;
     }
 
+    // Handle phone number update if provided
+    if (updateData.phoneNumber !== undefined) {
+      updateSet.phoneNumber = updateData.phoneNumber;
+    }
+
     // Add currency and color updates
     if (updateData.currency !== undefined) {
       updateSet.currency = updateData.currency;
