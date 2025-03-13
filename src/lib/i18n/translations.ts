@@ -300,7 +300,7 @@ export const translations: Translation = {
   },
   uploadMenuFiles: {
     en: 'Upload Menu Files',
-    es: 'Subir Archivos del Menú'
+    es: 'Subir Archivos de la Carta'
   },
   yourRestaurants: {
     es: "Tus Restaurantes",
@@ -331,7 +331,7 @@ export const translations: Translation = {
     en: "Saving..."
   },
   loginSubtitle: {
-    es: "Menú digital QR gratuito para restaurantes y hoteles",
+    es: "Carta digital QR gratuita para restaurantes y hoteles",
     en: "Free QR digital menu for restaurants and hotels"
   },
   manualLoginPrompt: {
