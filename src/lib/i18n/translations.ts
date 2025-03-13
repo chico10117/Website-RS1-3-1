@@ -329,5 +329,33 @@ export const translations: Translation = {
   saving: {
     es: "Guardando...",
     en: "Saving..."
+  },
+  loginSubtitle: {
+    es: "Menú digital QR gratuito para restaurantes y hoteles",
+    en: "Free QR digital menu for restaurants and hotels"
+  },
+  manualLoginPrompt: {
+    es: "Si el botón de Google no funciona:",
+    en: "If the Google button doesn't work:"
+  },
+  tryManualLogin: {
+    es: "Intentar inicio de sesión manual",
+    en: "Try Manual Login"
+  },
+  demo: {
+    es: "Demo",
+    en: "Demo"
+  },
+  increaseSales: {
+    es: "Aumenta las ventas y la rentabilidad de tu restaurante con Reco.",
+    en: "Increase sales and profitability of your restaurant with Reco."
+  },
+  copyright: {
+    es: "© 2025 - Reco • Todos los derechos reservados.",
+    en: "© 2025 - Reco • All rights reserved."
+  },
+  recoWebsite: {
+    es: "reco.chat",
+    en: "reco.chat"
   }
 }; 
