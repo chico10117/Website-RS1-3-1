@@ -331,8 +331,8 @@ export const translations: Translation = {
     en: "Saving..."
   },
   loginSubtitle: {
-    es: "Carta digital QR gratuita para restaurantes y hoteles",
-    en: "Free QR digital menu for restaurants and hotels"
+    es: "Carta digital QR gratuita con IA para restaurantes y hoteles",
+    en: "Free QR digital menu with AI for restaurants and hotels"
   },
   manualLoginPrompt: {
     es: "Si el botón de Google no funciona:",
@@ -373,5 +373,9 @@ export const translations: Translation = {
   phoneNumberTooLong: {
     en: 'Phone number must not exceed 15 digits',
     es: 'El número de teléfono no debe exceder los 15 dígitos'
+  },
+  googleButtonText: {
+    es: "continuar_con",
+    en: "continue_with"
   }
 }; 
