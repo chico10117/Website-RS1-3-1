@@ -27,8 +27,8 @@ export const translations: Translation = {
     en: "Enter restaurant name"
   },
   menuLogo: {
-    es: "Logo de la Carta",
-    en: "Menu Logo"
+    es: "Logo del Restaurante",
+    en: "Restaurant Logo"
   },
   addLogo: {
     es: "Agregar logo",
