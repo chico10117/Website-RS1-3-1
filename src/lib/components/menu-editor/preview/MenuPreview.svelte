@@ -59,7 +59,7 @@
   });
 </script>
 
-<div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-4 sm:p-6">
+<div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-3 sm:p-6">
   <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800 tracking-tight">{t('menuPreview')}</h2>
   
   <!-- Restaurant Info -->
