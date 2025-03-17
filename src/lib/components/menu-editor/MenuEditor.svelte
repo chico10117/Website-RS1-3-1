@@ -196,7 +196,7 @@
   }
 </script>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-4 sm:py-8">
   {#if loading}
     <div class="text-center text-gray-600">
       Loading restaurants...
@@ -206,16 +206,16 @@
       {error}
     </div>
   {:else}
-    <div class="glass rounded-3xl p-8">
+    <div class="glass rounded-3xl p-4 sm:p-8">
       <!-- Title and save button -->
-        <div class="flex justify-between items-center">
-          <div class="flex items-center gap-3">
-            <img src="/recologo.svg" alt="Reco Logo" class="h-8 w-auto" />
-            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
-          </div>
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div class="flex items-center gap-3">
+          <img src="/recologo.svg" alt="Reco Logo" class="h-6 sm:h-8 w-auto" />
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
         </div>
+      </div>
       <!-- Restaurant selector -->
-      <div class="mb-8">
+      <div class="mb-4 sm:mb-8">
         <RestaurantSelector 
           on:select={handleRestaurantSelect}
           on:toggleMinimized={() => isRestaurantSelectorMinimized.set(false)}
@@ -223,10 +223,10 @@
       </div>
 
       <!-- Main content -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         <!-- Left column: Restaurant info and categories -->
         <div>
-          <div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-6">
+          <div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-4 sm:p-6">
             <RestaurantInfo 
               restaurantName={$menuStore.restaurantName}
               menuLogo={$menuStore.menuLogo}
@@ -239,7 +239,7 @@
               on:update={handleRestaurantUpdate}
             />
           
-            <div class="mt-8">
+            <div class="mt-4 sm:mt-8">
               <CategoryList 
                 categories={$menuStore.categories}
                 selectedRestaurant={$menuStore.selectedRestaurant}
@@ -266,7 +266,7 @@
 </div>
 
 <!-- Sticky save button that moves with scroll -->
-<div class="sticky bottom-8 float-right mr-8 z-50">
+<div class="sticky bottom-4 sm:bottom-8 float-right mr-4 sm:mr-8 z-50">
   <SaveButton />
 </div>
 
