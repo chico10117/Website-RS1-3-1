@@ -294,6 +294,10 @@ export const translations: Translation = {
     en: 'Dark',
     es: 'Oscuro'
   },
+  colorCustom: {
+    en: 'Custom',
+    es: 'Personalizado'
+  },
   uploadMenu: {
     en: 'Upload Your Menu Here!',
     es: 'Sube Tu Carta Acá!'

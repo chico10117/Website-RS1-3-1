@@ -76,13 +76,27 @@
     { value: 1, label: t('colorLight') },
     { value: 2, label: t('colorGreen') },
     { value: 3, label: t('colorPink') },
-    { value: 4, label: t('colorDark') }
+    { value: 4, label: t('colorDark') },
+    { value: 5, label: t('colorCustom') }
   ];
 
   const currencyOptions = [
     { value: '€', label: '€' },
     { value: '$', label: '$' },
     { value: '£', label: '£' }
+  ];
+
+  let showCustomColorPicker = false;
+  let customColorValue = '';
+  let customColorInput = '';
+  let pickerPosition = { x: 0, y: 0 };
+  let hueValue = 0;
+  let tempColorValue = '';
+
+  const colorPalette = [
+    '#FF5733', '#33FF57', '#3357FF', '#F033FF', '#FFD700',
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
+    '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
   ];
 
   function handleDragEnter(e: DragEvent) {
@@ -452,15 +466,38 @@
   }
 
   function handleColorChange(value: number) {
-    color = value;
-    
+    if (value === 5) {
+      // Toggle the custom color picker
+      if (showCustomColorPicker) {
+        showCustomColorPicker = false;
+        // If we're closing and we have a custom color, keep using it
+        if (customColorValue) {
+          color = value;
+        }
+      } else {
+        showCustomColorPicker = true;
+        color = value;
+        // Initialize tempColorValue with current custom color or default
+        tempColorValue = customColorValue || '#000000';
+        customColorInput = tempColorValue;
+      }
+    } else {
+      // For other colors, close the picker and update immediately
+      showCustomColorPicker = false;
+      color = value;
+      updateRestaurantColor(value);
+    }
+  }
+
+  function updateRestaurantColor(value: number) {
     // Update restaurant info in the store
     if (restaurantName) {
       menuStore.updateRestaurantInfo(
         restaurantName,
         menuLogo,
         customPrompt,
-        $currentRestaurant?.slug || null
+        $currentRestaurant?.slug || null,
+        phoneNumber
       );
       
       // Update the current restaurant store for compatibility
@@ -516,6 +553,97 @@
       color,
       slug: $currentRestaurant?.slug || ''
     });
+  }
+
+  function handleCustomColorSelect(hexColor: string) {
+    tempColorValue = hexColor;
+    customColorInput = hexColor;
+  }
+
+  function handleCustomColorInput() {
+    if (customColorInput.match(/^#[0-9A-Fa-f]{6}$/)) {
+      tempColorValue = customColorInput;
+    }
+  }
+
+  function acceptCustomColor() {
+    customColorValue = tempColorValue;
+    updateRestaurantColor(5);
+    showCustomColorPicker = false;
+  }
+
+  function cancelCustomColor() {
+    showCustomColorPicker = false;
+    // If we don't have a previous custom color, revert to Light theme
+    if (!customColorValue) {
+      color = 1;
+      updateRestaurantColor(1);
+    }
+  }
+
+  function updateColorFromPosition(x: number, y: number, hue: number = hueValue) {
+    const saturation = (x / 100);
+    const value = 1 - (y / 100);
+    const color = hsvToHex(hue, saturation, value);
+    tempColorValue = color;
+    customColorInput = color;
+  }
+
+  function handlePickerMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLDivElement;
+    const rect = target.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+    pickerPosition = { x, y };
+    updateColorFromPosition(x, y);
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const newY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      pickerPosition = { x: newX, y: newY };
+      updateColorFromPosition(newX, newY);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }
+
+  function handleHueChange(event: MouseEvent) {
+    const target = event.target as HTMLDivElement;
+    const rect = target.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    hueValue = x * 3.6; // Convert percentage to degrees (0-360)
+    updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
+  }
+
+  function hsvToHex(h: number, s: number, v: number): string {
+    let r = 0, g = 0, b = 0;
+    const i = Math.floor(h / 60);
+    const f = h / 60 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+
+    switch (i % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      case 5: r = v; g = p; b = q; break;
+    }
+
+    const toHex = (n: number) => {
+      const hex = Math.round(n * 255).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
 </script>
 
@@ -807,6 +935,73 @@
           </label>
         {/each}
       </div>
+
+      {#if showCustomColorPicker}
+        <div class="mt-4 space-y-4">
+          <!-- Color spectrum picker -->
+          <div class="relative w-[200px] h-[200px] cursor-crosshair"
+               style="background: linear-gradient(to right, #fff, hsl({hueValue}, 100%, 50%));"
+               on:mousedown={handlePickerMouseDown}>
+            <div class="absolute inset-0"
+                 style="background: linear-gradient(to bottom, transparent, #000);">
+              <div class="absolute w-3 h-3 border-2 border-white rounded-full shadow-md transform -translate-x-1/2 -translate-y-1/2"
+                   style="left: {pickerPosition.x}%; top: {pickerPosition.y}%; background-color: {tempColorValue};">
+              </div>
+            </div>
+          </div>
+
+          <!-- Hue slider -->
+          <div class="relative w-[200px] h-4 cursor-pointer"
+               style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
+               on:mousedown={handleHueChange}>
+            <div class="absolute w-1 h-full bg-white border border-gray-300 shadow-md"
+                 style="left: {hueValue / 3.6}%;">
+            </div>
+          </div>
+
+          <!-- Preset colors grid -->
+          <div class="grid grid-cols-8 gap-1 max-w-[200px]">
+            {#each colorPalette as hexColor}
+              <button
+                class="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                style="background-color: {hexColor}"
+                on:click={() => handleCustomColorSelect(hexColor)}
+              />
+            {/each}
+          </div>
+
+          <!-- Color input and preview -->
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              bind:value={customColorInput}
+              placeholder="#000000"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              on:input={handleCustomColorInput}
+            />
+            <div
+              class="w-8 h-8 rounded-md border border-gray-300"
+              style="background-color: {tempColorValue}"
+            />
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex justify-end gap-2">
+            <button
+              class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+              on:click={cancelCustomColor}
+            >
+              {t('cancel')}
+            </button>
+            <button
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              on:click={acceptCustomColor}
+            >
+              {t('save')}
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
 
     <!-- Currency Selection -->
