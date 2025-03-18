@@ -613,12 +613,66 @@
     document.addEventListener('mouseup', handleMouseUp);
   }
 
+  function handlePickerTouchStart(event: TouchEvent) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    const target = event.target as HTMLDivElement;
+    const rect = target.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
+    pickerPosition = { x, y };
+    updateColorFromPosition(x, y);
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const moveTouch = e.touches[0];
+      const newX = Math.max(0, Math.min(100, ((moveTouch.clientX - rect.left) / rect.width) * 100));
+      const newY = Math.max(0, Math.min(100, ((moveTouch.clientY - rect.top) / rect.height) * 100));
+      pickerPosition = { x: newX, y: newY };
+      updateColorFromPosition(newX, newY);
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  }
+
   function handleHueChange(event: MouseEvent) {
     const target = event.target as HTMLDivElement;
     const rect = target.getBoundingClientRect();
     const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
     hueValue = x * 3.6; // Convert percentage to degrees (0-360)
     updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
+  }
+
+  function handleHueTouchStart(event: TouchEvent) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    const target = event.target as HTMLDivElement;
+    const rect = target.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+    hueValue = x * 3.6; // Convert percentage to degrees (0-360)
+    updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const moveTouch = e.touches[0];
+      const newX = Math.max(0, Math.min(100, ((moveTouch.clientX - rect.left) / rect.width) * 100));
+      hueValue = newX * 3.6;
+      updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
   }
 
   function hsvToHex(h: number, s: number, v: number): string {
@@ -939,33 +993,36 @@
       {#if showCustomColorPicker}
         <div class="mt-4 space-y-4">
           <!-- Color spectrum picker -->
-          <div class="relative w-[200px] h-[200px] cursor-crosshair"
+          <div class="relative w-full max-w-[200px] h-[200px] cursor-crosshair rounded-lg overflow-hidden touch-manipulation"
                style="background: linear-gradient(to right, #fff, hsl({hueValue}, 100%, 50%));"
-               on:mousedown={handlePickerMouseDown}>
+               on:mousedown={handlePickerMouseDown}
+               on:touchstart={handlePickerTouchStart}>
             <div class="absolute inset-0"
                  style="background: linear-gradient(to bottom, transparent, #000);">
-              <div class="absolute w-3 h-3 border-2 border-white rounded-full shadow-md transform -translate-x-1/2 -translate-y-1/2"
+              <div class="absolute w-5 h-5 border-2 border-white rounded-full shadow-md transform -translate-x-1/2 -translate-y-1/2"
                    style="left: {pickerPosition.x}%; top: {pickerPosition.y}%; background-color: {tempColorValue};">
               </div>
             </div>
           </div>
 
           <!-- Hue slider -->
-          <div class="relative w-[200px] h-4 cursor-pointer"
+          <div class="relative w-full max-w-[200px] h-8 cursor-pointer rounded-lg overflow-hidden touch-manipulation"
                style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
-               on:mousedown={handleHueChange}>
-            <div class="absolute w-1 h-full bg-white border border-gray-300 shadow-md"
+               on:mousedown={handleHueChange}
+               on:touchstart={handleHueTouchStart}>
+            <div class="absolute w-2 h-full bg-white border border-gray-300 shadow-md"
                  style="left: {hueValue / 3.6}%;">
             </div>
           </div>
 
           <!-- Preset colors grid -->
-          <div class="grid grid-cols-8 gap-1 max-w-[200px]">
+          <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 max-w-[240px]">
             {#each colorPalette as hexColor}
               <button
-                class="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                class="w-8 h-8 rounded-lg transition-transform hover:scale-110 shadow-sm border border-gray-100 active:scale-95 touch-manipulation"
                 style="background-color: {hexColor}"
                 on:click={() => handleCustomColorSelect(hexColor)}
+                aria-label="Color swatch"
               />
             {/each}
           </div>
@@ -978,23 +1035,25 @@
               placeholder="#000000"
               class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               on:input={handleCustomColorInput}
+              aria-label="Enter hex color code"
             />
             <div
-              class="w-8 h-8 rounded-md border border-gray-300"
+              class="w-12 h-12 rounded-lg border border-gray-300 shadow-sm"
               style="background-color: {tempColorValue}"
+              aria-label="Color preview"
             />
           </div>
 
           <!-- Action buttons -->
-          <div class="flex justify-end gap-2">
+          <div class="flex justify-end gap-3 mt-2">
             <button
-              class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+              class="px-5 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors touch-manipulation active:scale-95"
               on:click={cancelCustomColor}
             >
               {t('cancel')}
             </button>
             <button
-              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              class="px-5 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors touch-manipulation active:scale-95"
               on:click={acceptCustomColor}
             >
               {t('save')}
