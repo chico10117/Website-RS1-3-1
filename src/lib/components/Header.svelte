@@ -47,11 +47,11 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<header class="fixed top-0 right-0 p-2 sm:p-4 flex items-center gap-2 sm:gap-4 z-50">
+<header class="fixed top-0 right-0 p-1 sm:p-4 flex items-center gap-2 sm:gap-4 z-50">
   {#if userName && isMenuEditor}
     <div class="relative user-menu">
       <button
-        class="px-2 sm:px-4 py-1.5 sm:py-2 bg-black/30 backdrop-blur-md rounded-lg border border-white/10 hover:bg-black/40 transition-colors flex items-center gap-2"
+        class="px-1 sm:px-4 py-1.5 sm:py-2 bg-black/30 backdrop-blur-md rounded-lg border border-white/10 hover:bg-black/40 transition-colors flex items-center gap-2"
         on:click={() => isDropdownOpen = !isDropdownOpen}
       >
         {#if userPicture}

@@ -211,8 +211,8 @@ export const translations: Translation = {
     en: "Additional instructions or information"
   },
   customPromptPlaceholder: {
-    es: "Ingrese cualquier instrucción o información adicional para su menú (máximo 1000 caracteres)",
-    en: "Enter any additional instructions or information for your menu (max 1000 characters)"
+    es: "Ingrese cualquier instrucción o información adicional para su chatbot (máximo 1000 caracteres)",
+    en: "Enter any additional instructions or information for your chatbot (max 1000 characters)"
   },
   noRestaurantSelected: {
     es: "No hay restaurante seleccionado",
@@ -251,8 +251,8 @@ export const translations: Translation = {
     es: 'Procesando página'
   },
   generatingRestaurantData: {
-    en: 'Generating restaurant data...',
-    es: 'Generando datos del restaurante...'
+    en: 'Creating Restaurant Reco Smart Menu...',
+    es: 'Creando Carta Reco Smart para tu Restaurante...'
   },
   seedingDatabase: {
     en: 'Saving to database...',
@@ -299,8 +299,8 @@ export const translations: Translation = {
     es: 'Personalizado'
   },
   uploadMenu: {
-    en: 'Upload Menu',
-    es: 'Subir Carta'
+    en: 'Upload Your Menu Here!',
+    es: 'Sube Tu Carta Acá!'
   },
   uploadMenuFiles: {
     en: 'Upload Menu Files',

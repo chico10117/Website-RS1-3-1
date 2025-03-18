@@ -196,7 +196,7 @@
   }
 </script>
 
-<div class="container mx-auto px-4 py-4 sm:py-8">
+<div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
   {#if loading}
     <div class="text-center text-gray-600">
       Loading restaurants...
@@ -206,7 +206,7 @@
       {error}
     </div>
   {:else}
-    <div class="glass rounded-3xl p-4 sm:p-8">
+    <div class="glass rounded-3xl p-3 sm:p-8">
       <!-- Title and save button -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div class="flex items-center gap-3">
@@ -266,7 +266,7 @@
 </div>
 
 <!-- Sticky save button that moves with scroll -->
-<div class="sticky bottom-4 sm:bottom-8 float-right mr-4 sm:mr-8 z-50">
+<div class="sticky bottom-4 sm:bottom-8 float-right mr-2 sm:mr-8 z-50">
   <SaveButton />
 </div>
 
