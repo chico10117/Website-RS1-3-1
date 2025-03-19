@@ -97,19 +97,36 @@ export function cancelCustomColor(
 
 /**
  * Update color based on picker position
+ * Fixed to a basic square gradient palette with no hue variation
  */
 export function updateColorFromPosition(
   x: number,
   y: number,
-  hueValue: number,
+  hue: number,
   setTempColorValue: (val: string) => void,
   setCustomColorInput: (val: string) => void
 ) {
-  const s = x / 100;
-  const v = 1 - (y / 100);
-  const hexColor = hsvToHex(hueValue, s, v);
+  // Simple color calculation based on x,y position in the grid
+  // Creating a simple black to color to white gradient
+  const r = Math.round(255 * (x / 100));
+  const g = Math.round(255 * (1 - y / 100));
+  const b = Math.round(255 * ((100 - x) / 100));
+  
+  const hexColor = rgbToHex(r, g, b);
   setTempColorValue(hexColor);
   setCustomColorInput(hexColor);
+}
+
+/**
+ * Convert RGB to Hex color
+ */
+export function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (x: number) => {
+    const hex = Math.round(Math.min(255, Math.max(0, x))).toString(16).toUpperCase();
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 /**
@@ -117,37 +134,6 @@ export function updateColorFromPosition(
  */
 export function clamp(value: number): number {
   return Math.min(100, Math.max(0, value));
-}
-
-/**
- * Convert HSV to Hex color
- */
-export function hsvToHex(h: number, s: number, v: number): string {
-  // Convert HSV to RGB
-  let r, g, b;
-  const i = Math.floor(h / 60) % 6;
-  const f = h / 60 - Math.floor(h / 60);
-  const p = v * (1 - s);
-  const q = v * (1 - f * s);
-  const t = v * (1 - (1 - f) * s);
-
-  switch (i) {
-    case 0: [r, g, b] = [v, t, p]; break;
-    case 1: [r, g, b] = [q, v, p]; break;
-    case 2: [r, g, b] = [p, v, t]; break;
-    case 3: [r, g, b] = [p, q, v]; break;
-    case 4: [r, g, b] = [t, p, v]; break;
-    case 5: [r, g, b] = [v, p, q]; break;
-    default: [r, g, b] = [0, 0, 0];
-  }
-  
-  // Convert RGB to Hex
-  const toHex = (x: number) => {
-    const hex = Math.round(x * 255).toString(16).toUpperCase();
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-  
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 /**
@@ -190,48 +176,6 @@ export function handleColorPickerTouchInteraction(
   updateColorFn(x, y, hueValue);
   
   return { rect, x, y };
-}
-
-/**
- * Handle hue slider interaction
- */
-export function handleHueInteraction(
-  event: MouseEvent,
-  sliderElement: HTMLDivElement,
-  updateHueFn: (value: number) => void,
-  updateColorFromPositionFn: (x: number, y: number, hue: number) => void,
-  pickerPosition: { x: number, y: number }
-) {
-  const rect = sliderElement.getBoundingClientRect();
-  const x = clamp(((event.clientX - rect.left) / rect.width) * 100);
-  const hueValue = x * 3.6;
-  
-  updateHueFn(hueValue);
-  updateColorFromPositionFn(pickerPosition.x, pickerPosition.y, hueValue);
-  
-  return rect;
-}
-
-/**
- * Handle hue slider touch interaction
- */
-export function handleHueTouchInteraction(
-  event: TouchEvent,
-  sliderElement: HTMLDivElement,
-  updateHueFn: (value: number) => void,
-  updateColorFromPositionFn: (x: number, y: number, hue: number) => void,
-  pickerPosition: { x: number, y: number }
-) {
-  event.preventDefault();
-  const touch = event.touches[0];
-  const rect = sliderElement.getBoundingClientRect();
-  const x = clamp(((touch.clientX - rect.left) / rect.width) * 100);
-  const hueValue = x * 3.6;
-  
-  updateHueFn(hueValue);
-  updateColorFromPositionFn(pickerPosition.x, pickerPosition.y, hueValue);
-  
-  return rect;
 }
 
 /**
@@ -289,4 +233,292 @@ export function updateRestaurantColor(
       color: capitalizedVal
     });
   }
+}
+
+/**
+ * Setup color picker mouse interaction
+ */
+export function setupColorPickerMouseInteraction(
+  event: MouseEvent,
+  pickerElement: HTMLDivElement,
+  updatePositionFn: (x: number, y: number) => void,
+  updateColorFn: (x: number, y: number, hue: number) => void,
+  hueValue: number
+) {
+  // Initial interaction
+  handleColorPickerInteraction(
+    event, 
+    pickerElement, 
+    updatePositionFn,
+    updateColorFn,
+    hueValue
+  );
+
+  // Setup move handler
+  const handleMouseMove = (e: MouseEvent) => {
+    handleColorPickerInteraction(
+      e, 
+      pickerElement, 
+      updatePositionFn,
+      updateColorFn,
+      hueValue
+    );
+  };
+
+  // Setup cleanup
+  const handleMouseUp = () => {
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+  
+  // Setup listeners
+  document.addEventListener('mousemove', handleMouseMove);
+  document.addEventListener('mouseup', handleMouseUp);
+}
+
+/**
+ * Setup color picker touch interaction
+ */
+export function setupColorPickerTouchInteraction(
+  event: TouchEvent,
+  pickerElement: HTMLDivElement,
+  updatePositionFn: (x: number, y: number) => void,
+  updateColorFn: (x: number, y: number, hue: number) => void,
+  hueValue: number
+) {
+  event.preventDefault();
+  
+  // Initial interaction
+  handleColorPickerTouchInteraction(
+    event,
+    pickerElement,
+    updatePositionFn,
+    updateColorFn,
+    hueValue
+  );
+
+  // Setup move handler
+  const handleTouchMove = (e: TouchEvent) => {
+    e.preventDefault();
+    handleColorPickerTouchInteraction(
+      e,
+      pickerElement,
+      updatePositionFn,
+      updateColorFn,
+      hueValue
+    );
+  };
+
+  // Setup cleanup
+  const handleTouchEnd = () => {
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+  };
+
+  // Setup listeners
+  document.addEventListener('touchmove', handleTouchMove, { passive: false });
+  document.addEventListener('touchend', handleTouchEnd);
+}
+
+/**
+ * Check and initialize custom color value when needed
+ */
+export function initializeCustomColor(
+  color: string, 
+  selectedRestaurant: string | null,
+  setCustomColorValue: (val: string) => void,
+  setTempColorValue: (val: string) => void,
+  setCustomColorInput: (val: string) => void
+) {
+  if (color === '5' && typeof window !== 'undefined') {
+    const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
+    if (savedColor) {
+      setCustomColorValue(savedColor);
+      setTempColorValue(savedColor);
+      setCustomColorInput(savedColor);
+    }
+  }
+}
+
+/**
+ * Save custom color to localStorage when it changes
+ */
+export function saveCustomColorToStorage(
+  customColorValue: string,
+  selectedRestaurant: string | null
+) {
+  if (customColorValue && typeof customColorValue === 'string' && typeof window !== 'undefined') {
+    localStorage.setItem(`customColor_${selectedRestaurant || 'new'}`, customColorValue.toUpperCase());
+  }
+}
+
+/**
+ * Update color value and dispatch the change
+ */
+export function updateColor(
+  val: string, 
+  restaurantName: string,
+  menuLogo: string | null,
+  customPrompt: string | null,
+  phoneNumber: string | null,
+  currency: string,
+  customColorValue: string,
+  setColor: (color: string) => void,
+  dispatchFn: (event: 'update', detail: any) => void
+) {
+  console.log('updateColor called with:', val);
+  
+  // Safely handle both numeric and hex color values
+  const newColor = typeof val === 'string' && val.startsWith('#') 
+    ? val.toUpperCase() // For hex colors, ensure they're capitalized
+    : val; // For standard color numbers, keep as is
+  
+  setColor(newColor);
+  console.log('Local color prop updated to:', newColor);
+  
+  updateRestaurantColor(
+    val,
+    restaurantName,
+    menuLogo,
+    customPrompt,
+    phoneNumber,
+    newColor,
+    currency,
+    customColorValue,
+    (evt, detail) => {
+      console.log('Dispatching color update event with color:', detail.color);
+      dispatchFn(evt, detail);
+    }
+  );
+}
+
+/**
+ * Handler for color radio button change 
+ */
+export function onColorChange(
+  value: number,
+  customColorValue: string,
+  restaurantName: string,
+  menuLogo: string | null,
+  customPrompt: string | null,
+  phoneNumber: string | null,
+  currency: string,
+  color: string,
+  setShowCustomColorPicker: (val: boolean) => void,
+  setTempColorValue: (val: string) => void,
+  setCustomColorInput: (val: string) => void,
+  setColor: (val: string) => void,
+  dispatchFn: (event: 'update', detail: any) => void
+) {
+  if (value === 5) {
+    // If selecting custom color option, update the UI but don't change the color value yet
+    setShowCustomColorPicker(true);
+    if (customColorValue) {
+      setTempColorValue(customColorValue);
+      setCustomColorInput(customColorValue);
+    }
+  } else {
+    // For standard colors, immediately update the color value
+    const newColor = String(value);
+    setColor(newColor); // Update the local color prop
+    updateRestaurantColor(
+      newColor,
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      customColorValue,
+      dispatchFn
+    );
+  }
+}
+
+/**
+ * Handle custom color input change (with capitalization)
+ */
+export function onCustomColorInput(
+  customColorInput: string,
+  setCustomColorInput: (val: string) => void,
+  setTempColorValue: (val: string) => void
+) {
+  const capitalizedInput = customColorInput.toUpperCase();
+  setCustomColorInput(capitalizedInput);
+  handleCustomColorInput(capitalizedInput, setTempColorValue);
+}
+
+/**
+ * Handle accepting a custom color
+ */
+export function onAcceptCustomColor(
+  tempColorValue: string,
+  restaurantName: string,
+  menuLogo: string | null,
+  customPrompt: string | null,
+  phoneNumber: string | null,
+  currency: string,
+  customColorValue: string,
+  setColor: (val: string) => void,
+  setCustomColorValue: (val: string) => void,
+  setShowCustomColorPicker: (val: boolean) => void,
+  dispatchFn: (event: 'update', detail: any) => void
+) {
+  console.log('Accepting custom color:', tempColorValue);
+  setColor(tempColorValue); // Update the local color prop directly
+  
+  acceptCustomColor(
+    tempColorValue,
+    (v: string) => {
+      console.log('Setting customColorValue to:', v);
+      setCustomColorValue(v);
+    },
+    (val: string) => {
+      console.log('Calling updateColor with:', val);
+      updateColor(
+        val,
+        restaurantName,
+        menuLogo,
+        customPrompt,
+        phoneNumber,
+        currency,
+        customColorValue,
+        setColor,
+        dispatchFn
+      );
+    },
+    setShowCustomColorPicker
+  );
+}
+
+/**
+ * Handle canceling custom color selection
+ */
+export function onCancelCustomColor(
+  customColorValue: string,
+  restaurantName: string,
+  menuLogo: string | null,
+  customPrompt: string | null,
+  phoneNumber: string | null,
+  currency: string,
+  setColor: (val: string) => void,
+  setShowCustomColorPicker: (val: boolean) => void,
+  dispatchFn: (event: 'update', detail: any) => void
+) {
+  cancelCustomColor(
+    customColorValue,
+    setShowCustomColorPicker,
+    setColor,
+    (val: string) => updateColor(
+      val,
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      currency,
+      customColorValue,
+      setColor,
+      dispatchFn
+    )
+  );
 } 

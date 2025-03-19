@@ -7,6 +7,8 @@
   import type { Restaurant } from '$lib/types/menu.types';
   import MenuUploader from './MenuUploader.svelte';
   import PhoneInput from './PhoneInput.svelte';
+  import ColorPicker from './ColorPicker.svelte';
+  import CurrencyPicker from './CurrencyPicker.svelte';
 
   // Import our new helpers
   import { type UpdateEvent,
@@ -30,17 +32,11 @@
   } from '$lib/utils/RestaurantInfo.helpers';
 
   import {
-    handleColorChange,
-    handleCustomColorSelect,
-    handleCustomColorInput,
-    acceptCustomColor,
-    cancelCustomColor,
-    updateRestaurantColor,
-    updateColorFromPosition,
-    handleColorPickerInteraction,
-    handleColorPickerTouchInteraction,
-    handleHueInteraction,
-    handleHueTouchInteraction
+    updateColor as updateColorHelper,
+    onColorChange as onColorChangeHelper,
+    onAcceptCustomColor as onAcceptCustomColorHelper,
+    onCancelCustomColor as onCancelCustomColorHelper,
+    initializeCustomColor
   } from '$lib/utils/color.helpers';
 
   /******************
@@ -89,10 +85,6 @@
     slug: $currentRestaurant?.slug
   });
 
-  // Computed for UI
-  $: displayLogo = ensureString(menuLogo);
-  $: displayCustomPrompt = ensureString(customPrompt);
-
   // Color options
   $: colorOptions = [
     { value: 1, label: t('colorLight') },
@@ -100,18 +92,6 @@
     { value: 3, label: t('colorPink') },
     { value: 4, label: t('colorDark') },
     { value: 5, label: t('colorCustom') }
-  ];
-
-  const currencyOptions = [
-    { value: '€', label: '€' },
-    { value: '$', label: '$' },
-    { value: '£', label: '£' }
-  ];
-
-  const colorPalette = [
-    '#FF5733', '#33FF57', '#3357FF', '#F033FF', '#FFD700',
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
-    '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
   ];
 
   // If the 'color' prop is a hex, assume it's custom
@@ -278,64 +258,29 @@
   }
 
   // Called on color radio <input> change
-  function onColorChange(value: number) {
-    if (value === 5) {
-      // If selecting custom color option, update the UI but don't change the color value yet
+  function onColorChange(value: string) {
+    if (value === '5') {
       showCustomColorPicker = true;
-      if (customColorValue) {
-        tempColorValue = customColorValue;
-        customColorInput = customColorValue;
-      }
     } else {
-      // For standard colors, immediately update the color value
-      color = String(value); // Update the local color prop
-      updateRestaurantColor(
-        String(value),
+      // For standard colors
+      color = value;
+      updateColorHelper(
+        value,
         restaurantName,
         menuLogo,
         customPrompt,
         phoneNumber,
-        color,
         currency,
         customColorValue,
-        (evt: 'update', detail: UpdateEvent) => dispatch(evt, detail)
+        (val) => color = val,
+        (evt, detail) => dispatch(evt, detail)
       );
     }
   }
 
-  // Actually update the color in store
-  function updateColor(val: string) {
-    console.log('updateColor called with:', val);
-    
-    // Safely handle both numeric and hex color values
-    if (typeof val === 'string' && val.startsWith('#')) {
-      // For hex colors, ensure they're capitalized
-      color = val.toUpperCase();
-    } else {
-      // For standard color numbers, keep as is
-      color = val;
-    }
-    
-    console.log('Local color prop updated to:', color);
-    
-    updateRestaurantColor(
-      val,
-      restaurantName,
-      menuLogo,
-      customPrompt,
-      phoneNumber,
-      color,
-      currency,
-      customColorValue,
-      (evt: 'update', detail: UpdateEvent) => {
-        console.log('Dispatching color update event with color:', detail.color);
-        dispatch(evt, detail);
-      }
-    );
-  }
-
   // Called on currency <input> change
-  function onCurrencyChange(value: string) {
+  function onCurrencyChange(e: CustomEvent<string>) {
+    const value = e.detail;
     currency = value;
     handleCurrencyChange(
       value,
@@ -348,162 +293,56 @@
     );
   }
 
-  // Called on custom color palette click
-  function onCustomColorSelect(hexColor: string) {
-    const capitalizedHexColor = hexColor.toUpperCase();
-    handleCustomColorSelect(capitalizedHexColor, (v: string) => tempColorValue = v, (v: string) => customColorInput = v);
-  }
-
-  function onCustomColorInput() {
-    const capitalizedInput = customColorInput.toUpperCase();
-    customColorInput = capitalizedInput;
-    handleCustomColorInput(capitalizedInput, (v: string) => tempColorValue = v);
-  }
-
-  function onAcceptCustomColor() {
-    console.log('Accepting custom color:', tempColorValue);
-    color = tempColorValue; // Update the local color prop directly
-    
-    acceptCustomColor(
+  function onAcceptCustomColor(event: CustomEvent<string>) {
+    const tempColorValue = event.detail;
+    onAcceptCustomColorHelper(
       tempColorValue,
-      (v: string) => {
-        console.log('Setting customColorValue to:', v);
-        customColorValue = v;
-      },
-      (val: string) => {
-        console.log('Calling updateColor with:', val);
-        updateColor(val);
-      },
-      (v: boolean) => showCustomColorPicker = v
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      currency,
+      customColorValue,
+      (val) => color = val,
+      (val) => customColorValue = val,
+      (val) => showCustomColorPicker = val,
+      (evt, detail) => dispatch(evt, detail)
     );
   }
 
   function onCancelCustomColor() {
-    cancelCustomColor(
+    onCancelCustomColorHelper(
       customColorValue,
-      (v: boolean) => showCustomColorPicker = v,
-      (v: string) => color = v,
-      updateColor
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      currency,
+      (val) => color = val,
+      (val) => showCustomColorPicker = val,
+      (evt, detail) => dispatch(evt, detail)
     );
-  }
-
-  // Color picker XY
-  function onPickerMouseDown(event: MouseEvent) {
-    const target = event.target as HTMLDivElement;
-    const { rect, x, y } = handleColorPickerInteraction(
-      event, 
-      target, 
-      (x: number, y: number) => pickerPosition = { x, y },
-      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-      hueValue
-    );
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const { x: newX, y: newY } = handleColorPickerInteraction(
-        e, 
-        target, 
-        (x: number, y: number) => pickerPosition = { x, y },
-        (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-        hueValue
-      );
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }
-
-  function onPickerTouchStart(event: TouchEvent) {
-    event.preventDefault();
-    const target = event.target as HTMLDivElement;
-    handleColorPickerTouchInteraction(
-      event,
-      target,
-      (x: number, y: number) => pickerPosition = { x, y },
-      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-      hueValue
-    );
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      handleColorPickerTouchInteraction(
-        e,
-        target,
-        (x: number, y: number) => pickerPosition = { x, y },
-        (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-        hueValue
-      );
-    };
-
-    const handleTouchEnd = () => {
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-  }
-
-  function onHueChange(event: MouseEvent) {
-    const target = event.target as HTMLDivElement;
-    handleHueInteraction(
-      event,
-      target,
-      (value: number) => hueValue = value,
-      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-      pickerPosition
-    );
-  }
-
-  function onHueTouchStart(event: TouchEvent) {
-    event.preventDefault();
-    const target = event.target as HTMLDivElement;
-    handleHueTouchInteraction(
-      event,
-      target,
-      (value: number) => hueValue = value,
-      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-      pickerPosition
-    );
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      handleHueTouchInteraction(
-        e,
-        target,
-        (value: number) => hueValue = value,
-        (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
-        pickerPosition
-      );
-    };
-
-    const handleTouchEnd = () => {
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
   }
 
   onMount(() => {
     // If color === '5', try to load from localStorage
-    if (color === '5' && typeof window !== 'undefined') {
-      const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
-      if (savedColor) {
-        customColorValue = savedColor;
-        tempColorValue = savedColor;
-        customColorInput = savedColor;
-      }
-    }
+    initializeCustomColor(
+      color,
+      selectedRestaurant,
+      (v) => customColorValue = v,
+      (v) => tempColorValue = v,
+      (v) => customColorInput = v
+    );
   });
 
   // Whenever customColorValue changes, store it
   $: if (customColorValue && typeof customColorValue === 'string' && typeof window !== 'undefined') {
     localStorage.setItem(`customColor_${selectedRestaurant || 'new'}`, customColorValue.toUpperCase());
   }
+
+  // Computed for UI
+  $: displayLogo = ensureString(menuLogo);
+  $: displayCustomPrompt = ensureString(customPrompt);
 </script>
 
 <div class="space-y-4">
@@ -784,131 +623,48 @@
       <label class="block text-sm font-medium text-gray-700">
         {t('themeColor')}
       </label>
-      <div class="flex gap-4 flex-wrap">
-        {#each colorOptions as option}
-          <label class="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="radio"
-              name="color"
-              value={option.value}
-              checked={color === String(option.value)}
-              on:change={() => onColorChange(option.value)}
-              class="form-radio text-blue-600"
-            />
-            <span class="text-sm text-gray-700">{option.label}</span>
-          </label>
-        {/each}
-      </div>
+      
+      <!-- Only show these radio buttons when not showing the color picker -->
+      {#if !showCustomColorPicker}
+        <div class="flex gap-4 flex-wrap">
+          {#each colorOptions as option}
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="radio"
+                name="color"
+                value={option.value}
+                checked={color === String(option.value)}
+                on:change={() => onColorChange(String(option.value))}
+                class="form-radio text-blue-600"
+              />
+              <span class="text-sm text-gray-700">{option.label}</span>
+            </label>
+          {/each}
+        </div>
+      {/if}
 
       {#if showCustomColorPicker}
         <div class="mt-4 space-y-4">
-          <!-- Color spectrum picker -->
-          <div
-            class="relative w-full max-w-[200px] h-[200px] cursor-crosshair rounded-lg overflow-hidden
-                   touch-manipulation"
-            style="background: linear-gradient(to right, #fff, hsl({hueValue}, 100%, 50%));"
-            on:mousedown={onPickerMouseDown}
-            on:touchstart={onPickerTouchStart}
-          >
-            <div
-              class="absolute inset-0"
-              style="background: linear-gradient(to bottom, transparent, #000);"
-            >
-              <div
-                class="absolute w-5 h-5 border-2 border-white rounded-full shadow-md transform
-                       -translate-x-1/2 -translate-y-1/2"
-                style="left: {pickerPosition.x}%; top: {pickerPosition.y}%; background-color: {tempColorValue};"
-              />
-            </div>
-          </div>
-
-          <!-- Hue slider -->
-          <div
-            class="relative w-full max-w-[200px] h-8 cursor-pointer rounded-lg overflow-hidden
-                   touch-manipulation"
-            style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
-            on:mousedown={onHueChange}
-            on:touchstart={onHueTouchStart}
-          >
-            <div
-              class="absolute w-2 h-full bg-white border border-gray-300 shadow-md"
-              style="left: {hueValue / 3.6}%"
-            />
-          </div>
-
-          <!-- Preset colors grid -->
-          <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 max-w-[240px]">
-            {#each colorPalette as hexColor}
-              <button
-                class="w-8 h-8 rounded-lg transition-transform hover:scale-110 shadow-sm
-                       border border-gray-100 active:scale-95 touch-manipulation"
-                style="background-color: {hexColor}"
-                on:click={() => onCustomColorSelect(hexColor)}
-                aria-label="Color swatch"
-              />
-            {/each}
-          </div>
-
-          <!-- Color input and preview -->
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              bind:value={customColorInput}
-              placeholder="#000000"
-              class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2
-                     focus:ring-blue-500 focus:border-transparent"
-              on:input={onCustomColorInput}
-              aria-label="Enter hex color code"
-            />
-            <div
-              class="w-12 h-12 rounded-lg border border-gray-300 shadow-sm"
-              style="background-color: {tempColorValue}"
-              aria-label="Color preview"
-            />
-          </div>
-
-          <!-- Action buttons -->
-          <div class="flex justify-end gap-3 mt-2">
-            <button
-              class="px-5 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors
-                     touch-manipulation active:scale-95"
-              on:click={onCancelCustomColor}
-            >
-              {t('cancel')}
-            </button>
-            <button
-              class="px-5 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors
-                     touch-manipulation active:scale-95"
-              on:click={onAcceptCustomColor}
-            >
-              {t('save')}
-            </button>
-          </div>
+          <ColorPicker
+            value={color}
+            {showCustomColorPicker}
+            {colorOptions}
+            {selectedRestaurant}
+            {t}
+            on:change={(event) => onColorChange(event.detail)}
+            on:accept={(event) => onAcceptCustomColor(event)}
+            on:cancel={onCancelCustomColor}
+          />
         </div>
       {/if}
     </div>
 
     <!-- Currency Selection -->
-    <div class="space-y-2 mb-12">
-      <label class="block text-sm font-medium text-gray-700">
-        {t('currency')}
-      </label>
-      <div class="flex gap-4">
-        {#each currencyOptions as option}
-          <label class="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="radio"
-              name="currency"
-              value={option.value}
-              checked={currency === option.value}
-              on:change={() => onCurrencyChange(option.value)}
-              class="form-radio text-blue-600"
-            />
-            <span class="text-sm text-gray-700">{option.label}</span>
-          </label>
-        {/each}
-      </div>
-    </div>
+    <CurrencyPicker 
+      value={currency} 
+      {t} 
+      on:change={onCurrencyChange} 
+    />
 
     <!-- Phone Number -->
     <div class="space-y-2 mb-12">
