@@ -44,7 +44,7 @@ export async function createOrUpdateRestaurant(
     phoneNumber?: string | null;
     userId?: string;
     currency: string;
-    color: number;
+    color: string;
   }, 
   restaurantId?: string
 ): Promise<Restaurant> {

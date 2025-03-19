@@ -130,6 +130,11 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
     if (updateData.color !== undefined) {
       updateSet.color = updateData.color;
     }
+    
+    // Add customColor update
+    if (updateData.customColor !== undefined) {
+      updateSet.customColor = updateData.customColor;
+    }
 
     // Update the restaurant
     const [updatedRestaurant] = await db.update(restaurants)

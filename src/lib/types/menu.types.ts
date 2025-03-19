@@ -6,7 +6,7 @@ export interface Restaurant {
   customPrompt: string | null;
   userId: string;
   currency: string;
-  color: number;
+  color: string;
   phoneNumber: string | null;
   createdAt: Date;
   updatedAt: Date;

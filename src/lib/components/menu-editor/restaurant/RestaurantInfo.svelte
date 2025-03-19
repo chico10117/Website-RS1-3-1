@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import type { Restaurant } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
@@ -19,8 +19,11 @@
   export let restaurants: Restaurant[] = [];
   export let customPrompt: string | null = null;
   export let currency: string = '€';
-  export let color: number = 1;
+  export let color: string = '1';
   export let phoneNumber: string | null = null;
+
+  // Keep track of custom color value locally
+  let customColorValue = '';
 
   interface UpdateEvent {
     id?: string;
@@ -29,7 +32,7 @@
     customPrompt: string | null;
     phoneNumber: string | null;
     currency: string;
-    color: number;
+    color: string;
     slug?: string;
   }
 
@@ -59,8 +62,9 @@
   });
 
   // Helper function to ensure string for UI
-  function ensureString(value: string | null | undefined): string {
-    return value || '';
+  function ensureString(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) return '';
+    return String(value);
   }
 
   // Helper function to ensure string or null for database
@@ -87,7 +91,6 @@
   ];
 
   let showCustomColorPicker = false;
-  let customColorValue = '';
   let customColorInput = '';
   let pickerPosition = { x: 0, y: 0 };
   let hueValue = 0;
@@ -98,6 +101,13 @@
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
     '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
   ];
+
+  // Initialize customColorValue from color prop if it's a hex color
+  $: {
+    if (color && color !== '1' && color !== '2' && color !== '3' && color !== '4' && color !== '5') {
+      customColorValue = color;
+    }
+  }
 
   function handleDragEnter(e: DragEvent) {
     e.preventDefault();
@@ -181,7 +191,9 @@
           $currentRestaurant.name,
           uploadResult.url || null,
           $currentRestaurant.customPrompt,
-          $currentRestaurant.slug
+          $currentRestaurant.slug,
+          $currentRestaurant.phoneNumber,
+          $currentRestaurant.color
         );
 
         // Dispatch update event with the correct ID
@@ -208,7 +220,8 @@
         menuStore.createRestaurant(
           restaurantName,
           uploadResult.url || null,
-          customPrompt
+          customPrompt,
+          phoneNumber
         );
 
         // Get the newly created restaurant ID from the store
@@ -224,7 +237,9 @@
           restaurantName,
           uploadResult.url || null,
           customPrompt,
-          newSlug
+          newSlug,
+          phoneNumber,
+          color
         );
 
         // Dispatch update event
@@ -329,7 +344,8 @@
         menuLogo,
         customPrompt,
         newSlug,
-        phoneNumber
+        phoneNumber,
+        color
       );
 
       // Update the current restaurant store with the new slug
@@ -337,7 +353,8 @@
         currentRestaurant.set({
           ...$currentRestaurant,
           name: editingRestaurantName.trim(),
-          slug: newSlug
+          slug: newSlug,
+          color: color
         });
       }
 
@@ -401,7 +418,8 @@
           menuLogo,
           customPrompt,
           $currentRestaurant?.slug || null,
-          phoneNumber
+          phoneNumber,
+          color
         );
 
         // Dispatch update event
@@ -440,7 +458,9 @@
         restaurantName,
         null,
         customPrompt,
-        $currentRestaurant?.slug || null
+        $currentRestaurant?.slug || null,
+        phoneNumber,
+        color
       );
 
       // Dispatch update event
@@ -472,24 +492,30 @@
         showCustomColorPicker = false;
         // If we're closing and we have a custom color, keep using it
         if (customColorValue) {
-          color = value;
+          color = '5'; // Store 5 for custom color as string
+          updateRestaurantColor('5');
         }
       } else {
         showCustomColorPicker = true;
-        color = value;
         // Initialize tempColorValue with current custom color or default
         tempColorValue = customColorValue || '#000000';
         customColorInput = tempColorValue;
       }
     } else {
-      // For other colors, close the picker and update immediately
+      // For other colors (1-4), close the picker and update immediately
       showCustomColorPicker = false;
-      color = value;
-      updateRestaurantColor(value);
+      color = String(value); // Convert to string
+      updateRestaurantColor(String(value));
     }
   }
 
-  function updateRestaurantColor(value: number) {
+  function updateRestaurantColor(value: string) {
+    // For custom color (value === '5'), use the stored customColorValue
+    let actualColor = value;
+    if (value === '5' && customColorValue) {
+      actualColor = customColorValue;
+    }
+    
     // Update restaurant info in the store
     if (restaurantName) {
       menuStore.updateRestaurantInfo(
@@ -497,14 +523,15 @@
         menuLogo,
         customPrompt,
         $currentRestaurant?.slug || null,
-        phoneNumber
+        phoneNumber,
+        actualColor
       );
       
-      // Update the current restaurant store for compatibility
+      // Update the current restaurant store with the new color
       if ($currentRestaurant) {
         currentRestaurant.set({
           ...$currentRestaurant,
-          color: value
+          color: actualColor
         });
       }
     }
@@ -516,7 +543,7 @@
       customPrompt: customPrompt,
       phoneNumber: phoneNumber,
       currency,
-      color: value,
+      color: actualColor,
       slug: $currentRestaurant?.slug || ''
     });
   }
@@ -531,7 +558,8 @@
         menuLogo,
         customPrompt,
         $currentRestaurant?.slug || null,
-        phoneNumber
+        phoneNumber,
+        color
       );
       
       // Update the current restaurant store for compatibility
@@ -568,7 +596,8 @@
 
   function acceptCustomColor() {
     customColorValue = tempColorValue;
-    updateRestaurantColor(5);
+    color = customColorValue; // Store the actual hex color value instead of '5'
+    updateRestaurantColor(customColorValue);
     showCustomColorPicker = false;
   }
 
@@ -576,8 +605,8 @@
     showCustomColorPicker = false;
     // If we don't have a previous custom color, revert to Light theme
     if (!customColorValue) {
-      color = 1;
-      updateRestaurantColor(1);
+      color = '1';
+      updateRestaurantColor('1');
     }
   }
 
@@ -699,6 +728,25 @@
 
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
+
+  // Store the custom color value in localStorage when it changes
+  $: if (customColorValue) {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`customColor_${selectedRestaurant || 'new'}`, customColorValue);
+    }
+  }
+
+  // Load custom color from localStorage on component mount
+  onMount(() => {
+    if (color === '5' && typeof window !== 'undefined') {
+      const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
+      if (savedColor) {
+        customColorValue = savedColor;
+        tempColorValue = savedColor;
+        customColorInput = savedColor;
+      }
+    }
+  });
 </script>
 
 <div class="space-y-4">
@@ -710,12 +758,11 @@
       {t('uploadMenu')}
     </label>
     <MenuUploader
-            {restaurantName}
-            {customPrompt}
-            restaurantId={$currentRestaurant?.id || null}
-            on:success={async (event) => {
+      {restaurantName}
+      {customPrompt}
+      restaurantId={$currentRestaurant?.id || null}
+      on:success={async (event) => {
         try {
-
           let restaurantData = event.detail.restaurantData;
           // Update the current restaurant with the new data
           if ($currentRestaurant) {
@@ -729,7 +776,9 @@
               updatedRestaurant.name,
               updatedRestaurant.logo,
               updatedRestaurant.customPrompt,
-              updatedRestaurant.slug
+              updatedRestaurant.slug,
+              updatedRestaurant.phoneNumber,
+              updatedRestaurant.color || '1'
             );
             // Update the current restaurant store
             currentRestaurant.set(updatedRestaurant);
@@ -742,7 +791,7 @@
             logo: restaurantData.restaurant.logo,
             customPrompt: restaurantData.restaurant.customPrompt,
             phoneNumber: restaurantData.restaurant.phoneNumber,
-            currency: restaurantData.restaurant.currency,
+            currency,
             color,
             slug: $currentRestaurant?.slug || ''
           });
@@ -780,7 +829,6 @@
               }
             }
           }
-
         } catch (error) {
           console.error('Error handling menu upload success:', error);
           if (error instanceof Error) {
@@ -788,7 +836,7 @@
           }
         }
       }}
-            on:error={(event) => {
+      on:error={(event) => {
         toasts.error(t('error') + ': ' + event.detail);
       }}
     />
@@ -981,7 +1029,7 @@
               type="radio"
               name="color"
               value={option.value}
-              checked={color === option.value}
+              checked={color === String(option.value)}
               on:change={() => handleColorChange(option.value)}
               class="form-radio text-blue-600"
             />

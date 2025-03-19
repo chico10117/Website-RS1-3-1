@@ -184,6 +184,7 @@ function createMenuStore() {
         restaurantName: state.restaurantName,
         menuLogo: state.menuLogo,
         customPrompt: state.customPrompt,
+        phoneNumber: state.phoneNumber,
         categories: [...state.categories],
         changedItems: {
           restaurant: state.changedItems.restaurant,
@@ -384,25 +385,25 @@ function createMenuStore() {
     },
 
     // Create a new restaurant
-    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: string | null = null) {
+    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: string | null = null, color: string = '1') {
       const tempId = createTempId();
       
+      // Create a new restaurant object
+      const newRestaurant: Restaurant = {
+        id: tempId,
+        name,
+        slug: '', // Will be set by the server
+        logo,
+        customPrompt,
+        phoneNumber,
+        userId: '', // Will be set by the server
+        currency: 'USD', // Default
+        color, // Use the passed color value
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
       update(state => {
-        // Create a temporary restaurant
-        const newRestaurant: Restaurant = {
-          id: tempId,
-          name,
-          slug: name.toLowerCase().replace(/\s+/g, '-'),
-          logo,
-          customPrompt,
-          phoneNumber,
-          userId: '', // Will be set by the server
-          currency: 'USD', // Default
-          color: 0, // Default
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        
         return {
           ...state,
           restaurants: [...state.restaurants, newRestaurant],
@@ -420,21 +421,24 @@ function createMenuStore() {
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: string | null = null) {
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: string | null = null, color: string = '1') {
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
         
-        // If we have a restaurant and a slug, update it
-        let updatedRestaurants = [...state.restaurants];
-        if (currentRestaurantIndex >= 0 && slug) {
+        // Create a copy of the restaurants array
+        const updatedRestaurants = [...state.restaurants];
+        
+        // Update the current restaurant (if found)
+        if (currentRestaurantIndex >= 0) {
           updatedRestaurants[currentRestaurantIndex] = {
             ...updatedRestaurants[currentRestaurantIndex],
             name,
             logo,
             customPrompt,
             phoneNumber,
-            slug,
+            slug: slug || '', // Use empty string instead of null
+            color, // Use the passed color value
             updatedAt: new Date()
           };
         }
@@ -667,16 +671,16 @@ function createMenuStore() {
         const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
         
         // Prepare restaurant data with valid color and currency values
-        const restaurantData = {
+        const colorValue = currentRestaurantObj?.color || '1';
+        
+        console.log('Restaurant data for save:', {
           name: state.restaurantName,
           logo: state.menuLogo,
           customPrompt: state.customPrompt,
           phoneNumber: state.phoneNumber,
-          currency: currentRestaurantObj?.currency || '€', // Use current value or default to €
-          color: (currentRestaurantObj?.color && currentRestaurantObj.color > 0) ? currentRestaurantObj.color : 1 // Ensure color is at least 1
-        };
-        
-        console.log('Restaurant data for save:', restaurantData);
+          currency: currentRestaurantObj?.currency || '€',
+          color: colorValue
+        });
         
         // Prepare cache-like structure for the menu service
         const cache: {
@@ -747,7 +751,14 @@ function createMenuStore() {
         });
         
         console.log('Saving changes with:', {
-          restaurantData,
+          restaurantData: {
+            name: state.restaurantName,
+            logo: state.menuLogo,
+            customPrompt: state.customPrompt,
+            phoneNumber: state.phoneNumber,
+            currency: currentRestaurantObj?.currency || '€',
+            color: colorValue
+          },
           currentRestaurantId: state.selectedRestaurant,
           hasChanges: {
             restaurant: state.changedItems.restaurant,
@@ -760,7 +771,14 @@ function createMenuStore() {
         
         // Save changes using the existing menu service
         const result = await menuService.saveMenuChanges(
-          restaurantData,
+          {
+            name: state.restaurantName,
+            logo: state.menuLogo,
+            customPrompt: state.customPrompt,
+            phoneNumber: state.phoneNumber,
+            currency: currentRestaurantObj?.currency || '€',
+            color: colorValue
+          },
           state.selectedRestaurant
         );
         

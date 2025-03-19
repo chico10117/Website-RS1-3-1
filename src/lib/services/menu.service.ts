@@ -20,7 +20,7 @@ export async function saveMenuChanges(
     customPrompt?: string | null;
     phoneNumber?: string | null;
     currency: string;
-    color: number;
+    color: string;
   },
   currentRestaurantId: string | null
 ): Promise<SaveResult> {

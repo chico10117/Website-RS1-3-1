@@ -17,7 +17,7 @@ export const restaurants = pgTable('restaurants', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   customPrompt: text('custom_prompt'),
   currency: text('currency').notNull().default('€'),
-  color: integer('color').notNull().default(1),
+  color: text('color').notNull().default('1'),
   phoneNumber: text('phoneNumber'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
