@@ -4,6 +4,7 @@
   import { language } from '$lib/stores/language';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { toasts } from '$lib/stores/toast';
+  import { get } from 'svelte/store';
   import type { Restaurant } from '$lib/types/menu.types';
   import MenuUploader from './MenuUploader.svelte';
   import PhoneInput from './PhoneInput.svelte';
@@ -98,6 +99,9 @@
   $: {
     if (color && typeof color === 'string' && !['1','2','3','4','5'].includes(color)) {
       customColorValue = color.toUpperCase();
+      // For hex colors, we should select the custom radio button
+      color = '5';
+      showCustomColorPicker = true;
     }
   }
 
@@ -259,6 +263,8 @@
 
   // Called on color radio <input> change
   function onColorChange(value: string) {
+    console.log('Color radio changed to:', value);
+    
     if (value === '5') {
       showCustomColorPicker = true;
     } else {
@@ -325,14 +331,71 @@
   }
 
   onMount(() => {
-    // If color === '5', try to load from localStorage
-    initializeCustomColor(
-      color,
-      selectedRestaurant,
-      (v) => customColorValue = v,
-      (v) => tempColorValue = v,
-      (v) => customColorInput = v
-    );
+    // Load restaurant data from the currentRestaurant store if available
+    const cRest = get(currentRestaurant);
+    if (cRest) {
+      console.log('Loading restaurant data from store:', cRest);
+      
+      // Load the color value from the restaurant record
+      if (cRest.color) {
+        console.log('Setting color from database:', cRest.color);
+        
+        // If it's a hex color (custom color)
+        if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
+          // For custom hex colors, set color to '5' (custom option)
+          color = '5';
+          customColorValue = cRest.color.toUpperCase();
+          tempColorValue = cRest.color.toUpperCase();
+          customColorInput = cRest.color.toUpperCase();
+          
+          // Also show the color picker for custom colors
+          showCustomColorPicker = true;
+          
+          console.log('Custom hex color loaded:', {
+            color,
+            customColorValue,
+            showCustomColorPicker
+          });
+        } else {
+          // It's a standard color (1-4) or "5" for custom color
+          color = String(cRest.color);
+          
+          // If it's custom color option, also load the saved hex value
+          if (color === '5') {
+            // Show the color picker for custom colors
+            showCustomColorPicker = true;
+            
+            // Try to load from localStorage as fallback
+            initializeCustomColor(
+              color,
+              selectedRestaurant,
+              (v) => customColorValue = v,
+              (v) => tempColorValue = v,
+              (v) => customColorInput = v,
+              (v) => color = v,
+              (v) => showCustomColorPicker = v
+            );
+            
+            console.log('Standard color "5" loaded with color from storage:', customColorValue);
+          }
+        }
+      }
+    } else if (color === '5') {
+      // No current restaurant, but custom color is selected
+      // Show the color picker for custom colors
+      showCustomColorPicker = true;
+      
+      // Try to load from localStorage as fallback
+      initializeCustomColor(
+        color,
+        selectedRestaurant,
+        (v) => customColorValue = v,
+        (v) => tempColorValue = v,
+        (v) => customColorInput = v,
+        (v) => color = v,
+        (v) => showCustomColorPicker = v
+      );
+    }
   });
 
   // Whenever customColorValue changes, store it
@@ -343,6 +406,49 @@
   // Computed for UI
   $: displayLogo = ensureString(menuLogo);
   $: displayCustomPrompt = ensureString(customPrompt);
+
+  // Reset the custom color state when the selected restaurant changes
+  $: if (selectedRestaurant) {
+    // Reset only when a new restaurant is selected
+    const cRest = get(currentRestaurant);
+    
+    // Clear the custom color values if the current restaurant doesn't have a hex color
+    if (cRest && cRest.color) {
+      console.log('Current restaurant color:', cRest.color);
+      
+      if (!cRest.color.startsWith('#') && ['1','2','3','4'].includes(cRest.color)) {
+        console.log('Resetting custom color state because new restaurant has standard color:', cRest.color);
+        customColorValue = '';
+        tempColorValue = '';
+        customColorInput = '';
+        // Close the color picker if it's open
+        if (showCustomColorPicker) {
+          showCustomColorPicker = false;
+        }
+      }
+    }
+  }
+  
+  // When currentRestaurant changes, reset color values
+  $: {
+    const cRest = $currentRestaurant;
+    // Reset only if not the initial mount (and if actual restaurant exists)
+    if (cRest) {
+      console.log('currentRestaurant changed, color:', cRest.color);
+      
+      // Reset any custom color state if switching to a restaurant with a standard color
+      if (cRest.color && !cRest.color.startsWith('#') && ['1','2','3','4'].includes(cRest.color)) {
+        // If it's a standard color, set it and clear custom values
+        color = cRest.color;
+        customColorValue = '';
+        tempColorValue = '';
+        customColorInput = '';
+        
+        // Close the custom color picker
+        showCustomColorPicker = false;
+      }
+    }
+  }
 </script>
 
 <div class="space-y-4">
@@ -647,6 +753,7 @@
         <div class="mt-4 space-y-4">
           <ColorPicker
             value={color}
+            customHexColor={customColorValue}
             {showCustomColorPicker}
             {colorOptions}
             {selectedRestaurant}

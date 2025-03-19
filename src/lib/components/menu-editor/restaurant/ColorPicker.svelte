@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import { currentRestaurant } from '$lib/stores/restaurant';
+  import { get } from 'svelte/store';
   import {
     handleCustomColorSelect,
-    setupColorPickerMouseInteraction,
-    setupColorPickerTouchInteraction,
-    updateColorFromPosition,
     onCustomColorInput as handleCustomColorInputChange,
     saveCustomColorToStorage
   } from '$lib/utils/color.helpers';
@@ -15,11 +14,11 @@
   export let colorOptions: { value: number, label: string }[] = [];
   export let selectedRestaurant: string | null = null;
   export let t: (key: string) => string;
+  export let customHexColor: string = '';
   
   // Component state
   let customColorValue = '';
   let customColorInput = '';
-  let pickerPosition = { x: 50, y: 50 };
   let tempColorValue = '';
   
   // Simplified color palette with just 10 vibrant colors in 2 rows
@@ -37,47 +36,80 @@
     cancel: void;
   }>();
   
+  // Reset values when value changes to a standard color
+  $: if (value && ['1', '2', '3', '4'].includes(value)) {
+    // If the value is a standard color (not custom and not hex), reset custom color values
+    customColorValue = '';
+    tempColorValue = '';
+    customColorInput = '';
+  }
+  
+  // If customHexColor is provided, use it
+  $: {
+    if (customHexColor && typeof customHexColor === 'string' && customHexColor.startsWith('#')) {
+      customColorValue = customHexColor.toUpperCase();
+      tempColorValue = customColorValue;
+      customColorInput = customColorValue;
+    }
+  }
+  
   // If the 'value' prop is a hex, assume it's custom
   $: {
     if (value && typeof value === 'string' && value.startsWith('#')) {
       customColorValue = value.toUpperCase();
       tempColorValue = customColorValue;
       customColorInput = customColorValue;
+      // For custom colors, dispatch a change event to set the color to '5'
+      dispatch('change', '5');
     }
   }
   
   // Whenever customColorValue changes, store it
   $: saveCustomColorToStorage(customColorValue, selectedRestaurant);
+
+  onMount(() => {
+    // Check if there's a color in the currentRestaurant store
+    const cRest = get(currentRestaurant);
+    if (cRest && cRest.color) {
+      if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
+        // Use the color from the database (hex value)
+        const dbColor = cRest.color.toUpperCase();
+        customColorValue = dbColor;
+        tempColorValue = dbColor;
+        customColorInput = dbColor;
+        
+        // For hex colors, always select the custom color option (5)
+        // and dispatch the change event to update the parent
+        dispatch('change', '5');
+        
+        // Also show the color picker
+        showCustomColorPicker = true;
+        
+        console.log('ColorPicker: Loaded hex color from database:', dbColor);
+      } else if (cRest.color) {
+        // Set the standard color option (1-5)
+        const standardColor = cRest.color.toString();
+        if (['1','2','3','4','5'].includes(standardColor)) {
+          dispatch('change', standardColor);
+          
+          // If it's custom color, load from storage
+          if (standardColor === '5') {
+            showCustomColorPicker = true;
+            const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
+            if (savedColor) {
+              customColorValue = savedColor.toUpperCase();
+              tempColorValue = savedColor.toUpperCase();
+              customColorInput = savedColor.toUpperCase();
+            }
+          }
+        }
+      }
+    }
+  });
   
   // Event handlers
   function onColorChange(newValue: number) {
     dispatch('change', String(newValue));
-  }
-  
-  function onPickerMouseDown(event: MouseEvent) {
-    setupColorPickerMouseInteraction(
-      event,
-      event.target as HTMLDivElement,
-      (x: number, y: number) => pickerPosition = { x, y },
-      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, 
-        (v: string) => tempColorValue = v, 
-        (v: string) => customColorInput = v
-      ),
-      0
-    );
-  }
-
-  function onPickerTouchStart(event: TouchEvent) {
-    setupColorPickerTouchInteraction(
-      event,
-      event.target as HTMLDivElement,
-      (x: number, y: number) => pickerPosition = { x, y },
-      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, 
-        (v: string) => tempColorValue = v, 
-        (v: string) => customColorInput = v
-      ),
-      0
-    );
   }
   
   function onCustomColorSelect(hexColor: string) {
@@ -115,7 +147,7 @@
             type="radio"
             name="color"
             value={option.value}
-            checked={value === String(option.value)}
+            checked={value === String(option.value) || (typeof value === 'string' && value.startsWith('#') && String(option.value) === '5')}
             on:change={() => onColorChange(option.value)}
             class="form-radio text-blue-600"
           />

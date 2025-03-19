@@ -5,31 +5,6 @@ import { menuStore } from '$lib/stores/menu-store';
 import type { UpdateEvent } from './RestaurantInfo.helpers';
 
 /**
- * Handle color change from the radio inputs
- */
-export function handleColorChange(
-  value: number,
-  showCustomColorPicker: boolean,
-  customColorValue: string,
-  updateColorFn: (val: string) => void,
-  setShowCustomColorPicker: (val: boolean) => void,
-  setTempColorValue: (val: string) => void, 
-  setCustomColorInput: (val: string) => void
-) {
-  if (value === 5) {
-    // Custom color
-    setShowCustomColorPicker(true);
-    if (customColorValue) {
-      setTempColorValue(customColorValue);
-      setCustomColorInput(customColorValue);
-    }
-  } else {
-    // Standard color
-    updateColorFn(String(value));
-  }
-}
-
-/**
  * Handle selecting a color from the palette
  */
 export function handleCustomColorSelect(
@@ -72,7 +47,6 @@ export function acceptCustomColor(
     updateColorFn(capitalizedColorValue);
     setShowCustomColorPicker(false);
     
-    // Add extra logging to verify the color is being set
     console.log('Custom color accepted:', capitalizedColorValue);
   }
 }
@@ -93,89 +67,6 @@ export function cancelCustomColor(
     setColor('1');
     updateColorFn('1');
   }
-}
-
-/**
- * Update color based on picker position
- * Fixed to a basic square gradient palette with no hue variation
- */
-export function updateColorFromPosition(
-  x: number,
-  y: number,
-  hue: number,
-  setTempColorValue: (val: string) => void,
-  setCustomColorInput: (val: string) => void
-) {
-  // Simple color calculation based on x,y position in the grid
-  // Creating a simple black to color to white gradient
-  const r = Math.round(255 * (x / 100));
-  const g = Math.round(255 * (1 - y / 100));
-  const b = Math.round(255 * ((100 - x) / 100));
-  
-  const hexColor = rgbToHex(r, g, b);
-  setTempColorValue(hexColor);
-  setCustomColorInput(hexColor);
-}
-
-/**
- * Convert RGB to Hex color
- */
-export function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (x: number) => {
-    const hex = Math.round(Math.min(255, Math.max(0, x))).toString(16).toUpperCase();
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-  
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/**
- * Clamp a number between 0 and 100
- */
-export function clamp(value: number): number {
-  return Math.min(100, Math.max(0, value));
-}
-
-/**
- * Handle color picker mouse interaction (both down and move)
- */
-export function handleColorPickerInteraction(
-  event: MouseEvent,
-  pickerElement: HTMLDivElement,
-  updatePositionFn: (x: number, y: number) => void,
-  updateColorFn: (x: number, y: number, hue: number) => void,
-  hueValue: number
-) {
-  const rect = pickerElement.getBoundingClientRect();
-  const x = clamp(((event.clientX - rect.left) / rect.width) * 100);
-  const y = clamp(((event.clientY - rect.top) / rect.height) * 100);
-  
-  updatePositionFn(x, y);
-  updateColorFn(x, y, hueValue);
-  
-  return { rect, x, y };
-}
-
-/**
- * Handle color picker touch interaction
- */
-export function handleColorPickerTouchInteraction(
-  event: TouchEvent,
-  pickerElement: HTMLDivElement,
-  updatePositionFn: (x: number, y: number) => void,
-  updateColorFn: (x: number, y: number, hue: number) => void,
-  hueValue: number
-) {
-  event.preventDefault();
-  const touch = event.touches[0];
-  const rect = pickerElement.getBoundingClientRect();
-  const x = clamp(((touch.clientX - rect.left) / rect.width) * 100);
-  const y = clamp(((touch.clientY - rect.top) / rect.height) * 100);
-  
-  updatePositionFn(x, y);
-  updateColorFn(x, y, hueValue);
-  
-  return { rect, x, y };
 }
 
 /**
@@ -236,91 +127,6 @@ export function updateRestaurantColor(
 }
 
 /**
- * Setup color picker mouse interaction
- */
-export function setupColorPickerMouseInteraction(
-  event: MouseEvent,
-  pickerElement: HTMLDivElement,
-  updatePositionFn: (x: number, y: number) => void,
-  updateColorFn: (x: number, y: number, hue: number) => void,
-  hueValue: number
-) {
-  // Initial interaction
-  handleColorPickerInteraction(
-    event, 
-    pickerElement, 
-    updatePositionFn,
-    updateColorFn,
-    hueValue
-  );
-
-  // Setup move handler
-  const handleMouseMove = (e: MouseEvent) => {
-    handleColorPickerInteraction(
-      e, 
-      pickerElement, 
-      updatePositionFn,
-      updateColorFn,
-      hueValue
-    );
-  };
-
-  // Setup cleanup
-  const handleMouseUp = () => {
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-  
-  // Setup listeners
-  document.addEventListener('mousemove', handleMouseMove);
-  document.addEventListener('mouseup', handleMouseUp);
-}
-
-/**
- * Setup color picker touch interaction
- */
-export function setupColorPickerTouchInteraction(
-  event: TouchEvent,
-  pickerElement: HTMLDivElement,
-  updatePositionFn: (x: number, y: number) => void,
-  updateColorFn: (x: number, y: number, hue: number) => void,
-  hueValue: number
-) {
-  event.preventDefault();
-  
-  // Initial interaction
-  handleColorPickerTouchInteraction(
-    event,
-    pickerElement,
-    updatePositionFn,
-    updateColorFn,
-    hueValue
-  );
-
-  // Setup move handler
-  const handleTouchMove = (e: TouchEvent) => {
-    e.preventDefault();
-    handleColorPickerTouchInteraction(
-      e,
-      pickerElement,
-      updatePositionFn,
-      updateColorFn,
-      hueValue
-    );
-  };
-
-  // Setup cleanup
-  const handleTouchEnd = () => {
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
-  };
-
-  // Setup listeners
-  document.addEventListener('touchmove', handleTouchMove, { passive: false });
-  document.addEventListener('touchend', handleTouchEnd);
-}
-
-/**
  * Check and initialize custom color value when needed
  */
 export function initializeCustomColor(
@@ -328,14 +134,48 @@ export function initializeCustomColor(
   selectedRestaurant: string | null,
   setCustomColorValue: (val: string) => void,
   setTempColorValue: (val: string) => void,
-  setCustomColorInput: (val: string) => void
+  setCustomColorInput: (val: string) => void,
+  setColor?: (val: string) => void,
+  setShowCustomColorPicker?: (val: boolean) => void
 ) {
+  const cRest = get(currentRestaurant);
+  
+  // First try to get color from database via currentRestaurant store
+  if (cRest && cRest.color) {
+    // If the color from DB is a hex value (starts with #)
+    if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
+      const dbColor = cRest.color.toUpperCase();
+      setCustomColorValue(dbColor);
+      setTempColorValue(dbColor);
+      setCustomColorInput(dbColor);
+      
+      // If callbacks provided, also set color to '5' and show picker
+      if (setColor) {
+        setColor('5');
+      }
+      if (setShowCustomColorPicker) {
+        setShowCustomColorPicker(true);
+      }
+      
+      console.log('Loaded custom color from database:', dbColor);
+      return;
+    }
+  }
+  
+  // Fallback to localStorage if needed
   if (color === '5' && typeof window !== 'undefined') {
     const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
     if (savedColor) {
       setCustomColorValue(savedColor);
       setTempColorValue(savedColor);
       setCustomColorInput(savedColor);
+      
+      // If callback provided, show picker
+      if (setShowCustomColorPicker) {
+        setShowCustomColorPicker(true);
+      }
+      
+      console.log('Loaded custom color from localStorage:', savedColor);
     }
   }
 }

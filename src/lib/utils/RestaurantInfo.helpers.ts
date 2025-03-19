@@ -295,8 +295,24 @@ export function handleRestaurantEditKeyPress(event: KeyboardEvent, updateFn: () 
   }
 }
 
+/**
+ * Handle restaurant selection from dropdown
+ */
 export function handleRestaurantSelect(event: Event, dispatchFn: (event: 'select', val: string) => void) {
   const select = event.target as HTMLSelectElement;
+  
+  // Clear any custom color values from local storage when switching restaurants
+  // This helps prevent custom colors from persisting between restaurant switches
+  if (typeof window !== 'undefined') {
+    const previousRestaurantId = get(currentRestaurant)?.id || 'new';
+    const newRestaurantId = select.value;
+    
+    if (previousRestaurantId !== newRestaurantId) {
+      console.log('Restaurant changed, clearing previous custom color state');
+      localStorage.removeItem(`customColor_${previousRestaurantId}`);
+    }
+  }
+  
   try {
     dispatchFn('select', select.value);
   } catch (error) {
