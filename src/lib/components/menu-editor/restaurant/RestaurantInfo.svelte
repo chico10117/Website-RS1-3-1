@@ -1,18 +1,51 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
-  import type { Restaurant } from '$lib/types/menu.types';
+  import { onMount, createEventDispatcher } from 'svelte';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuStore } from '$lib/stores/menu-store';
-  import { toasts } from '$lib/stores/toast';
-  import { user } from '$lib/stores/user';
   import { currentRestaurant } from '$lib/stores/restaurant';
-  import { generateSlug } from '$lib/utils/slug';
-  import { get } from 'svelte/store';
-  import type { Category } from '$lib/types/menu.types';
+  import { toasts } from '$lib/stores/toast';
+  import type { Restaurant } from '$lib/types/menu.types';
   import MenuUploader from './MenuUploader.svelte';
   import PhoneInput from './PhoneInput.svelte';
 
+  // Import our new helpers
+  import { type UpdateEvent,
+    ensureString,
+    ensureStringOrNull,
+    handleDrag,
+    handleDrop,
+    handleFileUpload,
+    handleRestaurantNameInput,
+    startEditingRestaurant,
+    cancelEditingRestaurant,
+    handleRestaurantEditKeyPress,
+    updateRestaurantName,
+    handleRestaurantSelect,
+    handleCustomPromptInput,
+    handleLogoDelete,
+    handleCurrencyChange,
+    handleMenuUploadSuccess,
+    handleMenuUploadError,
+    handlePhoneNumberChange
+  } from '$lib/utils/RestaurantInfo.helpers';
+
+  import {
+    handleColorChange,
+    handleCustomColorSelect,
+    handleCustomColorInput,
+    acceptCustomColor,
+    cancelCustomColor,
+    updateRestaurantColor,
+    updateColorFromPosition,
+    handleColorPickerInteraction,
+    handleColorPickerTouchInteraction,
+    handleHueInteraction,
+    handleHueTouchInteraction
+  } from '$lib/utils/color.helpers';
+
+  /******************
+   *   PROPERTIES   *
+   ******************/
   export let restaurantName = '';
   export let menuLogo: string | null = null;
   export let selectedRestaurant: string | null = null;
@@ -22,24 +55,10 @@
   export let color: string = '1';
   export let phoneNumber: string | null = null;
 
-  // Keep track of custom color value locally
+  /***************************
+   *   COMPONENT STATE / FLAGS
+   ***************************/
   let customColorValue = '';
-
-  interface UpdateEvent {
-    id?: string;
-    name: string;
-    logo: string | null;
-    customPrompt: string | null;
-    phoneNumber: string | null;
-    currency: string;
-    color: string;
-    slug?: string;
-  }
-
-  const dispatch = createEventDispatcher<{
-    update: UpdateEvent;
-    select: string;
-  }>();
 
   let isEditingRestaurant = false;
   let editingRestaurantName = '';
@@ -47,35 +66,34 @@
   let isUploading = false;
   let isDragging = false;
 
-  // Make translations reactive
-  $: currentLanguage = $language;
-  $: t = (key: string): string => translations[key][currentLanguage];
+  let showCustomColorPicker = false;
+  let customColorInput = '';
+  let pickerPosition = { x: 0, y: 0 };
+  let hueValue = 0;
+  let tempColorValue = '';
 
-  // Make user store reactive
-  $: userName = $user?.name;
-  
-  // Debug current restaurant slug
+  // Svelte event dispatcher
+  const dispatch = createEventDispatcher<{
+    update: UpdateEvent;
+    select: string;
+  }>();
+
+  // Reactive translations
+  $: currentLanguage = $language;
+  $: t = (key: string) => translations[key][currentLanguage];
+
+  // For debugging
   $: console.log('Current restaurant state:', {
     currentRestaurant: $currentRestaurant,
     hasSlug: !!$currentRestaurant?.slug,
     slug: $currentRestaurant?.slug
   });
 
-  // Helper function to ensure string for UI
-  function ensureString(value: string | number | null | undefined): string {
-    if (value === null || value === undefined) return '';
-    return String(value);
-  }
-
-  // Helper function to ensure string or null for database
-  function ensureStringOrNull(value: string | null | undefined): string | null {
-    return value || null;
-  }
-
-  // Computed value for logo display
+  // Computed for UI
   $: displayLogo = ensureString(menuLogo);
   $: displayCustomPrompt = ensureString(customPrompt);
 
+  // Color options
   $: colorOptions = [
     { value: 1, label: t('colorLight') },
     { value: 2, label: t('colorGreen') },
@@ -90,575 +108,375 @@
     { value: '£', label: '£' }
   ];
 
-  let showCustomColorPicker = false;
-  let customColorInput = '';
-  let pickerPosition = { x: 0, y: 0 };
-  let hueValue = 0;
-  let tempColorValue = '';
-
   const colorPalette = [
     '#FF5733', '#33FF57', '#3357FF', '#F033FF', '#FFD700',
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
     '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
   ];
 
-  // Initialize customColorValue from color prop if it's a hex color
+  // If the 'color' prop is a hex, assume it's custom
   $: {
-    if (color && color !== '1' && color !== '2' && color !== '3' && color !== '4' && color !== '5') {
-      customColorValue = color;
+    if (color && typeof color === 'string' && !['1','2','3','4','5'].includes(color)) {
+      customColorValue = color.toUpperCase();
     }
   }
 
+  // Called on dragenter
   function handleDragEnter(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!selectedRestaurant && !restaurantName) return;
-    isDragging = true;
+    const canEdit = !!selectedRestaurant || !!restaurantName;
+    isDragging = handleDrag(e, canEdit, true);
   }
 
+  // Called on dragleave
   function handleDragLeave(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    isDragging = false;
+    const canEdit = !!selectedRestaurant || !!restaurantName;
+    isDragging = handleDrag(e, canEdit, false);
   }
 
+  // Called on dragover
   function handleDragOver(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!selectedRestaurant && !restaurantName) return;
-    isDragging = true;
+    const canEdit = !!selectedRestaurant || !!restaurantName;
+    isDragging = handleDrag(e, canEdit, true);
   }
 
-  async function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    isDragging = false;
-    
+  // Called on drop
+  async function handleLogoDrop(e: DragEvent) {
+    const canEdit = !!selectedRestaurant || !!restaurantName;
+    await handleDrop(e, canEdit, t, async (file) => {
+      await handleFileUpload(
+        file,
+        restaurantName,
+        customPrompt,
+        phoneNumber,
+        color,
+        currency,
+        (evt, detail) => dispatch(evt, detail),
+        t
+      );
+    }, (val) => isDragging = val);
+  }
+
+  // Called on logo <input> change
+  async function handleLogoUploadInput(event: Event) {
     if (!selectedRestaurant && !restaurantName) {
       toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
       return;
     }
-
-    const file = e.dataTransfer?.files[0];
-    if (!file) return;
-
-    // Check if file is an image
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
-    if (!allowedTypes.includes(file.type)) {
-      toasts.error(t('error') + ': ' + t('invalidFileType'));
-      return;
-    }
-
-    await handleFileUpload(file);
-  }
-
-  async function handleFileUpload(file: File) {
-    try {
-      isUploading = true;
-      
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload logo');
-      }
-
-      const uploadResult = await uploadResponse.json();
-      console.log('Logo uploaded:', uploadResult);
-
-      // Get the current user ID
-      const userId = $user?.id;
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-
-      // For existing restaurant, use the ID from the currentRestaurant store
-      if ($currentRestaurant) {
-        console.log('Updating existing restaurant:', {
-          id: $currentRestaurant.id,
-          name: $currentRestaurant.name,
-          logo: uploadResult.url
-        });
-
-        // Update store with new logo
-        menuStore.updateRestaurantInfo(
-          $currentRestaurant.name,
-          uploadResult.url || null,
-          $currentRestaurant.customPrompt,
-          $currentRestaurant.slug,
-          $currentRestaurant.phoneNumber,
-          $currentRestaurant.color
-        );
-
-        // Dispatch update event with the correct ID
-        dispatch('update', {
-          id: $currentRestaurant.id,
-          name: $currentRestaurant.name,
-          logo: uploadResult.url || null,
-          customPrompt: $currentRestaurant.customPrompt,
-          phoneNumber: $currentRestaurant.phoneNumber,
-          currency,
-          color,
-          slug: $currentRestaurant.slug
-        });
-      } else {
-        // For new restaurant, create it in the store
-        if (!restaurantName) {
-          throw new Error('Restaurant name is required');
-        }
-        
-        // Generate a proper slug for the new restaurant
-        const newSlug = await generateSlug(restaurantName);
-
-        // Create new restaurant in store
-        menuStore.createRestaurant(
-          restaurantName,
-          uploadResult.url || null,
-          customPrompt,
-          phoneNumber
-        );
-
-        // Get the newly created restaurant ID from the store
-        const storeState = $menuStore;
-        const newId = storeState.selectedRestaurant;
-
-        if (!newId) {
-          throw new Error('Failed to create restaurant');
-        }
-
-        // Update the restaurant with the proper slug
-        menuStore.updateRestaurantInfo(
-          restaurantName,
-          uploadResult.url || null,
-          customPrompt,
-          newSlug,
-          phoneNumber,
-          color
-        );
-
-        // Dispatch update event
-        dispatch('update', {
-          id: newId,
-          name: restaurantName,
-          logo: uploadResult.url || null,
-          customPrompt: customPrompt,
-          phoneNumber: phoneNumber,
-          currency,
-          color,
-          slug: newSlug
-        });
-      }
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
-    } finally {
-      isUploading = false;
-    }
-  }
-
-  async function handleLogoUpload(event: Event) {
-    if (!selectedRestaurant && !restaurantName) {
-      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
-      return;
-    }
-
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
-    await handleFileUpload(file);
+    await handleFileUpload(
+      file,
+      restaurantName,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      (evt, detail) => dispatch(evt, detail),
+      t
+    );
   }
 
-  async function handleRestaurantNameInput() {
-    try {
-      if (!restaurantName || selectedRestaurant || isCreatingRestaurant) {
-        return;
-      }
+  // Called on <input> blur for restaurantName
+  function onRestaurantNameBlur() {
+    handleRestaurantNameInput(
+      restaurantName,
+      selectedRestaurant,
+      isCreatingRestaurant,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      (evt, detail) => dispatch(evt, detail),
+      t
+    );
+  }
 
-      // Just update the local state without creating a restaurant yet
-      // The actual restaurant creation will happen when the save button is clicked
-      menuStore.updateLocalRestaurantName(restaurantName);
+  // Called on "Edit" button
+  function onEditRestaurantClick() {
+    startEditingRestaurant(
+      (val) => editingRestaurantName = val,
+      (val) => isEditingRestaurant = val,
+      restaurantName
+    );
+  }
 
-      dispatch('update', {
-        id: selectedRestaurant || undefined,
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt: customPrompt,
-        phoneNumber: phoneNumber,
-        currency,
-        color,
-        slug: $currentRestaurant?.slug || ''
-      });
-    } catch (error) {
-      console.error('Error updating restaurant name:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
+  // Called on "Cancel" button while editing
+  function onCancelEdit() {
+    cancelEditingRestaurant(
+      (val) => editingRestaurantName = val,
+      (val) => isEditingRestaurant = val,
+      restaurantName
+    );
+  }
+
+  // Actually update the restaurant name
+  async function onUpdateRestaurantName() {
+    await updateRestaurantName(
+      editingRestaurantName,
+      selectedRestaurant,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      (evt, detail) => dispatch(evt, detail),
+      t,
+      (val) => restaurantName = val,
+      (val) => isEditingRestaurant = val
+    );
+  }
+
+  // On "Enter" or "Escape"
+  function onRestaurantEditKeyPress(event: KeyboardEvent) {
+    handleRestaurantEditKeyPress(
+      event,
+      onUpdateRestaurantName,
+      onCancelEdit
+    );
+  }
+
+  // Called on <select> for restaurant
+  function onRestaurantSelect(event: Event) {
+    handleRestaurantSelect(event, (evt, val) => dispatch(evt, val));
+  }
+
+  // Called on customPrompt <textarea> input
+  function onCustomPromptInput(event: Event) {
+    const newVal = handleCustomPromptInput(
+      event,
+      selectedRestaurant,
+      restaurantName,
+      menuLogo,
+      phoneNumber,
+      color,
+      currency,
+      t,
+      (evt, detail) => dispatch(evt, detail)
+    );
+    if (newVal !== null) {
+      customPrompt = newVal; // keep local store in sync
     }
   }
 
-  function startEditingRestaurant() {
-    editingRestaurantName = restaurantName;
-    isEditingRestaurant = true;
+  // Called on "delete logo" button
+  function onDeleteLogo(event: MouseEvent) {
+    const result = handleLogoDelete(
+      event,
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      (evt, detail) => dispatch(evt, detail)
+    );
+    // result is the updated menuLogo (null if success)
+    menuLogo = result;
   }
 
-  function cancelEditingRestaurant() {
-    editingRestaurantName = restaurantName;
-    isEditingRestaurant = false;
-  }
-
-  function handleRestaurantEditKeyPress(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      updateRestaurantName();
-    } else if (event.key === 'Escape') {
-      cancelEditingRestaurant();
-    }
-  }
-
-  async function updateRestaurantName() {
-    if (!editingRestaurantName.trim()) {
-      toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
-      return;
-    }
-
-    try {
-      if (!selectedRestaurant) {
-        toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
-        return;
-      }
-
-      // Generate a new slug for the updated restaurant name
-      const newSlug = await generateSlug(editingRestaurantName.trim());
-      
-      // Update restaurant name in the store
-      menuStore.updateRestaurantInfo(
-        editingRestaurantName.trim(),
-        menuLogo,
-        customPrompt,
-        newSlug,
-        phoneNumber,
-        color
-      );
-
-      // Update the current restaurant store with the new slug
-      if ($currentRestaurant) {
-        currentRestaurant.set({
-          ...$currentRestaurant,
-          name: editingRestaurantName.trim(),
-          slug: newSlug,
-          color: color
-        });
-      }
-
-      // Update local state
-      restaurantName = editingRestaurantName.trim();
-      
-      // Dispatch update event with only the necessary fields
-      dispatch('update', {
-        id: selectedRestaurant,
-        name: editingRestaurantName.trim(),
-        logo: menuLogo,
-        customPrompt: customPrompt,
-        phoneNumber: phoneNumber,
-        currency,
-        color,
-        slug: newSlug
-      });
-
-      // Exit edit mode
-      isEditingRestaurant = false;
-    } catch (error) {
-      console.error('Error updating restaurant name:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
-    }
-  }
-
-  async function handleRestaurantSelect(event: Event) {
-    const select = event.target as HTMLSelectElement;
-    try {
-      dispatch('select', select.value);
-    } catch (error) {
-      console.error('Error selecting restaurant:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
-    }
-  }
-
-  async function handleCustomPromptInput(event: Event) {
-    const textarea = event.target as HTMLTextAreaElement;
-    // Limit to 5000 characters
-    if (textarea.value.length > 5000) {
-      textarea.value = textarea.value.slice(0, 5000);
-    }
-    customPrompt = textarea.value || null;
-
-    // Only update if we have a restaurant
-    if (selectedRestaurant || restaurantName) {
-      const userId = $user?.id;
-      if (!userId) {
-        toasts.error(t('error') + ': ' + 'User not authenticated');
-        return;
-      }
-
-      try {
-        // Update restaurant info in the store
-        menuStore.updateRestaurantInfo(
-          restaurantName,
-          menuLogo,
-          customPrompt,
-          $currentRestaurant?.slug || null,
-          phoneNumber,
-          color
-        );
-
-        // Dispatch update event
-        dispatch('update', {
-          id: selectedRestaurant || undefined,
-          name: restaurantName,
-          logo: menuLogo,
-          customPrompt: customPrompt,
-          phoneNumber: phoneNumber,
-          currency,
-          color,
-          slug: $currentRestaurant?.slug || ''
-        });
-      } catch (error) {
-        console.error('Error updating custom prompt:', error);
-        if (error instanceof Error) {
-          toasts.error(t('error') + ': ' + error.message);
-        }
-      }
-    }
-  }
-
-  async function handleLogoDelete(event: MouseEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    try {
-      // Get the current user ID
-      const userId = $user?.id;
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-
-      // Update restaurant info in the store with null logo
-      menuStore.updateRestaurantInfo(
-        restaurantName,
-        null,
-        customPrompt,
-        $currentRestaurant?.slug || null,
-        phoneNumber,
-        color
-      );
-
-      // Dispatch update event
-      dispatch('update', {
-        id: selectedRestaurant || undefined,
-        name: restaurantName,
-        logo: null,
-        customPrompt: customPrompt,
-        phoneNumber: phoneNumber,
-        currency,
-        color,
-        slug: $currentRestaurant?.slug || ''
-      });
-
-      // Update local state
-      menuLogo = null;
-    } catch (error) {
-      console.error('Error deleting logo:', error);
-      if (error instanceof Error) {
-        toasts.error(t('error') + ': ' + error.message);
-      }
-    }
-  }
-
-  function handleColorChange(value: number) {
+  // Called on color radio <input> change
+  function onColorChange(value: number) {
     if (value === 5) {
-      // Toggle the custom color picker
-      if (showCustomColorPicker) {
-        showCustomColorPicker = false;
-        // If we're closing and we have a custom color, keep using it
-        if (customColorValue) {
-          color = '5'; // Store 5 for custom color as string
-          updateRestaurantColor('5');
-        }
-      } else {
-        showCustomColorPicker = true;
-        // Initialize tempColorValue with current custom color or default
-        tempColorValue = customColorValue || '#000000';
-        customColorInput = tempColorValue;
+      // If selecting custom color option, update the UI but don't change the color value yet
+      showCustomColorPicker = true;
+      if (customColorValue) {
+        tempColorValue = customColorValue;
+        customColorInput = customColorValue;
       }
     } else {
-      // For other colors (1-4), close the picker and update immediately
-      showCustomColorPicker = false;
-      color = String(value); // Convert to string
-      updateRestaurantColor(String(value));
-    }
-  }
-
-  function updateRestaurantColor(value: string) {
-    // For custom color (value === '5'), use the stored customColorValue
-    let actualColor = value;
-    if (value === '5' && customColorValue) {
-      actualColor = customColorValue;
-    }
-    
-    // Update restaurant info in the store
-    if (restaurantName) {
-      menuStore.updateRestaurantInfo(
+      // For standard colors, immediately update the color value
+      color = String(value); // Update the local color prop
+      updateRestaurantColor(
+        String(value),
         restaurantName,
         menuLogo,
         customPrompt,
-        $currentRestaurant?.slug || null,
         phoneNumber,
-        actualColor
+        color,
+        currency,
+        customColorValue,
+        (evt: 'update', detail: UpdateEvent) => dispatch(evt, detail)
       );
-      
-      // Update the current restaurant store with the new color
-      if ($currentRestaurant) {
-        currentRestaurant.set({
-          ...$currentRestaurant,
-          color: actualColor
-        });
-      }
     }
-    
-    dispatch('update', {
-      id: selectedRestaurant || undefined,
-      name: restaurantName,
-      logo: menuLogo,
-      customPrompt: customPrompt,
-      phoneNumber: phoneNumber,
-      currency,
-      color: actualColor,
-      slug: $currentRestaurant?.slug || ''
-    });
   }
 
-  function handleCurrencyChange(value: string) {
-    currency = value;
+  // Actually update the color in store
+  function updateColor(val: string) {
+    console.log('updateColor called with:', val);
     
-    // Update restaurant info in the store
-    if (restaurantName) {
-      menuStore.updateRestaurantInfo(
-        restaurantName,
-        menuLogo,
-        customPrompt,
-        $currentRestaurant?.slug || null,
-        phoneNumber,
-        color
-      );
-      
-      // Update the current restaurant store for compatibility
-      if ($currentRestaurant) {
-        currentRestaurant.set({
-          ...$currentRestaurant,
-          currency: value
-        });
-      }
+    // Safely handle both numeric and hex color values
+    if (typeof val === 'string' && val.startsWith('#')) {
+      // For hex colors, ensure they're capitalized
+      color = val.toUpperCase();
+    } else {
+      // For standard color numbers, keep as is
+      color = val;
     }
     
-    dispatch('update', {
-      id: selectedRestaurant || undefined,
-      name: restaurantName,
-      logo: menuLogo,
-      customPrompt: customPrompt,
-      phoneNumber: phoneNumber,
-      currency: value,
+    console.log('Local color prop updated to:', color);
+    
+    updateRestaurantColor(
+      val,
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
       color,
-      slug: $currentRestaurant?.slug || ''
-    });
+      currency,
+      customColorValue,
+      (evt: 'update', detail: UpdateEvent) => {
+        console.log('Dispatching color update event with color:', detail.color);
+        dispatch(evt, detail);
+      }
+    );
   }
 
-  function handleCustomColorSelect(hexColor: string) {
-    tempColorValue = hexColor;
-    customColorInput = hexColor;
+  // Called on currency <input> change
+  function onCurrencyChange(value: string) {
+    currency = value;
+    handleCurrencyChange(
+      value,
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      (evt, detail) => dispatch(evt, detail)
+    );
   }
 
-  function handleCustomColorInput() {
-    if (customColorInput.match(/^#[0-9A-Fa-f]{6}$/)) {
-      tempColorValue = customColorInput;
-    }
+  // Called on custom color palette click
+  function onCustomColorSelect(hexColor: string) {
+    const capitalizedHexColor = hexColor.toUpperCase();
+    handleCustomColorSelect(capitalizedHexColor, (v: string) => tempColorValue = v, (v: string) => customColorInput = v);
   }
 
-  function acceptCustomColor() {
-    customColorValue = tempColorValue;
-    color = customColorValue; // Store the actual hex color value instead of '5'
-    updateRestaurantColor(customColorValue);
-    showCustomColorPicker = false;
+  function onCustomColorInput() {
+    const capitalizedInput = customColorInput.toUpperCase();
+    customColorInput = capitalizedInput;
+    handleCustomColorInput(capitalizedInput, (v: string) => tempColorValue = v);
   }
 
-  function cancelCustomColor() {
-    showCustomColorPicker = false;
-    // If we don't have a previous custom color, revert to Light theme
-    if (!customColorValue) {
-      color = '1';
-      updateRestaurantColor('1');
-    }
+  function onAcceptCustomColor() {
+    console.log('Accepting custom color:', tempColorValue);
+    color = tempColorValue; // Update the local color prop directly
+    
+    acceptCustomColor(
+      tempColorValue,
+      (v: string) => {
+        console.log('Setting customColorValue to:', v);
+        customColorValue = v;
+      },
+      (val: string) => {
+        console.log('Calling updateColor with:', val);
+        updateColor(val);
+      },
+      (v: boolean) => showCustomColorPicker = v
+    );
   }
 
-  function updateColorFromPosition(x: number, y: number, hue: number = hueValue) {
-    const saturation = (x / 100);
-    const value = 1 - (y / 100);
-    const color = hsvToHex(hue, saturation, value);
-    tempColorValue = color;
-    customColorInput = color;
+  function onCancelCustomColor() {
+    cancelCustomColor(
+      customColorValue,
+      (v: boolean) => showCustomColorPicker = v,
+      (v: string) => color = v,
+      updateColor
+    );
   }
 
-  function handlePickerMouseDown(event: MouseEvent) {
+  // Color picker XY
+  function onPickerMouseDown(event: MouseEvent) {
     const target = event.target as HTMLDivElement;
-    const rect = target.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
-    pickerPosition = { x, y };
-    updateColorFromPosition(x, y);
+    const { rect, x, y } = handleColorPickerInteraction(
+      event, 
+      target, 
+      (x: number, y: number) => pickerPosition = { x, y },
+      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+      hueValue
+    );
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-      const newY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-      pickerPosition = { x: newX, y: newY };
-      updateColorFromPosition(newX, newY);
+      const { x: newX, y: newY } = handleColorPickerInteraction(
+        e, 
+        target, 
+        (x: number, y: number) => pickerPosition = { x, y },
+        (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+        hueValue
+      );
     };
 
     const handleMouseUp = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }
 
-  function handlePickerTouchStart(event: TouchEvent) {
+  function onPickerTouchStart(event: TouchEvent) {
     event.preventDefault();
-    const touch = event.touches[0];
     const target = event.target as HTMLDivElement;
-    const rect = target.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
-    pickerPosition = { x, y };
-    updateColorFromPosition(x, y);
+    handleColorPickerTouchInteraction(
+      event,
+      target,
+      (x: number, y: number) => pickerPosition = { x, y },
+      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+      hueValue
+    );
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      const moveTouch = e.touches[0];
-      const newX = Math.max(0, Math.min(100, ((moveTouch.clientX - rect.left) / rect.width) * 100));
-      const newY = Math.max(0, Math.min(100, ((moveTouch.clientY - rect.top) / rect.height) * 100));
-      pickerPosition = { x: newX, y: newY };
-      updateColorFromPosition(newX, newY);
+      handleColorPickerTouchInteraction(
+        e,
+        target,
+        (x: number, y: number) => pickerPosition = { x, y },
+        (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+        hueValue
+      );
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  }
+
+  function onHueChange(event: MouseEvent) {
+    const target = event.target as HTMLDivElement;
+    handleHueInteraction(
+      event,
+      target,
+      (value: number) => hueValue = value,
+      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+      pickerPosition
+    );
+  }
+
+  function onHueTouchStart(event: TouchEvent) {
+    event.preventDefault();
+    const target = event.target as HTMLDivElement;
+    handleHueTouchInteraction(
+      event,
+      target,
+      (value: number) => hueValue = value,
+      (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+      pickerPosition
+    );
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      handleHueTouchInteraction(
+        e,
+        target,
+        (value: number) => hueValue = value,
+        (x: number, y: number, hue: number) => updateColorFromPosition(x, y, hue, (v: string) => tempColorValue = v, (v: string) => customColorInput = v),
+        pickerPosition
+      );
     };
 
     const handleTouchEnd = () => {
@@ -670,74 +488,8 @@
     document.addEventListener('touchend', handleTouchEnd);
   }
 
-  function handleHueChange(event: MouseEvent) {
-    const target = event.target as HTMLDivElement;
-    const rect = target.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
-    hueValue = x * 3.6; // Convert percentage to degrees (0-360)
-    updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
-  }
-
-  function handleHueTouchStart(event: TouchEvent) {
-    event.preventDefault();
-    const touch = event.touches[0];
-    const target = event.target as HTMLDivElement;
-    const rect = target.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
-    hueValue = x * 3.6; // Convert percentage to degrees (0-360)
-    updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const moveTouch = e.touches[0];
-      const newX = Math.max(0, Math.min(100, ((moveTouch.clientX - rect.left) / rect.width) * 100));
-      hueValue = newX * 3.6;
-      updateColorFromPosition(pickerPosition.x, pickerPosition.y, hueValue);
-    };
-
-    const handleTouchEnd = () => {
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd);
-  }
-
-  function hsvToHex(h: number, s: number, v: number): string {
-    let r = 0, g = 0, b = 0;
-    const i = Math.floor(h / 60);
-    const f = h / 60 - i;
-    const p = v * (1 - s);
-    const q = v * (1 - f * s);
-    const t = v * (1 - (1 - f) * s);
-
-    switch (i % 6) {
-      case 0: r = v; g = t; b = p; break;
-      case 1: r = q; g = v; b = p; break;
-      case 2: r = p; g = v; b = t; break;
-      case 3: r = p; g = q; b = v; break;
-      case 4: r = t; g = p; b = v; break;
-      case 5: r = v; g = p; b = q; break;
-    }
-
-    const toHex = (n: number) => {
-      const hex = Math.round(n * 255).toString(16);
-      return hex.length === 1 ? '0' + hex : hex;
-    };
-
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-  }
-
-  // Store the custom color value in localStorage when it changes
-  $: if (customColorValue) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(`customColor_${selectedRestaurant || 'new'}`, customColorValue);
-    }
-  }
-
-  // Load custom color from localStorage on component mount
   onMount(() => {
+    // If color === '5', try to load from localStorage
     if (color === '5' && typeof window !== 'undefined') {
       const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
       if (savedColor) {
@@ -747,101 +499,34 @@
       }
     }
   });
+
+  // Whenever customColorValue changes, store it
+  $: if (customColorValue && typeof customColorValue === 'string' && typeof window !== 'undefined') {
+    localStorage.setItem(`customColor_${selectedRestaurant || 'new'}`, customColorValue.toUpperCase());
+  }
 </script>
 
 <div class="space-y-4">
-  <!-- Check if restaurant is not selected -->
-    {#if !selectedRestaurant}
-  <!-- Menu Uploader -->
+  {#if !selectedRestaurant}
+    <!-- Menu Uploader -->
     <div class="space-y-2 mb-12">
-    <label class="block text-lg font-semibold mb-3 text-gray-800">
-      {t('uploadMenu')}
-    </label>
-    <MenuUploader
-      {restaurantName}
-      {customPrompt}
-      restaurantId={$currentRestaurant?.id || null}
-      on:success={async (event) => {
-        try {
-          let restaurantData = event.detail.restaurantData;
-          // Update the current restaurant with the new data
-          if ($currentRestaurant) {
-            const updatedRestaurant = {
-              ...$currentRestaurant,
-              ...restaurantData.restaurant, // Use all the data from the seed response
-              updatedAt: new Date()
-            };
-            // Update the store with the complete restaurant data
-            menuStore.updateRestaurantInfo(
-              updatedRestaurant.name,
-              updatedRestaurant.logo,
-              updatedRestaurant.customPrompt,
-              updatedRestaurant.slug,
-              updatedRestaurant.phoneNumber,
-              updatedRestaurant.color || '1'
-            );
-            // Update the current restaurant store
-            currentRestaurant.set(updatedRestaurant);
-          }
+      <label class="block text-lg font-semibold mb-3 text-gray-800">
+        {t('uploadMenu')}
+      </label>
+      <MenuUploader
+        {restaurantName}
+        {customPrompt}
+        restaurantId={$currentRestaurant?.id || null}
+        on:success={async (event) => {
+          handleMenuUploadSuccess(event, (evt, detail) => dispatch(evt, detail), currency, color);
+        }}
+        on:error={(event) => {
+          handleMenuUploadError(event, t);
+        }}
+      />
+    </div>
+  {/if}
 
-          // Dispatch update event with the updated data
-          dispatch('update', {
-            id: restaurantData.restaurant.id, // Use the ID from the seed response
-            name: restaurantData.restaurant.name,
-            logo: restaurantData.restaurant.logo,
-            customPrompt: restaurantData.restaurant.customPrompt,
-            phoneNumber: restaurantData.restaurant.phoneNumber,
-            currency,
-            color,
-            slug: $currentRestaurant?.slug || ''
-          });
-          
-          if(restaurantData.categories && restaurantData.categories.length > 0) {
-            // Process each category from the uploaded data
-            const categoryIdMap = new Map(); // Map to store original category IDs to new ones
-            
-            for (const category of restaurantData.categories) {
-              // Add the category to the menuStore and get the new ID
-              menuStore.addCategory(category.name);
-              
-              // Get the latest state to find the newly created category
-              const storeState = get(menuStore);
-              const newCategory = storeState.categories.find(c => 
-                c.name === category.name && c.id.startsWith('temp_')
-              );
-              
-              if (newCategory) {
-                // Store the mapping from original ID to new ID
-                categoryIdMap.set(category.id, newCategory.id);
-                
-                // If the category has dishes, add them too
-                if (category.dishes && category.dishes.length > 0) {
-                  for (const dish of category.dishes) {
-                    // Add each dish with the correct parameter structure and the new category ID
-                    menuStore.addDish(newCategory.id, {
-                      title: dish.title,
-                      description: dish.description || '',
-                      price: dish.price?.toString() || '0',
-                      imageUrl: dish.imageUrl || null
-                    });
-                  }
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error handling menu upload success:', error);
-          if (error instanceof Error) {
-            toasts.error(t('error') + ': ' + error.message);
-          }
-        }
-      }}
-      on:error={(event) => {
-        toasts.error(t('error') + ': ' + event.detail);
-      }}
-    />
-  </div>
-    {/if}
   <!-- Restaurant Name Input -->
   <div class="space-y-2">
     {#if isEditingRestaurant}
@@ -849,19 +534,19 @@
         <input
           type="text"
           bind:value={editingRestaurantName}
-          on:keydown={handleRestaurantEditKeyPress}
+          on:keydown={onRestaurantEditKeyPress}
           placeholder={t('enterRestaurantName')}
           class="flex-1"
         />
         <button
           class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-          on:click={updateRestaurantName}
+          on:click={onUpdateRestaurantName}
         >
           {t('save')}
         </button>
         <button
           class="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
-          on:click={cancelEditingRestaurant}
+          on:click={onCancelEdit}
         >
           {t('cancel')}
         </button>
@@ -872,7 +557,7 @@
           <input
             type="text"
             bind:value={restaurantName}
-            on:blur={handleRestaurantNameInput}
+            on:blur={onRestaurantNameBlur}
             placeholder={t('enterRestaurantName')}
             class="flex-1"
             readonly={!!selectedRestaurant}
@@ -880,7 +565,7 @@
           {#if selectedRestaurant}
             <button
               class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-              on:click={startEditingRestaurant}
+              on:click={onEditRestaurantClick}
             >
               {t('edit')}
             </button>
@@ -889,9 +574,28 @@
         {#if selectedRestaurant}
           {#if isCreatingRestaurant}
             <div class="flex items-center gap-1 px-3 py-1 mt-2 text-sm text-gray-600">
-              <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <svg
+                class="animate-spin h-4 w-4 text-gray-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373
+                     0 0 5.373 0 12h4zm2 5.291A7.962
+                     7.962 0 014 12H0c0 3.042 1.135
+                     5.824 3 7.938l3-2.647z"
+                />
               </svg>
               {t('generatingPreview')}
             </div>
@@ -902,9 +606,23 @@
               rel="noopener noreferrer"
               class="flex items-center gap-1 px-3 py-1 mt-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M11 3a1 1 0 100 2h2.586l-6.293
+                         6.293a1 1 0 101.414 1.414L15
+                         6.414V9a1 1 0 102 0V4a1 1
+                         0 00-1-1h-5z" />
+                <path
+                  d="M5 5a2 2 0 00-2
+                     2v8a2 2 0 002 2h8a2
+                     2 0 002-2v-3a1 1
+                     0 10-2 0v3H5V7h3a1
+                     1 0 000-2H5z"
+                />
               </svg>
               {$currentRestaurant.slug}.reco.restaurant
             </a>
@@ -916,10 +634,12 @@
 
   <!-- Logo Upload -->
   <div class="mb-8">
-    <label class="block text-lg font-semibold mb-3 text-gray-800">{t('menuLogo')}</label>
+    <label class="block text-lg font-semibold mb-3 text-gray-800">
+      {t('menuLogo')}
+    </label>
     <div class="flex items-start gap-4">
       <div class="relative group">
-        <form 
+        <form
           class="w-24 h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-200 {!restaurantName ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' : isDragging ? 'border-blue-400 bg-blue-50' : menuLogo ? 'border-transparent shadow-md hover:shadow-lg' : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300'}"
           on:submit|preventDefault={() => {
             if (!restaurantName) {
@@ -941,38 +661,64 @@
           on:dragenter={handleDragEnter}
           on:dragleave={handleDragLeave}
           on:dragover={handleDragOver}
-          on:drop={handleDrop}
+          on:drop={handleLogoDrop}
         >
           <button type="submit" class="w-full h-full flex flex-col items-center justify-center">
             {#if menuLogo}
               <div class="relative w-full h-full">
-                <img 
-                  src={ensureString(menuLogo)} 
-                  alt="Menu logo" 
+                <img
+                  src={ensureString(menuLogo)}
+                  alt="Menu logo"
                   class="w-full h-full object-cover rounded-xl"
                 />
-                <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors duration-200" />
+                <div
+                  class="absolute inset-0 bg-black/0 group-hover:bg-black/10
+                         rounded-xl transition-colors duration-200"
+                />
                 <!-- Delete button overlay -->
                 <button
                   type="button"
-                  class="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
-                  on:click|stopPropagation={handleLogoDelete}
+                  class="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-lg opacity-0
+                         group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
+                  on:click|stopPropagation={onDeleteLogo}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    <path
+                      fill-rule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414
+                         0L10 8.586l4.293-4.293a1 1
+                         0 111.414 1.414L11.414 10l4.293
+                         4.293a1 1 0 01-1.414 1.414L10
+                         11.414l-4.293 4.293a1 1 0
+                         01-1.414-1.414L8.586 10
+                         4.293 5.707a1 1 0 010-1.414z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                 </button>
               </div>
             {:else}
               <div class="flex flex-col items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-8 w-8 text-blue-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
-                <span class="text-sm text-blue-600 mt-2 font-medium">{t('addLogo')}</span>
+                <span class="text-sm text-blue-600 mt-2 font-medium">
+                  {t('addLogo')}
+                </span>
                 {#if isDragging}
-                  <span class="text-xs text-blue-500 mt-1">{t('dropToUpload')}</span>
+                  <span class="text-xs text-blue-500 mt-1">
+                    {t('dropToUpload')}
+                  </span>
                 {:else}
-                  <span class="text-xs text-gray-500 mt-1">{t('dragAndDrop')}</span>
+                  <span class="text-xs text-gray-500 mt-1">
+                    {t('dragAndDrop')}
+                  </span>
                 {/if}
               </div>
             {/if}
@@ -982,14 +728,28 @@
             type="file"
             accept="image/jpeg,image/png,image/webp,image/svg+xml"
             class="hidden"
-            on:change={handleLogoUpload}
+            on:change={handleLogoUploadInput}
           />
         </form>
       </div>
-      <div id="logo-error" class="hidden text-sm text-white bg-red-500 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ease-in-out min-w-[200px] whitespace-nowrap">
+      <div
+        id="logo-error"
+        class="hidden text-sm text-white bg-red-500 px-4 py-2 rounded-lg shadow-lg z-50
+               transition-all duration-300 ease-in-out min-w-[200px] whitespace-nowrap"
+      >
         <div class="flex items-center space-x-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            <path
+              fill-rule="evenodd"
+              d="M18 10a8 8 0 11-16
+                 0 8 8 0 0116 0zm-7
+                 4a1 1 0 11-2 0 1
+                 1 0 012 0zm-1-9a1
+                 1 0 00-1 1v4a1 1
+                 0 102 0V6a1 1
+                 0 00-1-1z"
+              clip-rule="evenodd"
+            />
           </svg>
           <span class="flex-1"></span>
         </div>
@@ -1006,9 +766,11 @@
       <textarea
         id="customPrompt"
         value={displayCustomPrompt}
-        on:input={handleCustomPromptInput}
+        on:input={onCustomPromptInput}
         placeholder={t('customPromptPlaceholder')}
-        class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out bg-white/80 backdrop-blur-sm resize-none"
+        class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-2
+               focus:ring-blue-500 focus:border-transparent transition-all
+               duration-200 ease-in-out bg-white/80 backdrop-blur-sm resize-none"
       ></textarea>
       <div class="absolute bottom-2 right-2 text-sm text-gray-500">
         {displayCustomPrompt.length}/5000
@@ -1030,7 +792,7 @@
               name="color"
               value={option.value}
               checked={color === String(option.value)}
-              on:change={() => handleColorChange(option.value)}
+              on:change={() => onColorChange(option.value)}
               class="form-radio text-blue-600"
             />
             <span class="text-sm text-gray-700">{option.label}</span>
@@ -1041,35 +803,47 @@
       {#if showCustomColorPicker}
         <div class="mt-4 space-y-4">
           <!-- Color spectrum picker -->
-          <div class="relative w-full max-w-[200px] h-[200px] cursor-crosshair rounded-lg overflow-hidden touch-manipulation"
-               style="background: linear-gradient(to right, #fff, hsl({hueValue}, 100%, 50%));"
-               on:mousedown={handlePickerMouseDown}
-               on:touchstart={handlePickerTouchStart}>
-            <div class="absolute inset-0"
-                 style="background: linear-gradient(to bottom, transparent, #000);">
-              <div class="absolute w-5 h-5 border-2 border-white rounded-full shadow-md transform -translate-x-1/2 -translate-y-1/2"
-                   style="left: {pickerPosition.x}%; top: {pickerPosition.y}%; background-color: {tempColorValue};">
-              </div>
+          <div
+            class="relative w-full max-w-[200px] h-[200px] cursor-crosshair rounded-lg overflow-hidden
+                   touch-manipulation"
+            style="background: linear-gradient(to right, #fff, hsl({hueValue}, 100%, 50%));"
+            on:mousedown={onPickerMouseDown}
+            on:touchstart={onPickerTouchStart}
+          >
+            <div
+              class="absolute inset-0"
+              style="background: linear-gradient(to bottom, transparent, #000);"
+            >
+              <div
+                class="absolute w-5 h-5 border-2 border-white rounded-full shadow-md transform
+                       -translate-x-1/2 -translate-y-1/2"
+                style="left: {pickerPosition.x}%; top: {pickerPosition.y}%; background-color: {tempColorValue};"
+              />
             </div>
           </div>
 
           <!-- Hue slider -->
-          <div class="relative w-full max-w-[200px] h-8 cursor-pointer rounded-lg overflow-hidden touch-manipulation"
-               style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
-               on:mousedown={handleHueChange}
-               on:touchstart={handleHueTouchStart}>
-            <div class="absolute w-2 h-full bg-white border border-gray-300 shadow-md"
-                 style="left: {hueValue / 3.6}%;">
-            </div>
+          <div
+            class="relative w-full max-w-[200px] h-8 cursor-pointer rounded-lg overflow-hidden
+                   touch-manipulation"
+            style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);"
+            on:mousedown={onHueChange}
+            on:touchstart={onHueTouchStart}
+          >
+            <div
+              class="absolute w-2 h-full bg-white border border-gray-300 shadow-md"
+              style="left: {hueValue / 3.6}%"
+            />
           </div>
 
           <!-- Preset colors grid -->
           <div class="grid grid-cols-4 sm:grid-cols-8 gap-3 max-w-[240px]">
             {#each colorPalette as hexColor}
               <button
-                class="w-8 h-8 rounded-lg transition-transform hover:scale-110 shadow-sm border border-gray-100 active:scale-95 touch-manipulation"
+                class="w-8 h-8 rounded-lg transition-transform hover:scale-110 shadow-sm
+                       border border-gray-100 active:scale-95 touch-manipulation"
                 style="background-color: {hexColor}"
-                on:click={() => handleCustomColorSelect(hexColor)}
+                on:click={() => onCustomColorSelect(hexColor)}
                 aria-label="Color swatch"
               />
             {/each}
@@ -1081,8 +855,9 @@
               type="text"
               bind:value={customColorInput}
               placeholder="#000000"
-              class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              on:input={handleCustomColorInput}
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2
+                     focus:ring-blue-500 focus:border-transparent"
+              on:input={onCustomColorInput}
               aria-label="Enter hex color code"
             />
             <div
@@ -1095,14 +870,16 @@
           <!-- Action buttons -->
           <div class="flex justify-end gap-3 mt-2">
             <button
-              class="px-5 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors touch-manipulation active:scale-95"
-              on:click={cancelCustomColor}
+              class="px-5 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors
+                     touch-manipulation active:scale-95"
+              on:click={onCancelCustomColor}
             >
               {t('cancel')}
             </button>
             <button
-              class="px-5 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors touch-manipulation active:scale-95"
-              on:click={acceptCustomColor}
+              class="px-5 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors
+                     touch-manipulation active:scale-95"
+              on:click={onAcceptCustomColor}
             >
               {t('save')}
             </button>
@@ -1124,7 +901,7 @@
               name="currency"
               value={option.value}
               checked={currency === option.value}
-              on:change={() => handleCurrencyChange(option.value)}
+              on:change={() => onCurrencyChange(option.value)}
               class="form-radio text-blue-600"
             />
             <span class="text-sm text-gray-700">{option.label}</span>
@@ -1135,39 +912,20 @@
 
     <!-- Phone Number -->
     <div class="space-y-2 mb-12">
-      <PhoneInput 
+      <PhoneInput
         {phoneNumber}
         on:change={(event) => {
           const { phoneNumber: newPhoneNumber } = event.detail;
           phoneNumber = newPhoneNumber;
-          
-          // Update restaurant info in the store
-          menuStore.updateRestaurantInfo(
+          handlePhoneNumberChange(
+            newPhoneNumber,
             restaurantName,
             menuLogo,
             customPrompt,
-            $currentRestaurant?.slug || null,
-            newPhoneNumber
-          );
-          
-          // Update the current restaurant store for compatibility
-          if ($currentRestaurant) {
-            currentRestaurant.set({
-              ...$currentRestaurant,
-              phoneNumber: newPhoneNumber
-            });
-          }
-          
-          dispatch('update', {
-            id: selectedRestaurant || undefined,
-            name: restaurantName,
-            logo: menuLogo,
-            customPrompt: customPrompt,
-            phoneNumber: newPhoneNumber,
-            currency,
             color,
-            slug: $currentRestaurant?.slug || ''
-          });
+            currency,
+            (evt, detail) => dispatch(evt, detail)
+          );
         }}
       />
     </div>
@@ -1176,9 +934,11 @@
 
 <style>
   :global(input[type="text"]) {
-    @apply border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out bg-white/80 backdrop-blur-sm;
+    @apply border border-gray-300 rounded-md px-3 py-2 w-full focus:ring-2
+      focus:ring-blue-500 focus:border-transparent transition-all
+      duration-200 ease-in-out bg-white/80 backdrop-blur-sm;
   }
-  
+
   :global(input[type="text"]::placeholder) {
     @apply text-gray-400;
   }
@@ -1191,4 +951,4 @@
   :global(.form-radio) {
     @apply h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500;
   }
-</style> 
+</style>

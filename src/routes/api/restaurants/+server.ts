@@ -64,7 +64,7 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
         customPrompt: customPrompt || null,
         phoneNumber: phoneNumber || null,
         currency: currency || '€',
-        color: color || 1,
+        color: String(color || '1'),
         userId: user.id,
         createdAt: new Date(),
         updatedAt: new Date()

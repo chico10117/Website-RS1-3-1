@@ -15,7 +15,7 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 }
 
 export async function fetchRestaurantById(restaurantId: string): Promise<Restaurant> {
-  console.log('Fetching restaurant by ID:', restaurantId);
+  //console.log('Fetching restaurant by ID:', restaurantId);
   
   const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
     credentials: 'include'
@@ -81,14 +81,14 @@ export async function createOrUpdateRestaurant(
           color: restaurantData.color
         };
     
-    console.log('Restaurant operation:', {
-      method: isUpdate ? 'PUT' : 'POST',
-      url,
-      bodyData,
-      isUpdate,
-      restaurantId,
-      providedId: restaurantData.id
-    });
+    // console.log('Restaurant operation:', {
+    //   method: isUpdate ? 'PUT' : 'POST',
+    //   url,
+    //   bodyData,
+    //   isUpdate,
+    //   restaurantId,
+    //   providedId: restaurantData.id
+    // });
 
     const response = await fetch(url, {
       method: isUpdate ? 'PUT' : 'POST',

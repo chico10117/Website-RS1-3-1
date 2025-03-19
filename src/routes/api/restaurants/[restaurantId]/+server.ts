@@ -128,7 +128,10 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
     }
 
     if (updateData.color !== undefined) {
-      updateSet.color = updateData.color;
+      console.log('Before conversion - Color value:', updateData.color, 'type:', typeof updateData.color);
+      // Ensure color is saved as a string
+      updateSet.color = String(updateData.color);
+      console.log('After conversion - Updating restaurant color to:', updateSet.color, 'type:', typeof updateSet.color);
     }
     
     // Add customColor update

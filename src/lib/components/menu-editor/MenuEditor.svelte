@@ -17,6 +17,7 @@
   import { generateSlug } from '$lib/utils/slug';
   import { goto } from '$app/navigation';
   import SaveButton from './SaveButton.svelte';
+  import { type UpdateEvent } from '$lib/utils/RestaurantInfo.helpers';
 
   const isRestaurantSelectorMinimized = writable(false);
 
@@ -97,10 +98,16 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ id?: string; name: string; logo: string | null; customPrompt: string | null; currency: string; color: number; phoneNumber: string | null }>) {
-    console.log('handleRestaurantUpdate called with event:', event.detail);
+  async function handleRestaurantUpdate(event: CustomEvent<UpdateEvent>) {
+    console.log('handleRestaurantUpdate called with event detail:', {
+      ...event.detail,
+      color: event.detail.color,
+      colorType: typeof event.detail.color
+    });
     
-    const { id, name, logo, customPrompt, phoneNumber } = event.detail;
+    const { id, name, logo, customPrompt, phoneNumber, color } = event.detail;
+    
+    console.log('Extracted color from event:', color, 'type:', typeof color);
     
     if (!name.trim()) {
       console.error('No restaurant name provided');
@@ -116,12 +123,18 @@
       return;
     }
 
+    // Ensure color is a string
+    const colorValue = String(color);
+    console.log('Converted color to string:', colorValue);
+
     if (id) {
       // Update existing restaurant
-      menuStore.updateRestaurantInfo(name, logo, customPrompt, $currentRestaurant?.slug || null, phoneNumber);
+      console.log('Updating restaurant with color:', colorValue);
+      menuStore.updateRestaurantInfo(name, logo, customPrompt, $currentRestaurant?.slug || null, phoneNumber, colorValue);
     } else {
       // Create new restaurant
-      menuStore.createRestaurant(name, logo, customPrompt, phoneNumber);
+      console.log('Creating restaurant with color:', colorValue);
+      menuStore.createRestaurant(name, logo, customPrompt, phoneNumber, colorValue);
       
       // Update the current restaurant store
       const newRestaurant = $menuStore.restaurants.find(r => r.name === name);

@@ -11,6 +11,43 @@
 8. Im using pnpm, so use pnpm instead of npm.
 
 
+
+# Svelte Class Binding Syntax Rules
+
+When working with dynamic class bindings in Svelte:
+
+1. Always ensure that quotes are properly paired within expression contexts.
+
+2. For class directive expressions with ternary operators:
+   ```svelte
+   class="static-classes {dynamicExpression ? 'true-class' : 'false-class'}"
+   ```
+   - The closing quote of the class value must be inside the curly brace
+   - The quotes around string values must match (either all single or all double)
+
+3. For nested ternary operators:
+   ```svelte
+   class="... {condition1 ? 'value1' 
+              : condition2 ? 'value2' 
+              : condition3 ? 'value3' 
+              : 'default-value'}"
+   ```
+   - Ensure proper indentation for readability
+   - The closing quote must remain inside the final curly brace
+
+4. Common error pattern to watch for:
+   ```svelte
+   class="... {expression}'}"   <!-- WRONG -->
+   class="... {expression}'"    <!-- WRONG -->
+   class="... {expression}}"    <!-- WRONG -->
+   
+   class="... {expression}}"    <!-- CORRECT -->
+   ```
+
+5. When in doubt, validate your template syntax with a linter before deploying.
+
+
+
 # Project Instructions
 
 Use specification and guidelines as you build the app.

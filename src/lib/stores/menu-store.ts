@@ -14,6 +14,7 @@ export interface MenuStore {
   customPrompt: string | null;
   phoneNumber: string | null;
   categories: Category[];
+  color: string;
   
   // Tracking changes
   changedItems: {
@@ -136,6 +137,7 @@ function createMenuStore() {
     customPrompt: null,
     phoneNumber: null,
     categories: [],
+    color: '1',
     
     // Tracking changes
     changedItems: {
@@ -185,6 +187,7 @@ function createMenuStore() {
         menuLogo: state.menuLogo,
         customPrompt: state.customPrompt,
         phoneNumber: state.phoneNumber,
+        color: state.color, // Save color state 
         categories: [...state.categories],
         changedItems: {
           restaurant: state.changedItems.restaurant,
@@ -362,6 +365,7 @@ function createMenuStore() {
             menuLogo: restaurant.logo,
             customPrompt: restaurant.customPrompt,
             phoneNumber: restaurant.phoneNumber,
+            color: restaurant.color || '1', // Add color from restaurant data
             categories: categories,
             isLoading: false,
             changedItems: changedItems
@@ -397,7 +401,7 @@ function createMenuStore() {
         customPrompt,
         phoneNumber,
         userId: '', // Will be set by the server
-        currency: 'USD', // Default
+        currency: '€', // Default
         color, // Use the passed color value
         createdAt: new Date(),
         updatedAt: new Date()
@@ -412,6 +416,7 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
+          color, // Add the color property to the state update
           changedItems: {
             ...state.changedItems,
             restaurant: true
@@ -449,6 +454,7 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
+          color, // Add color to the store state update
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
@@ -655,6 +661,7 @@ function createMenuStore() {
       console.log('SaveChanges state:', {
         selectedRestaurant: state.selectedRestaurant,
         restaurantName: state.restaurantName,
+        color: state.color,
         changedItems: {
           restaurant: state.changedItems.restaurant,
           categories: Array.from(state.changedItems.categories),
@@ -669,9 +676,11 @@ function createMenuStore() {
         
         // Get the current restaurant to access its properties
         const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
+        console.log('Current restaurant in store:', currentRestaurantObj);
         
-        // Prepare restaurant data with valid color and currency values
-        const colorValue = currentRestaurantObj?.color || '1';
+        // Use the state's color value directly
+        const colorValue = state.color;
+        console.log('Using color value for save:', colorValue, 'type:', typeof colorValue);
         
         console.log('Restaurant data for save:', {
           name: state.restaurantName,
@@ -808,6 +817,7 @@ function createMenuStore() {
             menuLogo: result.restaurant.logo,
             customPrompt: result.restaurant.customPrompt,
             phoneNumber: result.restaurant.phoneNumber,
+            color: result.restaurant.color, // Update the color from the result
             categories: result.categories,
             isSaving: false,
             lastSaveTime: new Date(),

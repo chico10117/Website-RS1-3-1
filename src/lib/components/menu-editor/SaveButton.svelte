@@ -99,19 +99,23 @@
       return;
     }
 
-    
+    console.log('Starting save with color:', $menuStore.color);
+
     try {
       // If we have a restaurant name but no selected restaurant, we need to create a new one
       if (restaurantName && !selectedRestaurant) {
         // Generate a slug for the new restaurant
         const newSlug = await generateSlug(restaurantName);
         
+        console.log('Creating restaurant with color:', $menuStore.color);
+        
         // Create the restaurant in the store
         menuStore.createRestaurant(
           restaurantName,
           $menuStore.menuLogo,
           $menuStore.customPrompt,
-          $menuStore.phoneNumber
+          $menuStore.phoneNumber,
+          $menuStore.color
         );
         
         // Get the newly created restaurant ID
@@ -122,13 +126,16 @@
           throw new Error('Failed to create restaurant');
         }
         
+        console.log('Updating restaurant with color:', $menuStore.color);
+        
         // Update with the proper slug
         menuStore.updateRestaurantInfo(
           restaurantName,
           $menuStore.menuLogo,
           $menuStore.customPrompt,
           newSlug,
-          $menuStore.phoneNumber
+          $menuStore.phoneNumber,
+          $menuStore.color
         );
         
         // Update the current restaurant store
@@ -142,13 +149,15 @@
           }
         }
       }
+      
+      console.log('Calling saveChanges with color in store:', $menuStore.color);
+      
       // Use the menuStore's saveChanges method to save all changes
       await menuStore.saveChanges();
       const restId = $menuStore.selectedRestaurant;
       if (restId){
         socket.emit('request-images', restId);
       }
-
 
       // Show success message
       toasts.success(t('changesSaved') || 'Changes saved');
