@@ -108,13 +108,16 @@ export async function handleFileUpload(
     const cRest = get(currentRestaurant);
     // If editing an existing restaurant
     if (cRest) {
+      // Preserve the current color from the database
+      const existingColor = cRest.color || color;
+      
       menuStore.updateRestaurantInfo(
         cRest.name,
         uploadResult.url || null,
         cRest.customPrompt,
         cRest.slug,
         cRest.phoneNumber,
-        cRest.color
+        existingColor
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -123,7 +126,7 @@ export async function handleFileUpload(
         customPrompt: cRest.customPrompt,
         phoneNumber: cRest.phoneNumber,
         currency,
-        color,
+        color: existingColor,
         slug: cRest.slug
       });
     } else {
@@ -247,6 +250,11 @@ export async function updateRestaurantName(
   }
   try {
     const newSlug = await generateSlug(editingRestaurantName.trim());
+    const cRest = get(currentRestaurant);
+    
+    // Preserve the current color from the database
+    const existingColor = cRest?.color || color;
+    
     // update store
     menuStore.updateRestaurantInfo(
       editingRestaurantName.trim(),
@@ -254,20 +262,13 @@ export async function updateRestaurantName(
       customPrompt,
       newSlug,
       phoneNumber,
-      color
+      existingColor
     );
-    // update current store
-    const cRest = get(currentRestaurant);
-    if (cRest) {
-      currentRestaurant.set({
-        ...cRest,
-        name: editingRestaurantName.trim(),
-        slug: newSlug,
-        color
-      });
-    }
-    // update local Svelte state
+    
+    // update local name
     setLocalRestaurantName(editingRestaurantName.trim());
+    
+    // Dispatch update event
     dispatchFn('update', {
       id: selectedRestaurant,
       name: editingRestaurantName.trim(),
@@ -275,9 +276,10 @@ export async function updateRestaurantName(
       customPrompt,
       phoneNumber,
       currency,
-      color,
+      color: existingColor,
       slug: newSlug
     });
+    
     setIsEditing(false);
   } catch (error) {
     console.error('Error updating restaurant name:', error);
@@ -337,42 +339,69 @@ export function handleCustomPromptInput(
   t: (key: string) => string,
   dispatchFn: (event: 'update', detail: UpdateEvent) => void
 ): string | null {
-  const target = event.target as HTMLTextAreaElement;
-  const newPrompt = target.value || null;
-  
+  if (!restaurantName && !selectedRestaurant) {
+    toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
+    return null;
+  }
+
   try {
-    // Update store
-    menuStore.updateRestaurantInfo(
-      restaurantName,
-      menuLogo,
-      newPrompt,
-      get(currentRestaurant)?.slug || null,
-      phoneNumber,
-      color
-    );
+    const textarea = event.target as HTMLTextAreaElement;
+    const value = textarea.value;
     
-    // Update current restaurant
+    // Check length
+    if (value.length > 5000) {
+      toasts.error(t('error') + ': ' + t('customPromptTooLong'));
+      return null;
+    }
+    
+    // Adjust value to null if empty or the string otherwise
+    const newValue = value.trim() === '' ? null : value;
     const cRest = get(currentRestaurant);
+    
+    // For existing restaurant
     if (cRest) {
-      currentRestaurant.set({
-        ...cRest,
-        customPrompt: newPrompt
+      // Preserve the current color from the database
+      const existingColor = cRest.color || color;
+      
+      menuStore.updateRestaurantInfo(
+        cRest.name,
+        cRest.logo,
+        newValue,
+        cRest.slug,
+        cRest.phoneNumber,
+        existingColor
+      );
+      dispatchFn('update', {
+        id: cRest.id,
+        name: cRest.name,
+        logo: cRest.logo,
+        customPrompt: newValue,
+        phoneNumber: cRest.phoneNumber,
+        currency,
+        color: existingColor,
+        slug: cRest.slug
+      });
+    } else {
+      // For new local restaurant
+      menuStore.updateRestaurantInfo(
+        restaurantName,
+        menuLogo,
+        newValue,
+        get(currentRestaurant)?.slug || null,
+        phoneNumber,
+        color
+      );
+      dispatchFn('update', {
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt: newValue,
+        phoneNumber,
+        currency,
+        color
       });
     }
     
-    // Dispatch update event
-    dispatchFn('update', {
-      id: selectedRestaurant || undefined,
-      name: restaurantName,
-      logo: menuLogo,
-      customPrompt: newPrompt,
-      phoneNumber,
-      currency,
-      color,
-      slug: get(currentRestaurant)?.slug || ''
-    });
-    
-    return newPrompt;
+    return newValue;
   } catch (error) {
     console.error('Error updating custom prompt:', error);
     if (error instanceof Error) {
@@ -397,39 +426,50 @@ export function handleLogoDelete(
 ): string | null {
   event.preventDefault();
   event.stopPropagation();
-  
-  // Update store with null logo
-  menuStore.updateRestaurantInfo(
-    restaurantName,
-    null,
-    customPrompt,
-    get(currentRestaurant)?.slug || null,
-    phoneNumber,
-    color
-  );
-  
-  // Update current restaurant if exists
-  const cRest = get(currentRestaurant);
-  if (cRest) {
-    currentRestaurant.set({
-      ...cRest,
-      logo: null
-    });
+  if (!menuLogo) return null;
+
+  try {
+    const cRest = get(currentRestaurant);
+    // For existing restaurant
+    if (cRest) {
+      // Preserve the current color from the database
+      const existingColor = cRest.color || color;
+
+      menuStore.updateRestaurantInfo(
+        cRest.name,
+        null, // Remove logo
+        cRest.customPrompt,
+        cRest.slug,
+        cRest.phoneNumber,
+        existingColor
+      );
+      dispatchFn('update', {
+        id: cRest.id,
+        name: cRest.name,
+        logo: null,
+        customPrompt: cRest.customPrompt,
+        phoneNumber: cRest.phoneNumber,
+        currency,
+        color: existingColor,
+        slug: cRest.slug
+      });
+    } else {
+      // For new local restaurant
+      dispatchFn('update', {
+        name: restaurantName,
+        logo: null,
+        customPrompt,
+        phoneNumber,
+        currency,
+        color
+      });
+    }
+    
+    return null; // Update successful, return null logo
+  } catch (error) {
+    console.error('Error deleting logo:', error);
+    return menuLogo; // Return original logo on error
   }
-  
-  // Dispatch update event
-  dispatchFn('update', {
-    id: get(currentRestaurant)?.id,
-    name: restaurantName,
-    logo: null,
-    customPrompt,
-    phoneNumber,
-    currency,
-    color,
-    slug: get(currentRestaurant)?.slug || ''
-  });
-  
-  return null;
 }
 
 /**
@@ -444,17 +484,38 @@ export function handleCurrencyChange(
   color: string,
   dispatchFn: (event: 'update', detail: UpdateEvent) => void
 ) {
-  const cRest = get(currentRestaurant);
-  dispatchFn('update', {
-    id: cRest?.id,
-    name: restaurantName,
-    logo: menuLogo,
-    customPrompt,
-    phoneNumber,
-    currency: value,
-    color,
-    slug: cRest?.slug || ''
-  });
+  try {
+    const cRest = get(currentRestaurant);
+    
+    // For existing restaurant
+    if (cRest) {
+      // Preserve the current color from the database
+      const existingColor = cRest.color || color;
+      
+      dispatchFn('update', {
+        id: cRest.id,
+        name: cRest.name,
+        logo: cRest.logo,
+        customPrompt: cRest.customPrompt,
+        phoneNumber: cRest.phoneNumber,
+        currency: value,
+        color: existingColor,
+        slug: cRest.slug
+      });
+    } else {
+      // For new local restaurant
+      dispatchFn('update', {
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt,
+        phoneNumber,
+        currency: value,
+        color
+      });
+    }
+  } catch (error) {
+    console.error('Error updating currency:', error);
+  }
 }
 
 /**
@@ -469,36 +530,54 @@ export function handlePhoneNumberChange(
   currency: string,
   dispatchFn: (event: 'update', detail: UpdateEvent) => void
 ) {
-  // Update store with new phone number
-  menuStore.updateRestaurantInfo(
-    restaurantName,
-    menuLogo,
-    customPrompt,
-    get(currentRestaurant)?.slug || null,
-    newPhoneNumber,
-    color
-  );
-  
-  // Update current restaurant if exists
-  const cRest = get(currentRestaurant);
-  if (cRest) {
-    currentRestaurant.set({
-      ...cRest,
-      phoneNumber: newPhoneNumber
-    });
+  try {
+    const cRest = get(currentRestaurant);
+    
+    // For existing restaurant
+    if (cRest) {
+      // Preserve the current color from the database
+      const existingColor = cRest.color || color;
+      
+      menuStore.updateRestaurantInfo(
+        cRest.name,
+        cRest.logo,
+        cRest.customPrompt,
+        cRest.slug,
+        newPhoneNumber,
+        existingColor
+      );
+      dispatchFn('update', {
+        id: cRest.id,
+        name: cRest.name,
+        logo: cRest.logo,
+        customPrompt: cRest.customPrompt,
+        phoneNumber: newPhoneNumber,
+        currency,
+        color: existingColor,
+        slug: cRest.slug
+      });
+    } else {
+      // For new local restaurant
+      menuStore.updateRestaurantInfo(
+        restaurantName,
+        menuLogo,
+        customPrompt,
+        null, // No slug for new restaurant
+        newPhoneNumber,
+        color
+      );
+      dispatchFn('update', {
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt,
+        phoneNumber: newPhoneNumber,
+        currency,
+        color
+      });
+    }
+  } catch (error) {
+    console.error('Error updating phone number:', error);
   }
-  
-  // Dispatch update event
-  dispatchFn('update', {
-    id: cRest?.id,
-    name: restaurantName,
-    logo: menuLogo,
-    customPrompt,
-    phoneNumber: newPhoneNumber,
-    currency,
-    color,
-    slug: cRest?.slug || ''
-  });
 }
 
 /**
@@ -511,67 +590,40 @@ export async function handleMenuUploadSuccess(
   color: string
 ) {
   try {
-    let restaurantData = event.detail.restaurantData;
-
-    // If there's an existing restaurant, merge with new data
-    if (get(currentRestaurant)) {
-      const updatedRestaurant = {
-        ...get(currentRestaurant),
-        ...restaurantData.restaurant,
-        updatedAt: new Date()
-      };
-      menuStore.updateRestaurantInfo(
-        updatedRestaurant.name,
-        updatedRestaurant.logo,
-        updatedRestaurant.customPrompt,
-        updatedRestaurant.slug,
-        updatedRestaurant.phoneNumber,
-        updatedRestaurant.color || '1'
-      );
-      currentRestaurant.set(updatedRestaurant);
-    }
-
-    // Dispatch "update"
-    dispatchFn('update', {
-      id: restaurantData.restaurant.id,
-      name: restaurantData.restaurant.name,
-      logo: restaurantData.restaurant.logo,
-      customPrompt: restaurantData.restaurant.customPrompt,
-      phoneNumber: restaurantData.restaurant.phoneNumber,
-      currency,
-      color,
-      slug: get(currentRestaurant)?.slug || ''
-    });
-
-    // If categories exist, add them to menuStore
-    if (restaurantData.categories && restaurantData.categories.length > 0) {
-      const categoryIdMap = new Map();
-      for (const category of restaurantData.categories) {
-        menuStore.addCategory(category.name);
-        const storeState = get(menuStore);
-        const newCategory = storeState.categories.find(
-          (c) => c.name === category.name && c.id.startsWith('temp_')
-        );
-        if (newCategory) {
-          categoryIdMap.set(category.id, newCategory.id);
-          if (category.dishes && category.dishes.length > 0) {
-            for (const dish of category.dishes) {
-              menuStore.addDish(newCategory.id, {
-                title: dish.title,
-                description: dish.description || '',
-                price: dish.price?.toString() || '0',
-                imageUrl: dish.imageUrl || null
-              });
-            }
-          }
-        }
-      }
+    const cRest = get(currentRestaurant);
+    
+    if (cRest) {
+      // Preserve the current color from the database
+      const existingColor = cRest.color || color;
+      
+      // Update the dispatch with preserved color
+      dispatchFn('update', {
+        id: cRest.id,
+        name: cRest.name,
+        logo: cRest.logo,
+        customPrompt: cRest.customPrompt,
+        phoneNumber: cRest.phoneNumber,
+        currency,
+        color: existingColor,
+        slug: cRest.slug
+      });
+    } else {
+      // For a new restaurant
+      const { restaurantName, logo, customPrompt, phoneNumber, slug, id } = event.detail;
+      // For new restaurant that didn't exist before, we use the passed color
+      dispatchFn('update', {
+        id,
+        name: restaurantName,
+        logo,
+        customPrompt,
+        phoneNumber,
+        currency,
+        color,
+        slug
+      });
     }
   } catch (error) {
     console.error('Error handling menu upload success:', error);
-    if (error instanceof Error) {
-      toasts.error('Error: ' + error.message);
-    }
   }
 }
 

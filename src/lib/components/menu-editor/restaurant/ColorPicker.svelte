@@ -136,6 +136,9 @@
   function onCancelCustomColor() {
     dispatch('cancel');
   }
+  
+  // Check if the current color is a hex color (for radio button selection)
+  $: isHexColor = value && typeof value === 'string' && value.startsWith('#') ? true : false;
 </script>
 
 <div class="space-y-4">
@@ -147,7 +150,7 @@
             type="radio"
             name="color"
             value={option.value}
-            checked={value === String(option.value) || (typeof value === 'string' && value.startsWith('#') && String(option.value) === '5')}
+            checked={value === String(option.value) || (isHexColor && String(option.value) === '5')}
             on:change={() => onColorChange(option.value)}
             class="form-radio text-blue-600"
           />

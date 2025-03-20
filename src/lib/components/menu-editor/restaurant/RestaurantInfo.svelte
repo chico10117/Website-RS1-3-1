@@ -342,8 +342,8 @@
         
         // If it's a hex color (custom color)
         if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
-          // For custom hex colors, set color to '5' (custom option)
-          color = '5';
+          // For custom hex colors, set color directly to the hex value
+          color = cRest.color.toUpperCase();
           customColorValue = cRest.color.toUpperCase();
           tempColorValue = cRest.color.toUpperCase();
           customColorInput = cRest.color.toUpperCase();
