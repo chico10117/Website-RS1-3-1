@@ -3,6 +3,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { menuStore } from '$lib/stores/menu-store';
   import { toasts } from '$lib/stores/toast';
   import { get } from 'svelte/store';
   import type { Restaurant } from '$lib/types/menu.types';
@@ -10,6 +11,7 @@
   import PhoneInput from './PhoneInput.svelte';
   import ColorPicker from './ColorPicker.svelte';
   import CurrencyPicker from './CurrencyPicker.svelte';
+  import UrlInput from './UrlInput.svelte';
 
   // Import our new helpers
   import { type UpdateEvent,
@@ -49,8 +51,10 @@
   export let restaurants: Restaurant[] = [];
   export let customPrompt: string | null = null;
   export let currency: string = '€';
-  export let color: string = '1';
+  export let color: string = '#85A3FA';
   export let phoneNumber: string | null = null;
+  export let reservas: string | null = null;
+  export let redes_sociales: string | null = null;
 
   /***************************
    *   COMPONENT STATE / FLAGS
@@ -68,6 +72,7 @@
   let pickerPosition = { x: 0, y: 0 };
   let hueValue = 0;
   let tempColorValue = '';
+  let displayColor = color; // For UI display only
 
   // Svelte event dispatcher
   const dispatch = createEventDispatcher<{
@@ -88,20 +93,25 @@
 
   // Color options
   $: colorOptions = [
-    { value: 1, label: t('colorLight') },
-    { value: 2, label: t('colorGreen') },
-    { value: 3, label: t('colorPink') },
-    { value: 4, label: t('colorDark') },
-    { value: 5, label: t('colorCustom') }
+    { value: 'light', label: t('colorLight') },
+    { value: 'custom', label: t('colorCustom') }
   ];
 
   // If the 'color' prop is a hex, assume it's custom
   $: {
-    if (color && typeof color === 'string' && !['1','2','3','4','5'].includes(color)) {
-      customColorValue = color.toUpperCase();
-      // For hex colors, we should select the custom radio button
-      color = '5';
-      showCustomColorPicker = true;
+    if (color && typeof color === 'string') {
+      if (color === '#85A3FA') {
+        // If it's the light theme color, set displayColor to 'light' for UI
+        displayColor = 'light';
+      } else if (!['light', 'custom'].includes(color)) {
+        // For any other hex color, treat as custom
+        customColorValue = color.toUpperCase();
+        displayColor = 'custom';
+        showCustomColorPicker = true;
+      } else {
+        // Keep displayColor in sync with color for other values
+        displayColor = color;
+      }
     }
   }
 
@@ -134,7 +144,7 @@
         phoneNumber,
         color,
         currency,
-        (evt, detail) => dispatch(evt, detail),
+        dispatch,
         t
       );
     }, (val) => isDragging = val);
@@ -157,7 +167,7 @@
       phoneNumber,
       color,
       currency,
-      (evt, detail) => dispatch(evt, detail),
+      dispatch,
       t
     );
   }
@@ -173,7 +183,7 @@
       phoneNumber,
       color,
       currency,
-      (evt, detail) => dispatch(evt, detail),
+      dispatch,
       t
     );
   }
@@ -206,7 +216,9 @@
       phoneNumber,
       color,
       currency,
-      (evt, detail) => dispatch(evt, detail),
+      reservas,
+      redes_sociales,
+      dispatch,
       t,
       (val) => restaurantName = val,
       (val) => isEditingRestaurant = val
@@ -237,8 +249,10 @@
       phoneNumber,
       color,
       currency,
+      reservas,
+      redes_sociales,
       t,
-      (evt, detail) => dispatch(evt, detail)
+      dispatch
     );
     if (newVal !== null) {
       customPrompt = newVal; // keep local store in sync
@@ -255,7 +269,9 @@
       phoneNumber,
       color,
       currency,
-      (evt, detail) => dispatch(evt, detail)
+      reservas,
+      redes_sociales,
+      dispatch
     );
     // result is the updated menuLogo (null if success)
     menuLogo = result;
@@ -265,13 +281,16 @@
   function onColorChange(value: string) {
     console.log('Color radio changed to:', value);
     
-    if (value === '5') {
+    if (value === 'custom') {
+      displayColor = 'custom';
       showCustomColorPicker = true;
-    } else {
-      // For standard colors
-      color = value;
+    } else if (value === 'light') {
+      // For light theme, save as #85A3FA
+      const newColor = '#85A3FA';
+      color = newColor;
+      displayColor = 'light';
       updateColorHelper(
-        value,
+        newColor,
         restaurantName,
         menuLogo,
         customPrompt,
@@ -295,12 +314,15 @@
       customPrompt,
       phoneNumber,
       color,
-      (evt, detail) => dispatch(evt, detail)
+      reservas,
+      redes_sociales,
+      dispatch
     );
   }
 
   function onAcceptCustomColor(event: CustomEvent<string>) {
     const tempColorValue = event.detail;
+    displayColor = 'custom'; // Update displayColor
     onAcceptCustomColorHelper(
       tempColorValue,
       restaurantName,
@@ -312,11 +334,15 @@
       (val) => color = val,
       (val) => customColorValue = val,
       (val) => showCustomColorPicker = val,
-      (evt, detail) => dispatch(evt, detail)
+      dispatch
     );
   }
 
   function onCancelCustomColor() {
+    // If we're canceling and the current color is #85A3FA, set displayColor back to 'light'
+    if (color === '#85A3FA') {
+      displayColor = 'light';
+    }
     onCancelCustomColorHelper(
       customColorValue,
       restaurantName,
@@ -326,15 +352,96 @@
       currency,
       (val) => color = val,
       (val) => showCustomColorPicker = val,
-      (evt, detail) => dispatch(evt, detail)
+      dispatch
     );
   }
 
+  // Function to handle reservas URL input
+  function handleReservasChange(event: CustomEvent<string | null>) {
+    console.trace('handleReservasChange called');
+    
+    // Convert empty string to null
+    reservas = event.detail === "" ? null : event.detail;
+    
+    // Log the value being set
+    console.log('Setting reservas value:', {
+      value: reservas,
+      type: typeof reservas,
+      eventDetail: event.detail,
+      eventDetailType: typeof event.detail
+    });
+    
+    // Update the menuStore with the new value - CRITICAL FIX: Use the current value directly, not the || null version
+    console.log('Updating store with:', { reservas, redes_sociales });
+    
+    // Force a store update to mark data as changed
+    menuStore.updateReservasAndSocials(reservas, redes_sociales);
+    
+    // Update restaurant info
+    dispatch('update', {
+      id: selectedRestaurant,
+      name: restaurantName,
+      logo: menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      reservas,
+      redes_sociales
+    } as UpdateEvent);
+  }
+
+  // Function to handle redes_sociales URL input
+  function handleRedesSocialesChange(event: CustomEvent<string | null>) {
+    console.trace('handleRedesSocialesChange called');
+    
+    // Convert empty string to null
+    redes_sociales = event.detail === "" ? null : event.detail;
+    
+    // Log the value being set
+    console.log('Setting redes_sociales value:', {
+      value: redes_sociales,
+      type: typeof redes_sociales,
+      eventDetail: event.detail,
+      eventDetailType: typeof event.detail
+    });
+    
+    // Update the menuStore with the new value - CRITICAL FIX: Use the current value directly, not the || null version
+    console.log('Updating store with:', { reservas, redes_sociales });
+    
+    // Force a store update to mark data as changed
+    menuStore.updateReservasAndSocials(reservas, redes_sociales);
+    
+    // Update restaurant info
+    dispatch('update', {
+      id: selectedRestaurant,
+      name: restaurantName,
+      logo: menuLogo,
+      customPrompt,
+      phoneNumber,
+      color,
+      currency,
+      reservas,
+      redes_sociales
+    } as UpdateEvent);
+  }
+
   onMount(() => {
+    // Add detailed debugging of component mount
+    console.log('RestaurantInfo component mounted with initial values:', {
+      reservas,
+      redes_sociales,
+      color
+    });
+
     // Load restaurant data from the currentRestaurant store if available
     const cRest = get(currentRestaurant);
     if (cRest) {
       console.log('Loading restaurant data from store:', cRest);
+      console.log('URL values from current restaurant:', {
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
+      });
       
       // Load the color value from the restaurant record
       if (cRest.color) {
@@ -463,7 +570,7 @@
         {customPrompt}
         restaurantId={$currentRestaurant?.id || null}
         on:success={async (event) => {
-          handleMenuUploadSuccess(event, (evt, detail) => dispatch(evt, detail), currency, color);
+          handleMenuUploadSuccess(event, dispatch, currency, color);
         }}
         on:error={(event) => {
           handleMenuUploadError(event, t);
@@ -739,7 +846,7 @@
                 type="radio"
                 name="color"
                 value={option.value}
-                checked={color === String(option.value)}
+                checked={displayColor === String(option.value)}
                 on:change={() => onColorChange(String(option.value))}
                 class="form-radio text-blue-600"
               />
@@ -787,11 +894,31 @@
             customPrompt,
             color,
             currency,
-            (evt, detail) => dispatch(evt, detail)
+            reservas,
+            redes_sociales,
+            dispatch
           );
         }}
       />
     </div>
+
+    <!-- Reservas URL -->
+    <UrlInput
+      id="reservas"
+      label={t('reservasLabel') || "Reservations URL"}
+      placeholder={t('reservasPlaceholder') || "https://reservations.example.com"}
+      value={reservas}
+      on:change={handleReservasChange}
+    />
+
+    <!-- Redes Sociales URL -->
+    <UrlInput
+      id="redes_sociales"
+      label={t('redesSocialesLabel') || "Social Media URL"}
+      placeholder={t('redesSocialesPlaceholder') || "https://instagram.com/yourrestaurant"}
+      value={redes_sociales}
+      on:change={handleRedesSocialesChange}
+    />
   </div>
 </div>
 

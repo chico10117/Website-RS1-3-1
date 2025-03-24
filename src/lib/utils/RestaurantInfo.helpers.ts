@@ -13,10 +13,19 @@ export interface UpdateEvent {
   logo: string | null;
   customPrompt: string | null;
   phoneNumber: string | null;
-  currency: string;
   color: string | number;
+  currency: string;
+  reservas: string | null;
+  redes_sociales: string | null;
   slug?: string;
 }
+
+// For dispatch functions, accept more flexible parameter types
+type DispatchFunction = {
+  (event: 'update', detail: UpdateEvent): void;
+  (event: 'select', detail: string): void;
+  (event: string, detail: any): void;
+};
 
 /** Ensure a string for UI usage */
 export function ensureString(value: string | number | null | undefined): string {
@@ -78,9 +87,9 @@ export async function handleFileUpload(
   restaurantName: string,
   customPrompt: string | null,
   phoneNumber: string | null,
-  color: string,
+  color: string | number,
   currency: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void,
+  dispatch: DispatchFunction,
   t: (key: string) => string
 ) {
   let isUploading = false;
@@ -113,21 +122,23 @@ export async function handleFileUpload(
       
       menuStore.updateRestaurantInfo(
         cRest.name,
-        uploadResult.url || null,
+        cRest.logo,
         cRest.customPrompt,
         cRest.slug,
         cRest.phoneNumber,
-        existingColor
+        String(existingColor)
       );
-      dispatchFn('update', {
+      dispatch('update', {
         id: cRest.id,
         name: cRest.name,
-        logo: uploadResult.url || null,
+        logo: cRest.logo,
         customPrompt: cRest.customPrompt,
         phoneNumber: cRest.phoneNumber,
         currency,
         color: existingColor,
-        slug: cRest.slug
+        slug: cRest.slug,
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
       });
     } else {
       // For a new restaurant
@@ -152,10 +163,10 @@ export async function handleFileUpload(
         customPrompt,
         newSlug,
         phoneNumber,
-        color
+        String(color)
       );
 
-      dispatchFn('update', {
+      dispatch('update', {
         id: newId,
         name: restaurantName,
         logo: uploadResult.url || null,
@@ -163,7 +174,9 @@ export async function handleFileUpload(
         phoneNumber,
         currency,
         color,
-        slug: newSlug
+        slug: newSlug,
+        reservas: null,
+        redes_sociales: null
       });
     }
   } catch (error) {
@@ -186,9 +199,9 @@ export function handleRestaurantNameInput(
   menuLogo: string | null,
   customPrompt: string | null,
   phoneNumber: string | null,
-  color: string,
+  color: string | number,
   currency: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void,
+  dispatch: DispatchFunction,
   t: (key: string) => string
 ) {
   try {
@@ -199,7 +212,7 @@ export function handleRestaurantNameInput(
     menuStore.updateLocalRestaurantName(restaurantName);
 
     const cRest = get(currentRestaurant);
-    dispatchFn('update', {
+    dispatch('update', {
       id: selectedRestaurant || undefined,
       name: restaurantName,
       logo: menuLogo,
@@ -207,7 +220,9 @@ export function handleRestaurantNameInput(
       phoneNumber,
       currency,
       color,
-      slug: cRest?.slug || ''
+      slug: cRest?.slug || '',
+      reservas: cRest?.reservas,
+      redes_sociales: cRest?.redes_sociales
     });
   } catch (error) {
     console.error('Error updating restaurant name:', error);
@@ -233,9 +248,11 @@ export async function updateRestaurantName(
   menuLogo: string | null,
   customPrompt: string | null,
   phoneNumber: string | null,
-  color: string,
+  color: string | number,
   currency: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void,
+  reservas: string | null,
+  redes_sociales: string | null,
+  dispatchFn: DispatchFunction,
   t: (key: string) => string,
   setLocalRestaurantName: (val: string) => void,
   setIsEditing: (val: boolean) => void
@@ -262,7 +279,7 @@ export async function updateRestaurantName(
       customPrompt,
       newSlug,
       phoneNumber,
-      existingColor
+      String(existingColor)
     );
     
     // update local name
@@ -277,7 +294,9 @@ export async function updateRestaurantName(
       phoneNumber,
       currency,
       color: existingColor,
-      slug: newSlug
+      slug: newSlug,
+      reservas: reservas,
+      redes_sociales: redes_sociales
     });
     
     setIsEditing(false);
@@ -334,10 +353,12 @@ export function handleCustomPromptInput(
   restaurantName: string,
   menuLogo: string | null,
   phoneNumber: string | null,
-  color: string,
+  color: string | number,
   currency: string,
+  reservas: string | null,
+  redes_sociales: string | null,
   t: (key: string) => string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void
+  dispatchFn: DispatchFunction
 ): string | null {
   if (!restaurantName && !selectedRestaurant) {
     toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
@@ -369,7 +390,7 @@ export function handleCustomPromptInput(
         newValue,
         cRest.slug,
         cRest.phoneNumber,
-        existingColor
+        String(existingColor)
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -379,7 +400,9 @@ export function handleCustomPromptInput(
         phoneNumber: cRest.phoneNumber,
         currency,
         color: existingColor,
-        slug: cRest.slug
+        slug: cRest.slug,
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
       });
     } else {
       // For new local restaurant
@@ -389,7 +412,7 @@ export function handleCustomPromptInput(
         newValue,
         get(currentRestaurant)?.slug || null,
         phoneNumber,
-        color
+        String(color)
       );
       dispatchFn('update', {
         name: restaurantName,
@@ -397,7 +420,9 @@ export function handleCustomPromptInput(
         customPrompt: newValue,
         phoneNumber,
         currency,
-        color
+        color,
+        reservas: reservas,
+        redes_sociales: redes_sociales
       });
     }
     
@@ -420,9 +445,11 @@ export function handleLogoDelete(
   menuLogo: string | null,
   customPrompt: string | null,
   phoneNumber: string | null,
-  color: string,
+  color: string | number,
   currency: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void
+  reservas: string | null,
+  redes_sociales: string | null,
+  dispatchFn: DispatchFunction
 ): string | null {
   event.preventDefault();
   event.stopPropagation();
@@ -441,7 +468,7 @@ export function handleLogoDelete(
         cRest.customPrompt,
         cRest.slug,
         cRest.phoneNumber,
-        existingColor
+        String(existingColor)
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -451,7 +478,9 @@ export function handleLogoDelete(
         phoneNumber: cRest.phoneNumber,
         currency,
         color: existingColor,
-        slug: cRest.slug
+        slug: cRest.slug,
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
       });
     } else {
       // For new local restaurant
@@ -461,7 +490,9 @@ export function handleLogoDelete(
         customPrompt,
         phoneNumber,
         currency,
-        color
+        color,
+        reservas: reservas,
+        redes_sociales: redes_sociales
       });
     }
     
@@ -481,8 +512,10 @@ export function handleCurrencyChange(
   menuLogo: string | null,
   customPrompt: string | null,
   phoneNumber: string | null,
-  color: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void
+  color: string | number,
+  reservas: string | null,
+  redes_sociales: string | null,
+  dispatchFn: DispatchFunction
 ) {
   try {
     const cRest = get(currentRestaurant);
@@ -500,7 +533,9 @@ export function handleCurrencyChange(
         phoneNumber: cRest.phoneNumber,
         currency: value,
         color: existingColor,
-        slug: cRest.slug
+        slug: cRest.slug,
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
       });
     } else {
       // For new local restaurant
@@ -510,7 +545,9 @@ export function handleCurrencyChange(
         customPrompt,
         phoneNumber,
         currency: value,
-        color
+        color,
+        reservas: reservas,
+        redes_sociales: redes_sociales
       });
     }
   } catch (error) {
@@ -526,9 +563,11 @@ export function handlePhoneNumberChange(
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
-  color: string,
+  color: string | number,
   currency: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void
+  reservas: string | null,
+  redes_sociales: string | null,
+  dispatchFn: DispatchFunction
 ) {
   try {
     const cRest = get(currentRestaurant);
@@ -544,7 +583,7 @@ export function handlePhoneNumberChange(
         cRest.customPrompt,
         cRest.slug,
         newPhoneNumber,
-        existingColor
+        String(existingColor)
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -554,7 +593,9 @@ export function handlePhoneNumberChange(
         phoneNumber: newPhoneNumber,
         currency,
         color: existingColor,
-        slug: cRest.slug
+        slug: cRest.slug,
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
       });
     } else {
       // For new local restaurant
@@ -564,7 +605,7 @@ export function handlePhoneNumberChange(
         customPrompt,
         null, // No slug for new restaurant
         newPhoneNumber,
-        color
+        String(color)
       );
       dispatchFn('update', {
         name: restaurantName,
@@ -572,7 +613,9 @@ export function handlePhoneNumberChange(
         customPrompt,
         phoneNumber: newPhoneNumber,
         currency,
-        color
+        color,
+        reservas: reservas,
+        redes_sociales: redes_sociales
       });
     }
   } catch (error) {
@@ -585,7 +628,7 @@ export function handlePhoneNumberChange(
  */
 export async function handleMenuUploadSuccess(
   event: CustomEvent,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void,
+  dispatchFn: DispatchFunction,
   currency: string,
   color: string
 ) {
@@ -605,7 +648,9 @@ export async function handleMenuUploadSuccess(
         phoneNumber: cRest.phoneNumber,
         currency,
         color: existingColor,
-        slug: cRest.slug
+        slug: cRest.slug,
+        reservas: cRest.reservas,
+        redes_sociales: cRest.redes_sociales
       });
     } else {
       // For a new restaurant
@@ -619,7 +664,9 @@ export async function handleMenuUploadSuccess(
         phoneNumber,
         currency,
         color,
-        slug
+        slug,
+        reservas: null,
+        redes_sociales: null
       });
     }
   } catch (error) {

@@ -1,15 +1,16 @@
 # Menu Editor Component Documentation
-Yeah
-## Overview
-The Menu Editor is a comprehensive web application component built with SvelteKit that allows restaurant owners to manage their menu items. The application follows a modern architecture with clear separation of concerns, using services for API interactions and stores for state management.
 
-## Architecture
+## Overview
+The Menu Editor is a comprehensive web application component built with SvelteKit that allows restaurant owners to manage their menu items. The application follows a modern architecture with a centralized state management approach using Svelte stores.
+
+## Current Architecture
 
 ### Directory Structure
 ```
 src/lib/
 ├── components/menu-editor/     # UI Components
 │   ├── MenuEditor.svelte      # Main container component
+│   ├── RestaurantSelector.svelte # Restaurant selection component
 │   ├── restaurant/           
 │   │   └── RestaurantInfo.svelte
 │   ├── categories/
@@ -28,28 +29,72 @@ src/lib/
 │   ├── dish.service.ts
 │   └── menu.service.ts
 ├── stores/                     # State Management
-│   ├── menu-cache.ts
-│   ├── menu-state.ts
-│   └── language.ts
+│   ├── menu-store.ts          # Primary centralized store
+│   ├── restaurant.ts          # Restaurant-specific store
+│   ├── menu-state.ts          # Legacy store (being phased out)
+│   ├── menu-cache.ts          # Legacy cache store (being phased out)
+│   ├── language.ts            # Internationalization store
+│   ├── toast.ts               # Notification store
+│   └── user.ts                # User authentication store
 └── types/                     # TypeScript Types
     └── menu.types.ts
-
 ```
 
 ### Core Architecture Components
 
-#### 1. Services Layer
+#### 1. State Management
+The application has evolved from a two-tiered state management approach to a more centralized store system:
+
+- **menu-store.ts** (Primary Store)
+  - Centralized state management for the entire menu editor
+  - Tracks both data and UI state
+  - Handles change tracking for saving operations
+  - Provides methods for all CRUD operations
+  ```typescript
+  interface MenuStore {
+    // Current data
+    restaurants: Restaurant[];
+    selectedRestaurant: string | null;
+    restaurantName: string;
+    menuLogo: string | null;
+    customPrompt: string | null;
+    phoneNumber: string | null;
+    categories: Category[];
+    
+    // Tracking changes
+    changedItems: {
+      restaurant: boolean;
+      categories: Set<string>; // IDs of changed categories
+      dishes: Set<string>;     // IDs of changed dishes
+      deletedCategories: Set<string>; // IDs of categories to delete
+      deletedDishes: Set<string>;     // IDs of dishes to delete
+    };
+    
+    // UI state
+    isSaving: boolean;
+    lastSaveTime: Date | null;
+  }
+  ```
+
+- **restaurant.ts**
+  - Focused store for restaurant data
+  - Handles restaurant-specific operations
+  - Maintains the currently selected restaurant
+
+- **Legacy Stores** (Being Phased Out)
+  - menu-state.ts: Previously used for main state management
+  - menu-cache.ts: Previously used for tracking changes
+
+#### 2. Services Layer
 Handles all API interactions and data transformations:
 
 - **restaurant.service.ts**
   - Restaurant CRUD operations
   - Restaurant data validation
-  - Error handling for restaurant operations
 
 - **category.service.ts**
   - Category management
   - Category-specific validations
-  - Category-restaurant relationships
 
 - **dish.service.ts**
   - Dish CRUD operations
@@ -59,46 +104,84 @@ Handles all API interactions and data transformations:
 - **menu.service.ts**
   - Coordinates complex operations
   - Handles multi-entity updates
-  - Manages save operations across entities
 
-#### 2. State Management
-Two-tiered state management approach:
+#### 3. Component Architecture
+The UI is composed of modular components:
 
-- **menu-state.ts**
-  - Current application state
-  - Reactive state updates
-  - Derived state calculations
-  ```typescript
-  interface MenuState {
-    restaurants: Restaurant[];
-    selectedRestaurant: string | null;
-    restaurantName: string;
-    menuLogo: string;
-    categories: Category[];
-    isSaving: boolean;
-  }
-  ```
+- **MenuEditor.svelte**
+  - Main container component
+  - Coordinates between components
+  - Manages overall UI state
+  - Handles data flow between components
 
-- **menu-cache.ts**
-  - Tracks unsaved changes
-  - Manages optimistic updates
-  - Handles change rollbacks
-  ```typescript
-  interface MenuCache {
-    categories: Record<string, CacheChange<Category>>;
-    dishes: Record<string, CacheChange<Dish>>;
-    hasUnsavedChanges: boolean;
-  }
-  ```
+- **RestaurantSelector.svelte**
+  - Allows selection of restaurants
+  - Displays restaurant list
+  - Handles restaurant creation
 
-#### 3. Type System
+- **RestaurantInfo.svelte**
+  - Displays and edits restaurant details
+  - Handles restaurant logo management
+
+- **CategoryList.svelte & CategoryItem.svelte**
+  - Manages category display and editing
+  - Handles category CRUD operations
+
+- **DishList.svelte & DishItem.svelte**
+  - Manages dish display and editing
+  - Handles dish CRUD operations
+
+- **MenuPreview.svelte**
+  - Real-time preview of the menu
+  - Displays restaurant, categories, and dishes
+  - Updates reactively as changes are made
+
+#### 3.1 Dish Components Architecture
+The dish management functionality is split across three complementary components:
+
+- **DishList.svelte**
+  - Acts as a container/manager for all dishes in a category
+  - Renders a list of DishItem components (one for each existing dish)
+  - Includes a DishForm component at the bottom for adding new dishes
+  - Manages the state of which dish is being edited
+  - Coordinates updates between individual dish components
+  - Handles communication with the menuStore for dish operations
+
+- **DishItem.svelte**
+  - Handles the display and editing of a single dish
+  - Shows dish details (title, price, description, image)
+  - Provides buttons to edit or delete the dish
+  - When in edit mode, displays a form to modify the dish's properties
+  - Handles image upload and removal for existing dishes
+  - Communicates with menuStore for dish updates and deletion
+
+- **DishForm.svelte**
+  - Provides a form for creating new dishes
+  - Contains input fields for all dish properties (title, price, description)
+  - Handles image upload functionality for new dishes
+  - Validates user input before submission
+  - Communicates with menuStore to add new dishes to a category
+
+This modular approach follows the single responsibility principle, making the code more maintainable and easier to test. The separation of concerns allows each component to focus on a specific aspect of dish management:
+- Container/list management (DishList)
+- Individual item display and editing (DishItem)
+- New item creation (DishForm)
+
+#### 4. Type System
 Strong TypeScript typing for all entities:
 
 ```typescript
 interface Restaurant {
   id: string;
   name: string;
-  logo?: string;
+  slug: string;
+  logo: string | null;
+  customPrompt: string | null;
+  userId: string;
+  currency: string;
+  color: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface Category {
@@ -111,120 +194,76 @@ interface Category {
 interface Dish {
   id: string;
   title: string;
-  price: number;
-  description?: string;
-  imageUrl?: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
   categoryId: string;
-  restaurantId: string;
 }
 ```
 
-## Component Architecture
+## Data Flow
 
-### MenuEditor.svelte
-The main container component has been significantly simplified:
-- Delegates API calls to services
-- Uses stores for state management
-- Focuses on event coordination
-- Handles UI composition
+The current architecture follows a more streamlined data flow:
 
-Key responsibilities:
-1. Initialize application state
-2. Handle component communication
-3. Coordinate save operations
-4. Manage UI state
+1. **User Interaction** → Component events trigger store methods
+2. **Store Methods** → Update local state and track changes
+3. **Service Calls** → Triggered by store methods for API operations
+4. **UI Updates** → Components reactively update based on store changes
 
-### Child Components
-Each child component is focused on specific functionality:
+## Current State Management Approach
 
-- **RestaurantInfo.svelte**: Restaurant management
-- **CategoryList.svelte**: Category operations
-- **DishList.svelte**: Dish management
-- **MenuPreview.svelte**: Real-time preview
+The application is transitioning from a two-tiered state management system to a more centralized approach:
 
-## State Flow
-```
-Services Layer
-     ↕
-Store Layer (menu-state, menu-cache)
-     ↕
-MenuEditor.svelte
-     ↕
-Child Components
-```
+### Previous Approach (Being Phased Out)
+- **menu-state.ts**: Managed current application state
+- **menu-cache.ts**: Tracked unsaved changes separately
 
-## Benefits of New Architecture
+### Current Approach
+- **menu-store.ts**: Centralized store that handles both current state and change tracking
+- **restaurant.ts**: Specialized store for restaurant-specific operations
 
-### 1. Improved Separation of Concerns
-- Services handle API logic
-- Stores manage state
-- Components focus on UI
-- Types ensure data consistency
+This transition simplifies the architecture by:
+1. Reducing the number of stores that need to be coordinated
+2. Centralizing change tracking within the main store
+3. Providing a single source of truth for the application state
 
-### 2. Better State Management
-- Centralized state stores
-- Predictable state updates
-- Optimistic UI updates
-- Change tracking
+## Benefits of Current Architecture
 
-### 3. Enhanced Maintainability
-- Modular services
-- Isolated responsibilities
-- Clear data flow
-- Type safety
+1. **Simplified State Management**
+   - Single source of truth in menu-store.ts
+   - Easier to reason about state changes
+   - More predictable data flow
 
-### 4. Improved Error Handling
-- Service-level error management
-- Consistent error patterns
-- Better error recovery
-- User-friendly error messages
+2. **Improved Component Communication**
+   - Components subscribe to the same store
+   - Reduced prop drilling
+   - More reactive updates
 
-### 5. Better Testing
-- Isolated services
-- Mockable API calls
-- Testable state logic
-- UI component isolation
+3. **Better Change Tracking**
+   - Integrated change tracking in the main store
+   - Clearer save/discard operations
+   - More reliable state synchronization
 
-## API Integration
-Services handle all API interactions:
-
-```typescript
-// Example service call
-const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
-  { name, logo },
-  restaurantId
-);
-```
+4. **Enhanced Maintainability**
+   - Clearer separation of concerns
+   - More modular components
+   - Easier to extend and modify
 
 ## Future Improvements
-1. Implement caching for better performance
-2. Add offline support with service workers
-3. Enhance image optimization
-4. Add drag-and-drop reordering
+
+1. Complete the transition away from legacy stores
+2. Enhance error handling and recovery
+3. Improve performance with more selective store updates
+4. Add more comprehensive testing
 5. Implement undo/redo functionality
-6. Add batch operations for dishes
-7. Enhance search and filtering capabilities
-8. Add real-time collaboration features
-9. Implement automated testing
-10. Add performance monitoring
+6. Add drag-and-drop reordering for categories and dishes
+7. Enhance the preview with more customization options
+8. Implement offline support with service workers
+9. Add real-time collaboration features
 
 ## Getting Started
+
 1. Clone the repository
 2. Install dependencies: `pnpm install`
 3. Start development server: `pnpm run dev`
-4. Access the application at `http://localhost:5173`
-
-## Contributing
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## License
-MIT License - See LICENSE file for details
-
-
-
-NEXT STEPS:
-- Add a way to delete a dish
-- Add a way to delete a category
+4. Access the application at `http://localhost:5173` 

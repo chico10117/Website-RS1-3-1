@@ -15,6 +15,8 @@ export interface MenuStore {
   phoneNumber: string | null;
   categories: Category[];
   color: string;
+  reservas: string | null;
+  redes_sociales: string | null;
   
   // Tracking changes
   changedItems: {
@@ -138,6 +140,8 @@ function createMenuStore() {
     phoneNumber: null,
     categories: [],
     color: '1',
+    reservas: null,
+    redes_sociales: null,
     
     // Tracking changes
     changedItems: {
@@ -356,6 +360,14 @@ function createMenuStore() {
         // Load and merge data for the selected restaurant
         const { restaurant, categories, changedItems } = await loadAndMergeData(restaurantId);
         
+        // Ensure color is a hex value, not a numeric value
+        let colorValue = restaurant.color || '#85A3FA';
+        
+        // If color is "1" (light theme), convert it to the actual hex
+        if (colorValue === '1' || colorValue === 'light') {
+          colorValue = '#85A3FA';
+        }
+        
         // Update the store with the restaurant and categories
         update(s => {
           return {
@@ -365,7 +377,9 @@ function createMenuStore() {
             menuLogo: restaurant.logo,
             customPrompt: restaurant.customPrompt,
             phoneNumber: restaurant.phoneNumber,
-            color: restaurant.color || '1', // Add color from restaurant data
+            color: colorValue, // Use properly converted color
+            reservas: restaurant.reservas || null, // Add reservas from restaurant data
+            redes_sociales: restaurant.redes_sociales || null, // Add redes_sociales from restaurant data
             categories: categories,
             isLoading: false,
             changedItems: changedItems
@@ -389,25 +403,35 @@ function createMenuStore() {
     },
 
     // Create a new restaurant
-    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: string | null = null, color: string = '1') {
+    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: string | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
       const tempId = createTempId();
       
-      // Create a new restaurant object
-      const newRestaurant: Restaurant = {
-        id: tempId,
-        name,
-        slug: '', // Will be set by the server
-        logo,
-        customPrompt,
-        phoneNumber,
-        userId: '', // Will be set by the server
-        currency: '€', // Default
-        color, // Use the passed color value
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
       update(state => {
+        // Get the current color value from state (or use default)
+        let currentColor = state.color || '#85A3FA'; 
+        
+        // Ensure it's a hex color
+        if (currentColor === 'light' || currentColor === '1') {
+          currentColor = '#85A3FA';
+        }
+      
+        // Create a new restaurant object
+        const newRestaurant: Restaurant = {
+          id: tempId,
+          name,
+          slug: '', // Will be set by the server
+          logo,
+          customPrompt,
+          phoneNumber,
+          userId: '', // Will be set by the server
+          currency: '€', // Default
+          color: currentColor, // Use the current color value
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          reservas,
+          redes_sociales,
+        };
+        
         return {
           ...state,
           restaurants: [...state.restaurants, newRestaurant],
@@ -416,17 +440,19 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
-          color, // Add the color property to the state update
+          color: currentColor, // Keep the current color value
           changedItems: {
             ...state.changedItems,
             restaurant: true
-          }
+          },
+          reservas,
+          redes_sociales,
         };
       });
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: string | null = null, color: string = '1') {
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: string | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
@@ -443,8 +469,10 @@ function createMenuStore() {
             customPrompt,
             phoneNumber,
             slug: slug || '', // Use empty string instead of null
-            color, // Use the passed color value
-            updatedAt: new Date()
+            color: state.color || '#85A3FA', // Use the current color value from state
+            updatedAt: new Date(),
+            reservas,
+            redes_sociales,
           };
         }
         
@@ -454,13 +482,75 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
-          color, // Add color to the store state update
+          color: state.color || '#85A3FA', // Keep the current color value
+          restaurants: updatedRestaurants,
+          changedItems: {
+            ...state.changedItems,
+            restaurant: true
+          },
+          reservas,
+          redes_sociales,
+        };
+      });
+    },
+
+    // Update only reservas and redes_sociales values
+    updateReservasAndSocials(reservas: string | null, redes_sociales: string | null) {
+      // CRITICAL DEBUG: Add a trace to see this method being called 
+      console.trace('updateReservasAndSocials TRACE');
+      
+      console.log('updateReservasAndSocials called with:', { 
+        reservas, 
+        reservasType: typeof reservas, 
+        redes_sociales, 
+        redes_socialesType: typeof redes_sociales 
+      });
+      
+      update(state => {
+        // CRITICAL DEBUG: Add more logging to ensure the state update is happening
+        console.log('Updating store state, before:', { 
+          stateReservas: state.reservas, 
+          stateRedesSociales: state.redes_sociales 
+        });
+        
+        // Find the current restaurant in the state
+        const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
+        
+        // Create a copy of the restaurants array
+        const updatedRestaurants = [...state.restaurants];
+        
+        // Update the current restaurant (if found)
+        if (currentRestaurantIndex >= 0) {
+          updatedRestaurants[currentRestaurantIndex] = {
+            ...updatedRestaurants[currentRestaurantIndex],
+            reservas,
+            redes_sociales,
+            updatedAt: new Date(),
+          };
+        }
+        
+        // CRITICAL: Force the changedItems.restaurant to true
+        console.log('Updating store state with:', { reservas, redes_sociales });
+        
+        const result = {
+          ...state,
+          reservas,
+          redes_sociales,
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
             restaurant: true
           }
         };
+        
+        // CRITICAL DEBUG: Log the result to ensure values are correctly set
+        console.log('State after update:', { 
+          resultReservas: result.reservas, 
+          resultRedesSociales: result.redes_sociales,
+          changedItems: result.changedItems 
+        });
+        
+        return result;
       });
     },
 
@@ -678,9 +768,16 @@ function createMenuStore() {
         const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
         console.log('Current restaurant in store:', currentRestaurantObj);
         
-        // Use the state's color value directly
-        const colorValue = state.color;
+        // Use the state's color value directly, ensuring it's a hex value
+        const colorValue = state.color === 'light' || state.color === '1'
+          ? '#85A3FA'
+          : state.color;
+        
         console.log('Using color value for save:', colorValue, 'type:', typeof colorValue);
+        
+        // Get the latest reservas and redes_sociales values directly from the state
+        const reservas = state.reservas;
+        const redes_sociales = state.redes_sociales;
         
         console.log('Restaurant data for save:', {
           name: state.restaurantName,
@@ -688,7 +785,9 @@ function createMenuStore() {
           customPrompt: state.customPrompt,
           phoneNumber: state.phoneNumber,
           currency: currentRestaurantObj?.currency || '€',
-          color: colorValue
+          color: colorValue,
+          reservas,
+          redes_sociales,
         });
         
         // Prepare cache-like structure for the menu service
@@ -766,7 +865,9 @@ function createMenuStore() {
             customPrompt: state.customPrompt,
             phoneNumber: state.phoneNumber,
             currency: currentRestaurantObj?.currency || '€',
-            color: colorValue
+            color: colorValue,
+            reservas,
+            redes_sociales,
           },
           currentRestaurantId: state.selectedRestaurant,
           hasChanges: {
@@ -786,7 +887,9 @@ function createMenuStore() {
             customPrompt: state.customPrompt,
             phoneNumber: state.phoneNumber,
             currency: currentRestaurantObj?.currency || '€',
-            color: colorValue
+            color: colorValue,
+            reservas,
+            redes_sociales,
           },
           state.selectedRestaurant
         );
@@ -827,7 +930,9 @@ function createMenuStore() {
               dishes: new Set<string>(),
               deletedCategories: new Set<string>(),
               deletedDishes: new Set<string>()
-            }
+            },
+            reservas: result.restaurant.reservas,
+            redes_sociales: result.restaurant.redes_sociales,
           };
         });
         

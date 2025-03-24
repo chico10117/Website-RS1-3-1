@@ -19,6 +19,8 @@ export const restaurants = pgTable('restaurants', {
   currency: text('currency').notNull().default('€'),
   color: text('color').notNull().default('1'),
   phoneNumber: text('phoneNumber'),
+  reservas: text('reservas'),
+  redes_sociales: text('redes_sociales'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 });

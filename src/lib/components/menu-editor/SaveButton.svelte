@@ -65,7 +65,9 @@
     deletedCategories: $menuStore.changedItems.deletedCategories.size,
     deletedDishes: $menuStore.changedItems.deletedDishes.size,
     hasUnsavedChanges,
-    currentLanguage
+    currentLanguage,
+    reservas: $menuStore.reservas,
+    redes_sociales: $menuStore.redes_sociales
   });
 
   // Format the last save time
@@ -99,7 +101,20 @@
       return;
     }
 
-    console.log('Starting save with color:', $menuStore.color);
+    // Debug URLs and entire menuStore state to see where the issue is
+    console.log('Before saving - Complete state:', {
+      entireMenuStore: $menuStore,
+      colorValue: $menuStore.color,
+      reservas: $menuStore.reservas,
+      redes_sociales: $menuStore.redes_sociales
+    });
+
+    // Ensure color is a hex value, not 'light' or '1'
+    const colorValue = $menuStore.color === 'light' || $menuStore.color === '1' 
+      ? '#85A3FA' 
+      : $menuStore.color;
+    
+    console.log('Starting save with color:', colorValue);
 
     try {
       // If we have a restaurant name but no selected restaurant, we need to create a new one
@@ -107,7 +122,10 @@
         // Generate a slug for the new restaurant
         const newSlug = await generateSlug(restaurantName);
         
-        console.log('Creating restaurant with color:', $menuStore.color);
+        console.log('Creating restaurant with color:', colorValue, 'and URLs:', {
+          reservas: $menuStore.reservas,
+          redes_sociales: $menuStore.redes_sociales
+        });
         
         // Create the restaurant in the store
         menuStore.createRestaurant(
@@ -115,7 +133,8 @@
           $menuStore.menuLogo,
           $menuStore.customPrompt,
           $menuStore.phoneNumber,
-          $menuStore.color
+          $menuStore.reservas,
+          $menuStore.redes_sociales
         );
         
         // Get the newly created restaurant ID
@@ -126,7 +145,7 @@
           throw new Error('Failed to create restaurant');
         }
         
-        console.log('Updating restaurant with color:', $menuStore.color);
+        console.log('Updating restaurant with color:', colorValue);
         
         // Update with the proper slug
         menuStore.updateRestaurantInfo(
@@ -135,7 +154,8 @@
           $menuStore.customPrompt,
           newSlug,
           $menuStore.phoneNumber,
-          $menuStore.color
+          $menuStore.reservas,
+          $menuStore.redes_sociales
         );
         
         // Update the current restaurant store
@@ -144,16 +164,58 @@
           if (newRestaurant) {
             currentRestaurant.set({
               ...newRestaurant,
-              slug: newSlug
+              slug: newSlug,
+              color: colorValue,
+              reservas: $menuStore.reservas,
+              redes_sociales: $menuStore.redes_sociales
             });
           }
         }
       }
       
-      console.log('Calling saveChanges with color in store:', $menuStore.color);
+      // CRITICAL: Make absolutely sure the URL values are set before saving
+      // This should not be necessary, but we're adding it as a failsafe
+      let currentReservas = $menuStore.reservas; 
+      let currentRedesSociales = $menuStore.redes_sociales;
+      
+      // CRITICAL FIX: Validate URLs - prevent color values from being accidentally saved in URL fields
+      if (currentReservas && typeof currentReservas === 'string' && currentReservas.startsWith('#')) {
+        console.warn('CRITICAL: Detected color value in reservas field, resetting to null');
+        currentReservas = null;
+        // Force update the store
+        menuStore.updateReservasAndSocials(null, currentRedesSociales);
+      }
+      
+      if (currentRedesSociales && typeof currentRedesSociales === 'string' && currentRedesSociales.startsWith('#')) {
+        console.warn('CRITICAL: Detected color value in redes_sociales field, resetting to null');
+        currentRedesSociales = null;
+        // Force update the store
+        menuStore.updateReservasAndSocials(currentReservas, null);
+      }
+      
+      console.log('CRITICAL CHECK - RIGHT BEFORE SAVE:', {
+        reservas: currentReservas,
+        redes_sociales: currentRedesSociales
+      });
+      
+      // Force update changes to mark data as changed regardless of state
+      menuStore.updateReservasAndSocials(currentReservas, currentRedesSociales);
+      
+      console.log('Calling saveChanges with color in store:', colorValue, 
+        'reservas:', $menuStore.reservas, 
+        'redes_sociales:', $menuStore.redes_sociales
+      );
       
       // Use the menuStore's saveChanges method to save all changes
-      await menuStore.saveChanges();
+      const result = await menuStore.saveChanges();
+      
+      // Debug the result
+      console.log('Save result:', {
+        reservas: result.restaurant.reservas,
+        redes_sociales: result.restaurant.redes_sociales,
+        resultValues: JSON.stringify(result.restaurant),
+      });
+      
       const restId = $menuStore.selectedRestaurant;
       if (restId){
         socket.emit('request-images', restId);

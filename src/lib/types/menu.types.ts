@@ -10,6 +10,8 @@ export interface Restaurant {
   phoneNumber: string | null;
   createdAt: Date;
   updatedAt: Date;
+  reservas: string | null;
+  redes_sociales: string | null;
 }
 
 export interface Category {

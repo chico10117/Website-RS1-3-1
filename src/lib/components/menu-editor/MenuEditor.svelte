@@ -98,14 +98,28 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<UpdateEvent>) {
-    console.log('handleRestaurantUpdate called with event detail:', {
-      ...event.detail,
-      color: event.detail.color,
-      colorType: typeof event.detail.color
-    });
-    
-    const { id, name, logo, customPrompt, phoneNumber, color } = event.detail;
+  async function handleRestaurantUpdate(event: CustomEvent<{ 
+    id?: string; 
+    name: string; 
+    logo: string | null; 
+    customPrompt: string | null; 
+    phoneNumber: string | null;
+    currency: string; 
+    color: string | number;
+    reservas: string | null;
+    redes_sociales: string | null;
+  }>) {
+    const { 
+      id, 
+      name, 
+      logo, 
+      customPrompt, 
+      phoneNumber, 
+      currency, 
+      color,
+      reservas,
+      redes_sociales
+    } = event.detail;
     
     console.log('Extracted color from event:', color, 'type:', typeof color);
     
@@ -129,17 +143,51 @@
 
     if (id) {
       // Update existing restaurant
-      console.log('Updating restaurant with color:', colorValue);
-      menuStore.updateRestaurantInfo(name, logo, customPrompt, $currentRestaurant?.slug || null, phoneNumber, colorValue);
+      console.log('Updating restaurant with all values:', { name, logo, customPrompt, slug: $currentRestaurant?.slug, phoneNumber, colorValue, reservas, redes_sociales });
+      
+      // Use the parameters correctly - this function is likely receiving them in a different order
+      menuStore.updateRestaurantInfo(
+        name, 
+        logo, 
+        customPrompt, 
+        $currentRestaurant?.slug || null, 
+        phoneNumber,
+        reservas,
+        redes_sociales
+      );
+      
+      // Force an explicit update to the URL values to ensure they're set correctly
+      if (reservas !== undefined || redes_sociales !== undefined) {
+        console.log('Explicitly updating URL values:', { reservas, redes_sociales });
+        menuStore.updateReservasAndSocials(reservas, redes_sociales);
+      }
     } else {
       // Create new restaurant
-      console.log('Creating restaurant with color:', colorValue);
-      menuStore.createRestaurant(name, logo, customPrompt, phoneNumber, colorValue);
+      console.log('Creating restaurant with all values:', { name, logo, customPrompt, phoneNumber, colorValue, reservas, redes_sociales });
+      
+      // Create the restaurant
+      menuStore.createRestaurant(
+        name, 
+        logo, 
+        customPrompt, 
+        phoneNumber, 
+        reservas,
+        redes_sociales
+      );
+      
+      // Force an explicit update to the URL values to ensure they're set correctly
+      if (reservas !== undefined || redes_sociales !== undefined) {
+        console.log('Explicitly updating URL values:', { reservas, redes_sociales });
+        menuStore.updateReservasAndSocials(reservas, redes_sociales);
+      }
       
       // Update the current restaurant store
       const newRestaurant = $menuStore.restaurants.find(r => r.name === name);
       if (newRestaurant) {
-        currentRestaurant.set(newRestaurant);
+        currentRestaurant.set({
+          ...newRestaurant,
+          color: colorValue
+        });
       }
     }
   }
@@ -247,8 +295,10 @@
               selectedRestaurant={$menuStore.selectedRestaurant}
               restaurants={$menuStore.restaurants}
               currency={$currentRestaurant?.currency || '€'}
-              color={$currentRestaurant?.color || 1}
+              color={$currentRestaurant?.color || '#85A3FA'}
               phoneNumber={$currentRestaurant?.phoneNumber || null}
+              reservas={$currentRestaurant?.reservas || null}
+              redes_sociales={$currentRestaurant?.redes_sociales || null}
               on:update={handleRestaurantUpdate}
             />
           

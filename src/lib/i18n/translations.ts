@@ -381,5 +381,21 @@ export const translations: Translation = {
   googleButtonText: {
     es: "continuar_con",
     en: "continue_with"
-  }
+  },
+  reservasLabel: {
+    en: 'Reservations URL',
+    es: 'URL de Reservas',
+  },
+  reservasPlaceholder: {
+    en: 'https://reservations.example.com',
+    es: 'https://reservas.ejemplo.com',
+  },
+  redesSocialesLabel: {
+    en: 'Social Media URL',
+    es: 'URL de Redes Sociales',
+  },
+  redesSocialesPlaceholder: {
+    en: 'https://instagram.com/yourrestaurant',
+    es: 'https://instagram.com/turestaurante',
+  },
 }; 

@@ -62,10 +62,11 @@ export function cancelCustomColor(
 ) {
   setShowCustomColorPicker(false);
   
-  // Reset to standard color if no custom color was set
+  // Reset to light theme color if no custom color was set
   if (!customColorValue) {
-    setColor('1');
-    updateColorFn('1');
+    const lightThemeColor = '#85A3FA';
+    setColor(lightThemeColor);
+    updateColorFn(lightThemeColor);
   }
 }
 
@@ -236,7 +237,7 @@ export function updateColor(
  * Handler for color radio button change 
  */
 export function onColorChange(
-  value: number,
+  value: string,
   customColorValue: string,
   restaurantName: string,
   menuLogo: string | null,
@@ -250,7 +251,7 @@ export function onColorChange(
   setColor: (val: string) => void,
   dispatchFn: (event: 'update', detail: any) => void
 ) {
-  if (value === 5) {
+  if (value === 'custom') {
     // If selecting custom color option, update the UI but don't change the color value yet
     setShowCustomColorPicker(true);
     if (customColorValue) {
@@ -258,8 +259,8 @@ export function onColorChange(
       setCustomColorInput(customColorValue);
     }
   } else {
-    // For standard colors, immediately update the color value
-    const newColor = String(value);
+    // For light theme, save as #85A3FA
+    const newColor = '#85A3FA';
     setColor(newColor); // Update the local color prop
     updateRestaurantColor(
       newColor,

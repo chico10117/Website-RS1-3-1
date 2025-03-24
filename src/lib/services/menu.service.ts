@@ -21,11 +21,15 @@ export async function saveMenuChanges(
     phoneNumber?: string | null;
     currency: string;
     color: string;
+    reservas?: string | null;
+    redes_sociales?: string | null;
   },
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
   console.log('Starting saveMenuChanges with:', {
     restaurantData,
+    reservas: restaurantData.reservas,
+    redes_sociales: restaurantData.redes_sociales,
     currentRestaurantId
   });
 
@@ -45,6 +49,19 @@ export async function saveMenuChanges(
   // Find the current restaurant in the store
   const currentRestaurant = storeState.restaurants.find(r => r.id === currentRestaurantId);
 
+  // CRITICAL: Log the actual values being sent to createOrUpdateRestaurant
+  const reservas = restaurantData.reservas ?? currentRestaurant?.reservas;
+  const redes_sociales = restaurantData.redes_sociales ?? currentRestaurant?.redes_sociales;
+  
+  console.log('CRITICAL - Values being sent to createOrUpdateRestaurant:', {
+    updatingReservas: restaurantData.reservas, 
+    existingReservas: currentRestaurant?.reservas,
+    finalReservas: reservas,
+    updatingRedesSociales: restaurantData.redes_sociales,
+    existingRedesSociales: currentRestaurant?.redes_sociales,
+    finalRedesSociales: redes_sociales
+  });
+
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
     {
       name: restaurantData.name,
@@ -53,12 +70,17 @@ export async function saveMenuChanges(
       customPrompt: restaurantData.customPrompt ?? currentRestaurant?.customPrompt,
       phoneNumber: restaurantData.phoneNumber ?? currentRestaurant?.phoneNumber,
       currency: restaurantData.currency,
-      color: restaurantData.color
+      color: restaurantData.color,
+      reservas,
+      redes_sociales,
     },
     isNewRestaurant ? undefined : currentRestaurantId
   );
 
-  console.log('Restaurant saved:', savedRestaurant);
+  console.log('Restaurant saved:', savedRestaurant, 'with URLs:', {
+    reservas: savedRestaurant.reservas,
+    redes_sociales: savedRestaurant.redes_sociales
+  });
   
   const restaurantId = savedRestaurant.id;
   

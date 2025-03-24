@@ -11,7 +11,7 @@
   // Props
   export let value: string = '';
   export let showCustomColorPicker: boolean = false;
-  export let colorOptions: { value: number, label: string }[] = [];
+  export let colorOptions: { value: string | number, label: string }[] = [];
   export let selectedRestaurant: string | null = null;
   export let t: (key: string) => string;
   export let customHexColor: string = '';
@@ -37,8 +37,8 @@
   }>();
   
   // Reset values when value changes to a standard color
-  $: if (value && ['1', '2', '3', '4'].includes(value)) {
-    // If the value is a standard color (not custom and not hex), reset custom color values
+  $: if (value && value === '#85A3FA') {
+    // If the value is the light theme color, reset custom color values
     customColorValue = '';
     tempColorValue = '';
     customColorInput = '';
@@ -47,20 +47,24 @@
   // If customHexColor is provided, use it
   $: {
     if (customHexColor && typeof customHexColor === 'string' && customHexColor.startsWith('#')) {
-      customColorValue = customHexColor.toUpperCase();
-      tempColorValue = customColorValue;
-      customColorInput = customColorValue;
+      if (customHexColor !== '#85A3FA') {
+        customColorValue = customHexColor.toUpperCase();
+        tempColorValue = customColorValue;
+        customColorInput = customColorValue;
+      }
     }
   }
   
   // If the 'value' prop is a hex, assume it's custom
   $: {
     if (value && typeof value === 'string' && value.startsWith('#')) {
-      customColorValue = value.toUpperCase();
-      tempColorValue = customColorValue;
-      customColorInput = customColorValue;
-      // For custom colors, dispatch a change event to set the color to '5'
-      dispatch('change', '5');
+      if (value !== '#85A3FA') {
+        customColorValue = value.toUpperCase();
+        tempColorValue = customColorValue;
+        customColorInput = customColorValue;
+        // For custom colors, dispatch a change event to set the color to 'custom'
+        dispatch('change', 'custom');
+      }
     }
   }
   
@@ -74,41 +78,27 @@
       if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
         // Use the color from the database (hex value)
         const dbColor = cRest.color.toUpperCase();
-        customColorValue = dbColor;
-        tempColorValue = dbColor;
-        customColorInput = dbColor;
-        
-        // For hex colors, always select the custom color option (5)
-        // and dispatch the change event to update the parent
-        dispatch('change', '5');
-        
-        // Also show the color picker
-        showCustomColorPicker = true;
-        
-        console.log('ColorPicker: Loaded hex color from database:', dbColor);
-      } else if (cRest.color) {
-        // Set the standard color option (1-5)
-        const standardColor = cRest.color.toString();
-        if (['1','2','3','4','5'].includes(standardColor)) {
-          dispatch('change', standardColor);
-          
-          // If it's custom color, load from storage
-          if (standardColor === '5') {
-            showCustomColorPicker = true;
-            const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
-            if (savedColor) {
-              customColorValue = savedColor.toUpperCase();
-              tempColorValue = savedColor.toUpperCase();
-              customColorInput = savedColor.toUpperCase();
-            }
-          }
+        if (dbColor === '#85A3FA') {
+          // If it's the light theme color, dispatch 'light'
+          dispatch('change', 'light');
+        } else {
+          customColorValue = dbColor;
+          tempColorValue = dbColor;
+          customColorInput = dbColor;
+          // For custom hex colors, dispatch 'custom'
+          dispatch('change', 'custom');
+          showCustomColorPicker = true;
         }
+        console.log('ColorPicker: Loaded hex color from database:', dbColor);
       }
+    } else {
+      // No color in store, use default light theme
+      dispatch('change', 'light');
     }
   });
   
   // Event handlers
-  function onColorChange(newValue: number) {
+  function onColorChange(newValue: string | number) {
     dispatch('change', String(newValue));
   }
   

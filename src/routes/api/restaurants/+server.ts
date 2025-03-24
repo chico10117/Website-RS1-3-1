@@ -24,7 +24,7 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
       return json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const { id, name, logo, slug, customPrompt, phoneNumber, currency, color } = await request.json();
+    const { id, name, logo, slug, customPrompt, phoneNumber, color, currency, reservas, redes_sociales } = await request.json();
 
     if (!name) {
       return json({ 
@@ -67,7 +67,9 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
         color: String(color || '1'),
         userId: user.id,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        reservas: reservas || null,
+        redes_sociales: redes_sociales || null,
       })
       .returning();
 

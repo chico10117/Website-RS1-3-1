@@ -10,8 +10,8 @@ function createRestaurantStore() {
     set,
     async loadRestaurants(): Promise<Restaurant[]> {
       try {
-        console.log('Fetching restaurants from API...');
-        console.log('Current auth state:', document.cookie.includes('auth_token') ? 'Auth token exists' : 'No auth token');
+        // console.log('Fetching restaurants from API...');
+        // console.log('Current auth state:', document.cookie.includes('auth_token') ? 'Auth token exists' : 'No auth token');
         
         const response = await fetch('/api/restaurants', {
           credentials: 'include',
@@ -28,9 +28,9 @@ function createRestaurantStore() {
         }
         
         const data = await response.json();
-        console.log('API response type:', typeof data);
-        console.log('API response keys:', Object.keys(data));
-        console.log('API response full:', data);
+        // console.log('API response type:', typeof data);
+        // console.log('API response keys:', Object.keys(data));
+        // console.log('API response full:', data);
         
         if (!data.success) {
           console.error('API reported failure:', data.error);
@@ -48,13 +48,13 @@ function createRestaurantStore() {
           return [];
         }
         
-        console.log(`Received ${data.data.length} restaurants from API`);
-        data.data.forEach((r: Restaurant, index: number) => {
-          console.log(`Restaurant ${index} from API:`, r);
-          console.log(`- Name: ${r.name || 'undefined'}`);
-          console.log(`- ID: ${r.id || 'undefined'}`);
-          console.log(`- User ID: ${r.userId || 'undefined'}`);
-        });
+        // console.log(`Received ${data.data.length} restaurants from API`);
+        // data.data.forEach((r: Restaurant, index: number) => {
+        //   console.log(`Restaurant ${index} from API:`, r);
+        //   console.log(`- Name: ${r.name || 'undefined'}`);
+        //   console.log(`- ID: ${r.id || 'undefined'}`);
+        //   console.log(`- User ID: ${r.userId || 'undefined'}`);
+        // });
         
         cachedRestaurants = data.data;
         return data.data;
