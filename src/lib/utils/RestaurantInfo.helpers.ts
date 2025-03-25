@@ -113,6 +113,7 @@ export async function handleFileUpload(
       throw new Error('Failed to upload logo');
     }
     const uploadResult = await uploadResponse.json();
+    const logoUrl = uploadResult.url || null;
 
     const cRest = get(currentRestaurant);
     // If editing an existing restaurant
@@ -122,7 +123,7 @@ export async function handleFileUpload(
       
       menuStore.updateRestaurantInfo(
         cRest.name,
-        cRest.logo,
+        logoUrl,
         cRest.customPrompt,
         cRest.slug,
         cRest.phoneNumber,
@@ -131,7 +132,7 @@ export async function handleFileUpload(
       dispatch('update', {
         id: cRest.id,
         name: cRest.name,
-        logo: cRest.logo,
+        logo: logoUrl,
         customPrompt: cRest.customPrompt,
         phoneNumber: cRest.phoneNumber,
         currency,
@@ -148,7 +149,7 @@ export async function handleFileUpload(
 
       // Generate a new slug
       const newSlug = await generateSlug(restaurantName);
-      menuStore.createRestaurant(restaurantName, uploadResult.url || null, customPrompt, phoneNumber);
+      menuStore.createRestaurant(restaurantName, logoUrl, customPrompt, phoneNumber);
 
       const storeState = get(menuStore);
       const newId = storeState.selectedRestaurant;
@@ -159,7 +160,7 @@ export async function handleFileUpload(
       // Update the newly created restaurant with a valid slug
       menuStore.updateRestaurantInfo(
         restaurantName,
-        uploadResult.url || null,
+        logoUrl,
         customPrompt,
         newSlug,
         phoneNumber,
@@ -169,7 +170,7 @@ export async function handleFileUpload(
       dispatch('update', {
         id: newId,
         name: restaurantName,
-        logo: uploadResult.url || null,
+        logo: logoUrl,
         customPrompt,
         phoneNumber,
         currency,
@@ -179,11 +180,13 @@ export async function handleFileUpload(
         redes_sociales: null
       });
     }
+    return logoUrl;
   } catch (error) {
     console.error('Error uploading logo:', error);
     if (error instanceof Error) {
       toasts.error(t('error') + ': ' + error.message);
     }
+    return null;
   } finally {
     isUploading = false;
   }
