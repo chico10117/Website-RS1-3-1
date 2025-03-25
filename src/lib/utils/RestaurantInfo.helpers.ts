@@ -13,7 +13,7 @@ export interface UpdateEvent {
   name: string;
   logo: string | null;
   customPrompt: string | null;
-  phoneNumber: string | null;
+  phoneNumber: number | null;
   color: string | number;
   currency: string;
   reservas: string | null;
@@ -563,7 +563,7 @@ export function handleCurrencyChange(
  * Handle phone number change 
  */
 export function handlePhoneNumberChange(
-  newPhoneNumber: string | null,
+  newPhoneNumber: number | null,
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
@@ -625,6 +625,26 @@ export function handlePhoneNumberChange(
   } catch (error) {
     console.error('Error updating phone number:', error);
   }
+}
+
+// Function to clean phone number - ensure it's a valid number without spaces
+function cleanPhoneNumber(phone: any): number | null {
+  if (phone === null || phone === undefined) return null;
+  
+  // If it's already a number, return it
+  if (typeof phone === 'number') return phone;
+  
+  // Convert to string, remove all spaces and non-digit characters
+  const cleaned = phone.toString().replace(/\s+/g, '').replace(/\D/g, '');
+  
+  // Convert back to number if we have digits
+  if (cleaned.length > 0) {
+    const numericValue = Number(cleaned);
+    if (!isNaN(numericValue) && Number.isInteger(numericValue)) {
+      return numericValue;
+    }
+  }
+  return null;
 }
 
 /**
@@ -759,7 +779,7 @@ export async function handleMenuUploadSuccess(
         name: finalName,
         logo: restaurant.logo || null,
         customPrompt: restaurant.customPrompt || null,
-        phoneNumber: restaurant.phoneNumber || null,
+        phoneNumber: cleanPhoneNumber(restaurant.phoneNumber),
         currency,
         color,
         slug,

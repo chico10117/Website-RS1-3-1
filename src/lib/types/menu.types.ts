@@ -7,7 +7,7 @@ export interface Restaurant {
   userId: string;
   currency: string;
   color: string;
-  phoneNumber: string | null;
+  phoneNumber: number | null;
   createdAt: Date;
   updatedAt: Date;
   reservas: string | null;

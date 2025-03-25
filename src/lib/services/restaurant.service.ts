@@ -41,7 +41,7 @@ export async function createOrUpdateRestaurant(
     logo: string | null; 
     slug?: string;
     customPrompt?: string | null;
-    phoneNumber?: string | null;
+    phoneNumber?: number | null;
     userId?: string;
     currency: string;
     color: string;

@@ -18,7 +18,7 @@ export async function saveMenuChanges(
     logo: string | null;
     slug?: string;
     customPrompt?: string | null;
-    phoneNumber?: string | null;
+    phoneNumber?: number | null;
     currency: string;
     color: string;
     reservas?: string | null;

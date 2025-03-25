@@ -12,7 +12,7 @@ export interface MenuStore {
   restaurantName: string;
   menuLogo: string | null;
   customPrompt: string | null;
-  phoneNumber: string | null;
+  phoneNumber: number | null;
   categories: Category[];
   color: string;
   reservas: string | null;
@@ -403,7 +403,7 @@ function createMenuStore() {
     },
 
     // Create a new restaurant
-    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: string | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
+    createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
       const tempId = createTempId();
       
       update(state => {
@@ -452,7 +452,7 @@ function createMenuStore() {
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: string | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
@@ -744,25 +744,6 @@ function createMenuStore() {
     async saveChanges() {
       const state = get({ subscribe });
       
-      if (!state.selectedRestaurant && !state.changedItems.restaurant) {
-        console.error('No restaurant selected and no restaurant changes to save');
-        throw new Error('No restaurant selected and no restaurant changes to save');
-      }
-      
-      // Log the current state for debugging
-      console.log('SaveChanges state:', {
-        selectedRestaurant: state.selectedRestaurant,
-        restaurantName: state.restaurantName,
-        color: state.color,
-        changedItems: {
-          restaurant: state.changedItems.restaurant,
-          categories: Array.from(state.changedItems.categories),
-          dishes: Array.from(state.changedItems.dishes),
-          deletedCategories: Array.from(state.changedItems.deletedCategories),
-          deletedDishes: Array.from(state.changedItems.deletedDishes)
-        }
-      });
-      
       try {
         update(s => ({ ...s, isSaving: true }));
         
@@ -792,95 +773,6 @@ function createMenuStore() {
           redes_sociales,
         });
         
-        // Prepare cache-like structure for the menu service
-        const cache: {
-          restaurant: Restaurant | null;
-          categories: Record<string, { action: 'create' | 'update' | 'delete'; data: Category }>;
-          dishes: Record<string, { action: 'create' | 'update' | 'delete'; data: Dish }>;
-          hasUnsavedChanges: boolean;
-        } = {
-          restaurant: state.selectedRestaurant ? 
-            state.restaurants.find(r => r.id === state.selectedRestaurant) || null : 
-            null,
-          categories: {},
-          dishes: {},
-          hasUnsavedChanges: true
-        };
-        
-        // Add changed categories to cache
-        state.categories.forEach(category => {
-          if (state.changedItems.categories.has(category.id)) {
-            cache.categories[category.id] = {
-              action: category.id.startsWith('temp_') ? 'create' : 'update',
-              data: category
-            };
-          }
-        });
-        
-        // Add deleted categories to cache
-        state.changedItems.deletedCategories.forEach(categoryId => {
-          // Find the category in the original data if possible
-          const category = state.categories.find(c => c.id === categoryId);
-          if (category) {
-            cache.categories[categoryId] = {
-              action: 'delete',
-              data: category
-            };
-          }
-        });
-        
-        // Add changed dishes to cache
-        state.categories.forEach(category => {
-          if (!category.dishes) return;
-          
-          category.dishes.forEach(dish => {
-            if (state.changedItems.dishes.has(dish.id)) {
-              cache.dishes[dish.id] = {
-                action: dish.id.startsWith('temp_') ? 'create' : 'update',
-                data: dish
-              };
-            }
-          });
-        });
-        
-        // Add deleted dishes to cache
-        state.changedItems.deletedDishes.forEach(dishId => {
-          // We need to find the dish data, which might be tricky if it's deleted
-          // For simplicity, we'll create a minimal dish object
-          cache.dishes[dishId] = {
-            action: 'delete',
-            data: {
-              id: dishId,
-              title: '',
-              description: '',
-              price: '',
-              imageUrl: null,
-              categoryId: '' // This will be filled by the service
-            }
-          };
-        });
-        
-        console.log('Saving changes with:', {
-          restaurantData: {
-            name: state.restaurantName,
-            logo: state.menuLogo,
-            customPrompt: state.customPrompt,
-            phoneNumber: state.phoneNumber,
-            currency: currentRestaurantObj?.currency || '€',
-            color: colorValue,
-            reservas,
-            redes_sociales,
-          },
-          currentRestaurantId: state.selectedRestaurant,
-          hasChanges: {
-            restaurant: state.changedItems.restaurant,
-            categories: state.changedItems.categories.size > 0,
-            dishes: state.changedItems.dishes.size > 0,
-            deletedCategories: state.changedItems.deletedCategories.size > 0,
-            deletedDishes: state.changedItems.deletedDishes.size > 0
-          }
-        });
-        
         // Save changes using the existing menu service
         const result = await menuService.saveMenuChanges(
           {
@@ -895,12 +787,6 @@ function createMenuStore() {
           },
           state.selectedRestaurant
         );
-        
-        // Clear the saved state for this restaurant since we've saved all changes
-        if (state.selectedRestaurant) {
-          restaurantStates.delete(state.selectedRestaurant);
-          console.log('Cleared saved state for restaurant:', state.selectedRestaurant);
-        }
         
         // Update state with saved data
         update(s => {
@@ -922,7 +808,7 @@ function createMenuStore() {
             menuLogo: result.restaurant.logo,
             customPrompt: result.restaurant.customPrompt,
             phoneNumber: result.restaurant.phoneNumber,
-            color: result.restaurant.color, // Update the color from the result
+            color: result.restaurant.color,
             categories: result.categories,
             isSaving: false,
             lastSaveTime: new Date(),

@@ -16,6 +16,7 @@ const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene 
     - Es CRÍTICO que cada plato tenga un título (title) y un precio (price).
     - Si no puedes determinar el precio, usa 0.00 como valor predeterminado.
     - Si no identificas el nombre intenta crear uno corto basado en la informacion que aparece en la tabla
+    - IMPORTANTE: Para el número de teléfono, devuelve SOLO los dígitos sin espacios ni caracteres especiales (ejemplo: 34123456789)
     Devuelve la información en formato JSON bexactamente como el texto de abajo encerrado entre <json>  y  </json>
     Por ejemplo, el formato de salida debe ser similar a:
     
@@ -25,7 +26,7 @@ const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene 
         logo: "",
         customPrompt: "",
         currency: "€",
-        phoneNumber: "+34 123 456 789",
+        phoneNumber: 34123456789,
         description: "Descripción del restaurante y toda la información relevante como horarios, ubicación, etc."
       },
       categories: [

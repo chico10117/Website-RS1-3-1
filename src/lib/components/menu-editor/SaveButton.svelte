@@ -12,6 +12,23 @@
   // Initialize the socket connection with user id as namespace
   const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
 
+  // Function to clean phone number - ensure it's a valid number without spaces
+  function cleanPhoneNumber(phone: number | null | undefined): number | null {
+    if (phone === null || phone === undefined) return null;
+    
+    // Convert to string, remove all spaces and non-digit characters
+    const cleaned = phone.toString().replace(/\s+/g, '').replace(/\D/g, '');
+    
+    // Convert back to number if we have digits
+    if (cleaned.length > 0) {
+      const numericValue = Number(cleaned);
+      if (!isNaN(numericValue) && Number.isInteger(numericValue)) {
+        return numericValue;
+      }
+    }
+    return null;
+  }
+
   // Make translations reactive with fallbacks to prevent errors
   $: currentLanguage = $language || 'en';
   $: t = (key: string): string => {
@@ -101,12 +118,17 @@
       return;
     }
 
+    // Clean the phone number before saving
+    const cleanedPhoneNumber = cleanPhoneNumber($menuStore.phoneNumber);
+    console.log('Cleaned phone number before save:', cleanedPhoneNumber);
+
     // Debug URLs and entire menuStore state to see where the issue is
     console.log('Before saving - Complete state:', {
       entireMenuStore: $menuStore,
       colorValue: $menuStore.color,
       reservas: $menuStore.reservas,
-      redes_sociales: $menuStore.redes_sociales
+      redes_sociales: $menuStore.redes_sociales,
+      phoneNumber: cleanedPhoneNumber
     });
 
     // Ensure color is a hex value, not 'light' or '1'
@@ -124,15 +146,16 @@
         
         console.log('Creating restaurant with color:', colorValue, 'and URLs:', {
           reservas: $menuStore.reservas,
-          redes_sociales: $menuStore.redes_sociales
+          redes_sociales: $menuStore.redes_sociales,
+          phoneNumber: cleanedPhoneNumber
         });
         
-        // Create the restaurant in the store
+        // Create the restaurant in the store with cleaned phone number
         menuStore.createRestaurant(
           restaurantName,
           $menuStore.menuLogo,
           $menuStore.customPrompt,
-          $menuStore.phoneNumber,
+          cleanedPhoneNumber,
           $menuStore.reservas,
           $menuStore.redes_sociales
         );
@@ -147,13 +170,13 @@
         
         console.log('Updating restaurant with color:', colorValue);
         
-        // Update with the proper slug
+        // Update with the proper slug and cleaned phone number
         menuStore.updateRestaurantInfo(
           restaurantName,
           $menuStore.menuLogo,
           $menuStore.customPrompt,
           newSlug,
-          $menuStore.phoneNumber,
+          cleanedPhoneNumber,
           $menuStore.reservas,
           $menuStore.redes_sociales
         );
