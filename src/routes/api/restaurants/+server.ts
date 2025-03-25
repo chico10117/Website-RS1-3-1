@@ -4,6 +4,7 @@ import { restaurants, users } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import { generateSlug } from '$lib/utils/slug';
+import { normalizeUrl, ensureStringOrNull } from '$lib/utils/validation';
 
 async function getUserFromToken(token: string) {
   const [, payloadBase64] = token.split('.');
@@ -24,9 +25,9 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
       return json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const { id, name, logo, slug, customPrompt, phoneNumber, color, currency, reservas, redes_sociales } = await request.json();
+    const data = await request.json();
 
-    if (!name) {
+    if (!data.name) {
       return json({ 
         success: false, 
         error: 'Restaurant name is required' 
@@ -34,7 +35,7 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
     }
 
     // Use provided slug or generate one from name
-    const finalSlug = slug || await generateSlug(name, fetch);
+    const finalSlug = data.slug || await generateSlug(data.name, fetch);
 
     // Check if a restaurant with this slug already exists for this user
     const existingRestaurant = await db.select()
@@ -54,23 +55,26 @@ export async function POST({ request, cookies, fetch }: RequestEvent) {
       }, { status: 400 });
     }
 
-    // Create the new restaurant with the provided ID if available
+    // Process fields before insertion
+    const restaurantData = {
+      id: data.id,
+      name: data.name,
+      slug: finalSlug,
+      logo: data.logo || null,
+      customPrompt: ensureStringOrNull(data.customPrompt),
+      phoneNumber: ensureStringOrNull(data.phoneNumber),
+      currency: data.currency || '€',
+      color: String(data.color || '1'),
+      userId: user.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      reservas: normalizeUrl(data.reservas),
+      redes_sociales: normalizeUrl(data.redes_sociales),
+    };
+
+    // Create the new restaurant
     const [newRestaurant] = await db.insert(restaurants)
-      .values({
-        id: id || undefined,
-        name,
-        slug: finalSlug,
-        logo: logo || null,
-        customPrompt: customPrompt || null,
-        phoneNumber: phoneNumber || null,
-        currency: currency || '€',
-        color: String(color || '1'),
-        userId: user.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        reservas: reservas || null,
-        redes_sociales: redes_sociales || null,
-      })
+      .values(restaurantData)
       .returning();
 
     return json({ 

@@ -5,6 +5,7 @@ import { eq, and, ne } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import { generateSlug } from '$lib/utils/slug';
 import { users } from '$lib/server/schema';
+import { normalizeUrl, ensureStringOrNull } from '$lib/utils/validation';
 
 async function getUserFromToken(token: string) {
   const [, payloadBase64] = token.split('.');
@@ -72,81 +73,63 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
       }, { status: 403 });
     }
 
-    // Prepare update data
+    // Prepare update data with all allowed fields from the request
+    const allowedFields = [
+      'name', 'logo', 'customPrompt', 'slug', 'phoneNumber', 
+      'currency', 'color', 'reservas', 'redes_sociales'
+    ];
+    
     const updateSet: any = {
       updatedAt: new Date()
     };
+    
+    // Process each field from the update data
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined) {
+        // Special handling for certain fields
+        if (field === 'name' && updateData.name !== restaurant.name) {
+          // Generate a new slug if name changes
+          const slug = await generateSlug(updateData.name, fetch);
+          
+          // Check if name is already taken by another restaurant owned by the same user
+          const slugExists = await db.select()
+            .from(restaurants)
+            .where(
+              and(
+                eq(restaurants.userId, user.id),
+                eq(restaurants.slug, slug),
+                ne(restaurants.id, restaurantId as string)
+              )
+            )
+            .limit(1);
 
-    // Handle name update if provided
-    if (updateData.name !== undefined && updateData.name !== restaurant.name) {
-      const slug = await generateSlug(updateData.name, fetch);
-      
-      // Check if name is already taken by another restaurant owned by the same user
-      const slugExists = await db.select()
-        .from(restaurants)
-        .where(
-          and(
-            eq(restaurants.userId, user.id),
-            eq(restaurants.slug, slug),
-            ne(restaurants.id, restaurantId as string)
-          )
-        )
-        .limit(1);
+          if (slugExists.length > 0) {
+            return json({ 
+              success: false, 
+              error: 'A restaurant with this name already exists' 
+            }, { status: 400 });
+          }
 
-      if (slugExists.length > 0) {
-        return json({ 
-          success: false, 
-          error: 'A restaurant with this name already exists' 
-        }, { status: 400 });
+          updateSet.name = updateData.name;
+          updateSet.slug = slug;
+        } 
+        else if (field === 'reservas' || field === 'redes_sociales') {
+          // Normalize URL fields
+          updateSet[field] = normalizeUrl(updateData[field]);
+        }
+        else if (field === 'color') {
+          // Ensure color is stored as a string
+          updateSet.color = String(updateData.color);
+        }
+        else {
+          // For other fields, store as is
+          updateSet[field] = updateData[field];
+        }
       }
-
-      updateSet.name = updateData.name;
-      updateSet.slug = slug;
-    } else if (updateData.slug !== undefined && updateData.slug !== restaurant.slug) {
-      // If slug is provided directly and has changed, use it
-      updateSet.slug = updateData.slug;
     }
 
-    // Handle logo update if provided
-    if (updateData.logo !== undefined) {
-      updateSet.logo = updateData.logo;
-    }
-
-    // Handle custom prompt update if provided
-    if (updateData.customPrompt !== undefined) {
-      updateSet.customPrompt = updateData.customPrompt;
-    }
-
-    // Handle phone number update if provided
-    if (updateData.phoneNumber !== undefined) {
-      updateSet.phoneNumber = updateData.phoneNumber;
-    }
-
-    // Add currency and color updates
-    if (updateData.currency !== undefined) {
-      updateSet.currency = updateData.currency;
-    }
-
-    if (updateData.color !== undefined) {
-      console.log('Before conversion - Color value:', updateData.color, 'type:', typeof updateData.color);
-      // Ensure color is saved as a string
-      updateSet.color = String(updateData.color);
-      console.log('After conversion - Updating restaurant color to:', updateSet.color, 'type:', typeof updateSet.color);
-    }
-    
-    // Add customColor update
-    if (updateData.customColor !== undefined) {
-      updateSet.customColor = updateData.customColor;
-    }
-
-    // Handle new fields update if provided
-    if (updateData.reservas !== undefined) {
-      updateSet.reservas = updateData.reservas;
-    }
-    
-    if (updateData.redes_sociales !== undefined) {
-      updateSet.redes_sociales = updateData.redes_sociales;
-    }
+    // Make sure updatedAt is always set
+    updateSet.updatedAt = new Date();
 
     // Update the restaurant
     const [updatedRestaurant] = await db.update(restaurants)

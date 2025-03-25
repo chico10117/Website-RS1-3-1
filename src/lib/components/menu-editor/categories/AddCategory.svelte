@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Category } from '$lib/types';
+  import type { Category } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';

@@ -1,9 +1,9 @@
 import type { Restaurant, Category, Dish } from '$lib/types/menu.types';
-import type { MenuStore } from '$lib/stores/menu-store';
+import type { RestaurantFieldUpdate } from '$lib/types/restaurant.types';
 import * as restaurantService from './restaurant.service';
 import * as categoryService from './category.service';
 import * as dishService from './dish.service';
-import { menuStore } from '$lib/stores/menu-store';
+import { restaurantStore } from '$lib/stores/restaurant-store';
 import { get } from 'svelte/store';
 
 interface SaveResult {
@@ -12,30 +12,20 @@ interface SaveResult {
   dishes: Dish[];
 }
 
+/**
+ * Save all changes to the menu (restaurant, categories, dishes)
+ */
 export async function saveMenuChanges(
-  restaurantData: {
-    name: string;
-    logo: string | null;
-    slug?: string;
-    customPrompt?: string | null;
-    phoneNumber?: string | null;
-    currency: string;
-    color: string;
-    reservas?: string | null;
-    redes_sociales?: string | null;
-  },
+  restaurantData: RestaurantFieldUpdate,
   currentRestaurantId: string | null
 ): Promise<SaveResult> {
   console.log('Starting saveMenuChanges with:', {
     restaurantData,
-    reservas: restaurantData.reservas,
-    redes_sociales: restaurantData.redes_sociales,
     currentRestaurantId
   });
 
   // Get the store state
-  const store = menuStore;
-  const storeState = get(store);
+  const storeState = get(restaurantStore);
 
   // Step 1: Save restaurant
   // If we have a currentRestaurantId, it's an update. Otherwise, it's a new restaurant.
@@ -46,41 +36,13 @@ export async function saveMenuChanges(
     currentRestaurantId
   });
 
-  // Find the current restaurant in the store
-  const currentRestaurant = storeState.restaurants.find(r => r.id === currentRestaurantId);
-
-  // CRITICAL: Log the actual values being sent to createOrUpdateRestaurant
-  const reservas = restaurantData.reservas ?? currentRestaurant?.reservas;
-  const redes_sociales = restaurantData.redes_sociales ?? currentRestaurant?.redes_sociales;
-  
-  console.log('CRITICAL - Values being sent to createOrUpdateRestaurant:', {
-    updatingReservas: restaurantData.reservas, 
-    existingReservas: currentRestaurant?.reservas,
-    finalReservas: reservas,
-    updatingRedesSociales: restaurantData.redes_sociales,
-    existingRedesSociales: currentRestaurant?.redes_sociales,
-    finalRedesSociales: redes_sociales
-  });
-
+  // Save restaurant changes
   const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
-    {
-      name: restaurantData.name,
-      logo: restaurantData.logo,
-      slug: restaurantData.slug || currentRestaurant?.slug,
-      customPrompt: restaurantData.customPrompt ?? currentRestaurant?.customPrompt,
-      phoneNumber: restaurantData.phoneNumber ?? currentRestaurant?.phoneNumber,
-      currency: restaurantData.currency,
-      color: restaurantData.color,
-      reservas,
-      redes_sociales,
-    },
+    restaurantData,
     isNewRestaurant ? undefined : currentRestaurantId
   );
 
-  console.log('Restaurant saved:', savedRestaurant, 'with URLs:', {
-    reservas: savedRestaurant.reservas,
-    redes_sociales: savedRestaurant.redes_sociales
-  });
+  console.log('Restaurant saved:', savedRestaurant);
   
   const restaurantId = savedRestaurant.id;
   
@@ -157,14 +119,13 @@ export async function saveMenuChanges(
 
   // Step 5: Process dish deletions
   for (const deletedDishId of storeState.changedItems.deletedDishes) {
-    // Find the dish in any category
-    let categoryId: string | undefined;
-    
     // Only delete if it's not a temporary ID
     if (!deletedDishId.startsWith('temp_')) {
       // Find which category this dish belongs to
+      let categoryId: string | undefined;
+      
       for (const category of storeState.categories) {
-        if (category.dishes?.some(d => d.id === deletedDishId)) {
+        if (category.dishes && category.dishes.some((d: Dish) => d.id === deletedDishId)) {
           categoryId = category.id;
           break;
         }
@@ -185,11 +146,13 @@ export async function saveMenuChanges(
     let categoryId: string | undefined;
     
     for (const category of storeState.categories) {
-      const foundDish = category.dishes?.find(d => d.id === dishId);
-      if (foundDish) {
-        dish = foundDish;
-        categoryId = category.id;
-        break;
+      if (category.dishes) {
+        const foundDish = category.dishes.find((d: Dish) => d.id === dishId);
+        if (foundDish) {
+          dish = foundDish;
+          categoryId = category.id;
+          break;
+        }
       }
     }
     
@@ -217,8 +180,8 @@ export async function saveMenuChanges(
     savedDishes.push(savedDish);
   }
 
-  // Step 7: Reset the change tracking in the store
-  menuStore.resetChanges();
+  // Reset changes in the store after saving
+  restaurantStore.resetChanges();
 
   // Step 8: Fetch all categories to return complete data
   const allCategories = await categoryService.fetchCategories(restaurantId);

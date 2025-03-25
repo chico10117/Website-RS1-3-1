@@ -1,269 +1,113 @@
 <script lang="ts">
-  import { menuStore } from '$lib/stores/menu-store';
+  import { onMount, onDestroy } from 'svelte';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
+  import { restaurantStore } from '$lib/stores/restaurant-store';
   import { toasts } from '$lib/stores/toast';
-  import * as menuService from '$lib/services/menu.service';
-  import { currentRestaurant } from '$lib/stores/restaurant';
-  import { generateSlug } from '$lib/utils/slug';
-  import { io } from 'socket.io-client';
-  import {onMount} from "svelte";
-  console.log("SERVER IO",process.env.SMART_SERVER_HOST )
-  // Initialize the socket connection with user id as namespace
-  const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
-
-  // Make translations reactive with fallbacks to prevent errors
-  $: currentLanguage = $language || 'en';
-  $: t = (key: string): string => {
-    if (!translations || !translations[key] || !translations[key][currentLanguage]) {
-      return key; // Return the key itself as fallback
-    }
-    return translations[key][currentLanguage];
-  };
-
-  onMount(()=> {
-
-    socket.on('connect', () => {
-      console.log('Connected to server', $menuStore);
-    })
-    socket.emit('check', 'Hello from the client');
-
-    socket.on('images-generating', () => {
-      console.log('Procesando imagenes');
-    });
-    socket.on('image-generated', () => {
-      console.log('Imagen Generada');
-    });
-    socket.on('queue-finished', () => {
-      console.log('Queue finished');
-      toasts.success(t('completedProcessingImages') || 'Images created');
-    });
-  })
-
-
-
-
-  // Reactive variables for UI state
-  $: hasUnsavedChanges = $menuStore.changedItems.restaurant || 
-                         $menuStore.changedItems.categories.size > 0 || 
-                         $menuStore.changedItems.dishes.size > 0 ||
-                         $menuStore.changedItems.deletedCategories.size > 0 ||
-                         $menuStore.changedItems.deletedDishes.size > 0;
+  import { browser } from '$app/environment';
   
-  $: isSaving = $menuStore.isSaving;
-  $: lastSaveTime = $menuStore.lastSaveTime;
-  $: selectedRestaurant = $menuStore.selectedRestaurant;
-  $: restaurantName = $menuStore.restaurantName;
+  export let variant: 'primary' | 'secondary' = 'primary';
+  export let size: 'sm' | 'md' | 'lg' = 'md';
+  export let className: string = '';
 
-  // For debugging
-  $: console.log('Save button state:', {
-    selectedRestaurant,
-    restaurantName,
-    restaurantChanged: $menuStore.changedItems.restaurant,
-    categoriesChanged: $menuStore.changedItems.categories.size,
-    dishesChanged: $menuStore.changedItems.dishes.size,
-    deletedCategories: $menuStore.changedItems.deletedCategories.size,
-    deletedDishes: $menuStore.changedItems.deletedDishes.size,
-    hasUnsavedChanges,
-    currentLanguage,
-    reservas: $menuStore.reservas,
-    redes_sociales: $menuStore.redes_sociales
-  });
+  // Reactive translations
+  $: currentLanguage = $language;
+  $: t = (key: string) => translations[key][currentLanguage];
+  
+  // Subscribe to store state
+  $: isSaving = $restaurantStore.isSaving;
+  $: lastSaveTime = $restaurantStore.lastSaveTime;
+  $: hasUnsavedChanges = $restaurantStore.hasUnsavedChanges;
 
-  // Format the last save time
-  function formatLastSaveTime(date: Date | null): string {
-    if (!date) return '';
-    
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    
-    // If less than a minute ago
-    if (diff < 60000) {
-      return t('justNow') || 'Just now';
-    }
-    
-    // If less than an hour ago
-    if (diff < 3600000) {
-      const minutes = Math.floor(diff / 60000);
-      return `${minutes} ${minutes === 1 ? (t('minuteAgo') || 'minute ago') : (t('minutesAgo') || 'minutes ago')}`;
-    }
-    
-    // Otherwise format as time
-    return date.toLocaleTimeString(undefined, { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+  // Format last save time
+  $: formattedSaveTime = lastSaveTime ? formatTime(lastSaveTime) : null;
+
+  // Format time for display
+  function formatTime(date: Date): string {
+    return new Intl.DateTimeFormat(currentLanguage, {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    }).format(date);
   }
-
-  async function saveChanges() {
-    if (!selectedRestaurant && !restaurantName) {
-      toasts.error(t('noRestaurantSelected') || 'No restaurant selected');
-      return;
-    }
-
-    // Debug URLs and entire menuStore state to see where the issue is
-    console.log('Before saving - Complete state:', {
-      entireMenuStore: $menuStore,
-      colorValue: $menuStore.color,
-      reservas: $menuStore.reservas,
-      redes_sociales: $menuStore.redes_sociales
-    });
-
-    // Ensure color is a hex value, not 'light' or '1'
-    const colorValue = $menuStore.color === 'light' || $menuStore.color === '1' 
-      ? '#85A3FA' 
-      : $menuStore.color;
+  
+  // Determine button classes based on props
+  $: buttonClasses = [
+    'font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
+    variant === 'primary' 
+      ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed'
+      : 'bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed',
+    size === 'sm' ? 'px-2 py-1 text-sm' : size === 'lg' ? 'px-6 py-3 text-lg' : 'px-4 py-2 text-base',
+    className
+  ].join(' ');
+        
+  // Save restaurant data
+  async function saveRestaurant() {
+    if (isSaving || !hasUnsavedChanges) return;
     
-    console.log('Starting save with color:', colorValue);
-
     try {
-      // If we have a restaurant name but no selected restaurant, we need to create a new one
-      if (restaurantName && !selectedRestaurant) {
-        // Generate a slug for the new restaurant
-        const newSlug = await generateSlug(restaurantName);
-        
-        console.log('Creating restaurant with color:', colorValue, 'and URLs:', {
-          reservas: $menuStore.reservas,
-          redes_sociales: $menuStore.redes_sociales
-        });
-        
-        // Create the restaurant in the store
-        menuStore.createRestaurant(
-          restaurantName,
-          $menuStore.menuLogo,
-          $menuStore.customPrompt,
-          $menuStore.phoneNumber,
-          $menuStore.reservas,
-          $menuStore.redes_sociales
-        );
-        
-        // Get the newly created restaurant ID
-        const storeState = $menuStore;
-        const newId = storeState.selectedRestaurant;
-        
-        if (!newId) {
-          throw new Error('Failed to create restaurant');
-        }
-        
-        console.log('Updating restaurant with color:', colorValue);
-        
-        // Update with the proper slug
-        menuStore.updateRestaurantInfo(
-          restaurantName,
-          $menuStore.menuLogo,
-          $menuStore.customPrompt,
-          newSlug,
-          $menuStore.phoneNumber,
-          $menuStore.reservas,
-          $menuStore.redes_sociales
-        );
-        
-        // Update the current restaurant store
-        if ($currentRestaurant === null) {
-          const newRestaurant = storeState.restaurants.find(r => r.id === newId);
-          if (newRestaurant) {
-            currentRestaurant.set({
-              ...newRestaurant,
-              slug: newSlug,
-              color: colorValue,
-              reservas: $menuStore.reservas,
-              redes_sociales: $menuStore.redes_sociales
-            });
-          }
-        }
-      }
-      
-      // CRITICAL: Make absolutely sure the URL values are set before saving
-      // This should not be necessary, but we're adding it as a failsafe
-      let currentReservas = $menuStore.reservas; 
-      let currentRedesSociales = $menuStore.redes_sociales;
-      
-      // CRITICAL FIX: Validate URLs - prevent color values from being accidentally saved in URL fields
-      if (currentReservas && typeof currentReservas === 'string' && currentReservas.startsWith('#')) {
-        console.warn('CRITICAL: Detected color value in reservas field, resetting to null');
-        currentReservas = null;
-        // Force update the store
-        menuStore.updateReservasAndSocials(null, currentRedesSociales);
-      }
-      
-      if (currentRedesSociales && typeof currentRedesSociales === 'string' && currentRedesSociales.startsWith('#')) {
-        console.warn('CRITICAL: Detected color value in redes_sociales field, resetting to null');
-        currentRedesSociales = null;
-        // Force update the store
-        menuStore.updateReservasAndSocials(currentReservas, null);
-      }
-      
-      console.log('CRITICAL CHECK - RIGHT BEFORE SAVE:', {
-        reservas: currentReservas,
-        redes_sociales: currentRedesSociales
-      });
-      
-      // Force update changes to mark data as changed regardless of state
-      menuStore.updateReservasAndSocials(currentReservas, currentRedesSociales);
-      
-      console.log('Calling saveChanges with color in store:', colorValue, 
-        'reservas:', $menuStore.reservas, 
-        'redes_sociales:', $menuStore.redes_sociales
-      );
-      
-      // Use the menuStore's saveChanges method to save all changes
-      const result = await menuStore.saveChanges();
-      
-      // Debug the result
-      console.log('Save result:', {
-        reservas: result.restaurant.reservas,
-        redes_sociales: result.restaurant.redes_sociales,
-        resultValues: JSON.stringify(result.restaurant),
-      });
-      
-      const restId = $menuStore.selectedRestaurant;
-      if (restId){
-        socket.emit('request-images', restId);
-      }
-
-      // Show success message
-      toasts.success(t('changesSaved') || 'Changes saved');
-      
+      await restaurantStore.saveChanges();
+      toasts.success(t('saveSuccess'));
     } catch (error) {
-      console.error('Error saving changes:', error);
-      if (error instanceof Error) {
-        toasts.error((t('error') || 'Error') + ': ' + error.message);
-      } else {
-        toasts.error((t('error') || 'Error') + ': ' + (t('unknownError') || 'Unknown error'));
-      }
+      console.error('Error saving restaurant data:', error);
+      toasts.error(t('saveError'));
     }
   }
+  
+  // Handle keyboard shortcut
+  function handleKeydown(event: KeyboardEvent) {
+    // Save on Ctrl+S or Cmd+S
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      event.preventDefault();
+      saveRestaurant();
+    }
+  }
+  
+  onMount(() => {
+    if (browser) {
+      document.addEventListener('keydown', handleKeydown);
+    }
+  });
+  
+  onDestroy(() => {
+    if (browser) {
+      document.removeEventListener('keydown', handleKeydown);
+    }
+  });
 </script>
 
-<div class="flex items-center gap-4">
+<div class="save-button">
   <button
-    class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
-    on:click={saveChanges}
-    disabled={(!selectedRestaurant && !restaurantName) || (!hasUnsavedChanges && !$menuStore.changedItems.restaurant) || isSaving}
+    type="button"
+    class={buttonClasses}
+    disabled={isSaving || !hasUnsavedChanges}
+    on:click={saveRestaurant}
   >
     {#if isSaving}
-      <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <span class="flex items-center space-x-2">
+        <svg class="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
-      {t('saving') || 'Saving...'}
+        <span>{t('saving')}</span>
+      </span>
     {:else}
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-      </svg>
-      {t('save') || 'Save'}
+      {t('save')}
     {/if}
   </button>
   
-  <!-- {#if lastSaveTime}
-    <span class="text-sm text-gray-500">
-      {(t('lastSaved') || 'Last saved')}: {formatLastSaveTime(lastSaveTime)}
-    </span>
-  {/if} -->
+  {#if formattedSaveTime}
+    <div class="mt-1 text-xs text-gray-500">
+      {t('lastSaved')}: {formattedSaveTime}
+    </div>
+  {/if}
 </div>
 
 <style>
-  button {
-    min-width: 100px;
+  .save-button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
   }
 </style> 

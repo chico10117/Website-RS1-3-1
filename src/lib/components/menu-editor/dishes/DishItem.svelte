@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Dish } from '$lib/types';
+  import type { Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { menuStore } from '$lib/stores/menu-store';
