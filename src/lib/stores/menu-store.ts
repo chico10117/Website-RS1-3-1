@@ -590,6 +590,8 @@ function createMenuStore() {
           }
         };
       });
+
+      return tempId; // Return the temporary ID
     },
     
     updateCategory(categoryId: string, name: string) {

@@ -123,9 +123,17 @@
     
     console.log('Extracted color from event:', color, 'type:', typeof color);
     
-    if (!name.trim()) {
-      console.error('No restaurant name provided');
+    // Validate required fields
+    if (!name || typeof name !== 'string') {
+      console.error('Invalid or missing restaurant name');
       toasts.error(t('error') + ': Missing restaurant name');
+      return;
+    }
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      console.error('Restaurant name cannot be empty');
+      toasts.error(t('error') + ': Restaurant name cannot be empty');
       return;
     }
 

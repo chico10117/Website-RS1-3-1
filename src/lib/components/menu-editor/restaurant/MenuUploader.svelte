@@ -198,14 +198,26 @@
   // ✅ Función para guardar la respuesta final y actualizar el estado del menú
   async function saveRestaurantData(result: any) {
     try {
+      console.log('saveRestaurantData received result:', result);
+      
       // Validate the structure of the response
       if (!result || typeof result !== 'object') {
         throw new Error('Invalid response format');
       }
 
-      // Ensure restaurant data exists
+      // Get placeholder name based on language
+      const placeholderName = currentLanguage === 'es' ? 'Restaurante desconocido' : 'Unknown restaurant';
+      
+      console.log('Current restaurant name:', restaurantName);
+      console.log('Using placeholder name if needed:', placeholderName);
+
+      // Ensure restaurant data exists and has a name
       if (!result.restaurant || typeof result.restaurant !== 'object') {
-        result.restaurant = { name: restaurantName };
+        console.log('No restaurant object found, creating one');
+        result.restaurant = { name: restaurantName || placeholderName };
+      } else if (!result.restaurant.name) {
+        console.log('Restaurant object found but no name, setting name');
+        result.restaurant.name = restaurantName || placeholderName;
       }
 
       // Ensure userEmail is present
@@ -215,6 +227,7 @@
 
       // Ensure categories array exists
       if (!result.categories || !Array.isArray(result.categories)) {
+        console.log('No categories array found, initializing empty array');
         result.categories = [];
       }
 
@@ -243,6 +256,12 @@
         });
 
         return category;
+      });
+
+      console.log('Final processed data before dispatch:', {
+        restaurant: result.restaurant,
+        categoriesCount: result.categories.length,
+        userEmail: result.userEmail
       });
 
       // Dispatch the success event with the processed data

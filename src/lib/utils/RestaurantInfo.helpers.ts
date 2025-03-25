@@ -6,6 +6,7 @@ import { menuStore } from '$lib/stores/menu-store';
 import { toasts } from '$lib/stores/toast';
 import { generateSlug } from '$lib/utils/slug';
 import type { Restaurant } from '$lib/types/menu.types';
+import { language } from '$lib/stores/language';
 
 export interface UpdateEvent {
   id?: string;
@@ -636,14 +637,30 @@ export async function handleMenuUploadSuccess(
   color: string
 ) {
   try {
+    console.log('handleMenuUploadSuccess received event:', {
+      detail: event.detail,
+      currency,
+      color
+    });
+
     const cRest = get(currentRestaurant);
+    console.log('Current restaurant from store:', cRest);
     
     if (cRest) {
+      // Validate required fields
+      if (!cRest.name) {
+        // Use placeholder instead of throwing error
+        const placeholderName = get(language) === 'es' ? 'Restaurante desconocido' : 'Unknown restaurant';
+        cRest.name = placeholderName;
+        console.log('Using placeholder name for existing restaurant:', placeholderName);
+      }
+
       // Preserve the current color from the database
       const existingColor = cRest.color || color;
+      console.log('Using color for existing restaurant:', existingColor);
       
       // Update the dispatch with preserved color
-      dispatchFn('update', {
+      const updateData = {
         id: cRest.id,
         name: cRest.name,
         logo: cRest.logo,
@@ -654,26 +671,125 @@ export async function handleMenuUploadSuccess(
         slug: cRest.slug,
         reservas: cRest.reservas,
         redes_sociales: cRest.redes_sociales
-      });
+      };
+      console.log('Dispatching update for existing restaurant:', updateData);
+      dispatchFn('update', updateData);
     } else {
       // For a new restaurant
-      const { restaurantName, logo, customPrompt, phoneNumber, slug, id } = event.detail;
+      const { restaurantData } = event.detail;
+      console.log('Processing new restaurant data:', restaurantData);
+
+      if (!restaurantData || !restaurantData.restaurant) {
+        console.error('Invalid restaurant data received:', restaurantData);
+        throw new Error('Invalid restaurant data format');
+      }
+
+      // Extract restaurant data
+      const { restaurant, categories } = restaurantData;
+      console.log('Extracted categories:', categories);
+      
+      // Use placeholder if no restaurant name
+      const placeholderName = get(language) === 'es' ? 'Restaurante desconocido' : 'Unknown restaurant';
+      const finalName = restaurant.name || placeholderName;
+      console.log('Using name for new restaurant:', finalName);
+
+      // Generate a slug for the new restaurant
+      const slug = await generateSlug(finalName);
+
+      // Create the restaurant in the store first
+      menuStore.createRestaurant(
+        finalName,
+        restaurant.logo || null,
+        restaurant.customPrompt || null,
+        restaurant.phoneNumber || null,
+        null, // reservas
+        null  // redes_sociales
+      );
+
+      // Get the newly created restaurant ID
+      const storeState = get(menuStore);
+      const newId = storeState.selectedRestaurant;
+
+      if (!newId) {
+        throw new Error('Failed to create restaurant');
+      }
+
+      // Update with the proper slug and other details
+      menuStore.updateRestaurantInfo(
+        finalName,
+        restaurant.logo || null,
+        restaurant.customPrompt || null,
+        slug,
+        restaurant.phoneNumber || null,
+        String(color)
+      );
+
+      // Add categories and dishes
+      if (categories && Array.isArray(categories)) {
+        console.log('Processing categories:', categories.length);
+        
+        for (const category of categories) {
+          // Create category and get its ID
+          const categoryId = menuStore.addCategory(category.name);
+          console.log('Created category:', { name: category.name, id: categoryId });
+
+          // Add dishes if they exist
+          if (category.dishes && Array.isArray(category.dishes)) {
+            console.log(`Processing ${category.dishes.length} dishes for category ${category.name}`);
+            
+            for (const dish of category.dishes) {
+              const dishData = {
+                title: dish.title || 'Untitled Dish',
+                description: dish.description || '',
+                price: dish.price?.toString() || '0',
+                imageUrl: dish.imageUrl || null
+              };
+              console.log('Adding dish:', dishData);
+              
+              // Add the dish to the store
+              menuStore.addDish(categoryId, dishData);
+            }
+          }
+        }
+      }
+
       // For new restaurant that didn't exist before, we use the passed color
-      dispatchFn('update', {
-        id,
-        name: restaurantName,
-        logo,
-        customPrompt,
-        phoneNumber,
+      const updateData = {
+        id: newId,
+        name: finalName,
+        logo: restaurant.logo || null,
+        customPrompt: restaurant.customPrompt || null,
+        phoneNumber: restaurant.phoneNumber || null,
         currency,
         color,
         slug,
         reservas: null,
         redes_sociales: null
+      };
+      console.log('Dispatching update for new restaurant:', updateData);
+      dispatchFn('update', updateData);
+
+      // Update the current restaurant store with proper types
+      currentRestaurant.set({
+        id: newId,
+        name: finalName,
+        logo: restaurant.logo || null,
+        customPrompt: restaurant.customPrompt || null,
+        phoneNumber: restaurant.phoneNumber || null,
+        currency,
+        color,
+        slug,
+        reservas: null,
+        redes_sociales: null,
+        userId: get(user)?.id || '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        categories: categories || []
       });
     }
   } catch (error) {
     console.error('Error handling menu upload success:', error);
+    throw error; // Re-throw to allow proper error handling up the chain
   }
 }
 

@@ -12,6 +12,7 @@ export interface Restaurant {
   updatedAt: Date;
   reservas: string | null;
   redes_sociales: string | null;
+  categories?: Category[];
 }
 
 export interface Category {
