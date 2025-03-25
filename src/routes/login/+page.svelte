@@ -8,10 +8,16 @@
   import { language } from '$lib/stores/language';
   
   let googleButton: HTMLElement;
+  let loadIframe = false;
+  let iframeLoading = true;
   
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
+
+  function handleIframeLoad() {
+    iframeLoading = false;
+  }
 
   onMount(() => {
     if (!browser) return;
@@ -59,6 +65,11 @@
     } else {
       window.addEventListener('load', initializeGoogleSignIn);
     }
+    
+    // Delay iframe loading to improve initial page performance
+    setTimeout(() => {
+      loadIframe = true;
+    }, 10);
   });
 
   async function handleGoogleCredentialResponse(response: any) {
@@ -195,11 +206,23 @@
       </div>
       
       <div class="iphone-frame scale-[0.8] md:scale-100 -mt-16 md:mt-0">
-        <iframe
-          src="https://santocdmx.reco.restaurant"
-          title="Demo Preview"
-          class="w-full h-full rounded-[38px]"
-        ></iframe>
+        <div class="relative w-full h-full">
+          {#if iframeLoading}
+            <div class="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-[38px] z-10">
+              <div class="text-center">
+                <div class="inline-block animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mb-3"></div>
+                <p class="text-gray-600">Loading...</p>
+              </div>
+            </div>
+          {/if}
+          <iframe
+            src={loadIframe ? "https://santocdmx.reco.restaurant" : ""}
+            title="Demo Preview"
+            class="w-full h-full rounded-[38px]"
+            on:load={handleIframeLoad}
+            loading="lazy"
+          ></iframe>
+        </div>
       </div>
       <!-- QR Code (only visible on desktop) -->
       <img 
@@ -257,4 +280,10 @@
     width: 300px !important;
     border-radius: 9999px !important;
   }
-</style> 
+</style>
+
+<!-- Add preconnect for the iframe domain but remove preload -->
+<svelte:head>
+  <link rel="preconnect" href="https://santocdmx.reco.restaurant" crossorigin="anonymous">
+  <link rel="dns-prefetch" href="https://santocdmx.reco.restaurant">
+</svelte:head> 
