@@ -202,21 +202,6 @@
       let currentReservas = $menuStore.reservas; 
       let currentRedesSociales = $menuStore.redes_sociales;
       
-      // CRITICAL FIX: Validate URLs - prevent color values from being accidentally saved in URL fields
-      if (currentReservas && typeof currentReservas === 'string' && currentReservas.startsWith('#')) {
-        console.warn('CRITICAL: Detected color value in reservas field, resetting to null');
-        currentReservas = null;
-        // Force update the store
-        menuStore.updateReservasAndSocials(null, currentRedesSociales);
-      }
-      
-      if (currentRedesSociales && typeof currentRedesSociales === 'string' && currentRedesSociales.startsWith('#')) {
-        console.warn('CRITICAL: Detected color value in redes_sociales field, resetting to null');
-        currentRedesSociales = null;
-        // Force update the store
-        menuStore.updateReservasAndSocials(currentReservas, null);
-      }
-      
       console.log('CRITICAL CHECK - RIGHT BEFORE SAVE:', {
         reservas: currentReservas,
         redes_sociales: currentRedesSociales

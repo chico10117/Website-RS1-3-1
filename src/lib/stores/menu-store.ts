@@ -524,17 +524,6 @@ function createMenuStore() {
       // CRITICAL DEBUG: Add a trace to see this method being called 
       console.trace('updateReservasAndSocials TRACE');
       
-      // Validate URLs before updating
-      if (reservas && typeof reservas === 'string' && reservas.startsWith('#')) {
-        console.warn('CRITICAL: Detected color value in reservas field in updateReservasAndSocials, resetting to null');
-        reservas = null;
-      }
-      
-      if (redes_sociales && typeof redes_sociales === 'string' && redes_sociales.startsWith('#')) {
-        console.warn('CRITICAL: Detected color value in redes_sociales field in updateReservasAndSocials, resetting to null');
-        redes_sociales = null;
-      }
-      
       console.log('updateReservasAndSocials called with:', { 
         reservas, 
         reservasType: typeof reservas, 

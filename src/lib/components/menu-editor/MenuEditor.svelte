@@ -153,15 +153,19 @@
       // Update existing restaurant
       console.log('Updating restaurant with all values:', { name, logo, customPrompt, slug: $currentRestaurant?.slug, phoneNumber, colorValue, reservas, redes_sociales });
       
-      // Use the parameters correctly - this function is likely receiving them in a different order
+      // Convert phoneNumber to number if it's a string
+      const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null;
+      
+      // Use the parameters correctly - explicitly pass color as the last parameter
       menuStore.updateRestaurantInfo(
         name, 
         logo, 
         customPrompt, 
         $currentRestaurant?.slug || null, 
-        phoneNumber,
+        numericPhoneNumber,
         reservas,
-        redes_sociales
+        redes_sociales,
+        colorValue  // Explicitly pass color here
       );
       
       // Force an explicit update to the URL values to ensure they're set correctly
