@@ -453,14 +453,19 @@ function createMenuStore() {
 
     // Update restaurant info
     updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, color: string | null = null) {
-      // CRITICAL: Validate that URL fields don't contain color values
-      if (reservas && typeof reservas === 'string' && reservas.startsWith('#')) {
-        console.warn('CRITICAL: Prevented color value from being saved to reservas field');
-        reservas = null;
+      // CRITICAL: Only validate URLs if they are being updated
+      if (reservas !== undefined && reservas !== null) {
+        if (typeof reservas === 'string' && reservas.startsWith('#')) {
+          console.warn('CRITICAL: Prevented color value from being saved to reservas field');
+          reservas = null;
+        }
       }
-      if (redes_sociales && typeof redes_sociales === 'string' && redes_sociales.startsWith('#')) {
-        console.warn('CRITICAL: Prevented color value from being saved to redes_sociales field');
-        redes_sociales = null;
+      
+      if (redes_sociales !== undefined && redes_sociales !== null) {
+        if (typeof redes_sociales === 'string' && redes_sociales.startsWith('#')) {
+          console.warn('CRITICAL: Prevented color value from being saved to redes_sociales field');
+          redes_sociales = null;
+        }
       }
       
       // CRITICAL: Validate that color is actually a color value
@@ -478,7 +483,11 @@ function createMenuStore() {
         phoneNumber,
         reservas,
         redes_sociales,
-        color: validatedColor
+        color: validatedColor,
+        isUrlUpdate: {
+          reservasProvided: reservas !== undefined,
+          redes_socialesProvided: redes_sociales !== undefined
+        }
       });
 
       update(state => {
@@ -490,15 +499,17 @@ function createMenuStore() {
         
         // Update the current restaurant (if found)
         if (currentRestaurantIndex >= 0) {
+          const currentRestaurant = updatedRestaurants[currentRestaurantIndex];
           updatedRestaurants[currentRestaurantIndex] = {
-            ...updatedRestaurants[currentRestaurantIndex],
+            ...currentRestaurant,
             name,
             logo,
             customPrompt,
             slug: slug || '',
             phoneNumber,
-            reservas,
-            redes_sociales,
+            // CRITICAL: Only update URLs if they are being explicitly set
+            reservas: reservas !== undefined ? reservas : currentRestaurant.reservas,
+            redes_sociales: redes_sociales !== undefined ? redes_sociales : currentRestaurant.redes_sociales,
             color: validatedColor || state.color || '#85A3FA',
             updatedAt: new Date(),
           };
@@ -511,8 +522,9 @@ function createMenuStore() {
           customPrompt,
           phoneNumber,
           color: validatedColor || state.color || '#85A3FA',
-          reservas,
-          redes_sociales,
+          // CRITICAL: Only update URLs in state if they are being explicitly set
+          ...(reservas !== undefined ? { reservas } : {}),
+          ...(redes_sociales !== undefined ? { redes_sociales } : {}),
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
@@ -795,11 +807,9 @@ function createMenuStore() {
           ? '#85A3FA'
           : state.color;
         
-        console.log('Using color value for save:', colorValue, 'type:', typeof colorValue);
-        
-        // Get the latest reservas and redes_sociales values directly from the state
-        const reservas = state.reservas;
-        const redes_sociales = state.redes_sociales;
+        // CRITICAL: Preserve existing URLs if they're not being updated
+        const reservas = state.reservas !== undefined ? state.reservas : currentRestaurantObj?.reservas;
+        const redes_sociales = state.redes_sociales !== undefined ? state.redes_sociales : currentRestaurantObj?.redes_sociales;
         
         console.log('Restaurant data for save:', {
           name: state.restaurantName,
@@ -810,6 +820,12 @@ function createMenuStore() {
           color: colorValue,
           reservas,
           redes_sociales,
+          currentUrls: {
+            stateReservas: state.reservas,
+            stateRedesSociales: state.redes_sociales,
+            currentRestaurantReservas: currentRestaurantObj?.reservas,
+            currentRestaurantRedesSociales: currentRestaurantObj?.redes_sociales
+          }
         });
         
         // Save changes using the existing menu service
@@ -834,7 +850,12 @@ function createMenuStore() {
           const restaurants = [...s.restaurants];
           
           if (restaurantIndex >= 0) {
-            restaurants[restaurantIndex] = result.restaurant;
+            restaurants[restaurantIndex] = {
+              ...result.restaurant,
+              // CRITICAL: Preserve URLs if they exist in the result
+              reservas: result.restaurant.reservas ?? restaurants[restaurantIndex].reservas,
+              redes_sociales: result.restaurant.redes_sociales ?? restaurants[restaurantIndex].redes_sociales
+            };
           } else {
             restaurants.push(result.restaurant);
           }
@@ -858,8 +879,9 @@ function createMenuStore() {
               deletedCategories: new Set<string>(),
               deletedDishes: new Set<string>()
             },
-            reservas: result.restaurant.reservas,
-            redes_sociales: result.restaurant.redes_sociales,
+            // CRITICAL: Preserve URLs if they exist in the result
+            reservas: result.restaurant.reservas ?? s.reservas,
+            redes_sociales: result.restaurant.redes_sociales ?? s.redes_sociales,
           };
         });
         
