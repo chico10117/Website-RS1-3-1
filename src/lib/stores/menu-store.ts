@@ -453,7 +453,34 @@ function createMenuStore() {
 
     // Update restaurant info
     updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, color: string | null = null) {
-      console.log('updateRestaurantInfo called with URLs:', { reservas, redes_sociales });
+      // CRITICAL: Validate that URL fields don't contain color values
+      if (reservas && typeof reservas === 'string' && reservas.startsWith('#')) {
+        console.warn('CRITICAL: Prevented color value from being saved to reservas field');
+        reservas = null;
+      }
+      if (redes_sociales && typeof redes_sociales === 'string' && redes_sociales.startsWith('#')) {
+        console.warn('CRITICAL: Prevented color value from being saved to redes_sociales field');
+        redes_sociales = null;
+      }
+      
+      // CRITICAL: Validate that color is actually a color value
+      let validatedColor = color;
+      if (validatedColor && typeof validatedColor === 'string' && !validatedColor.startsWith('#')) {
+        console.warn('CRITICAL: Color value must start with #, got:', validatedColor);
+        validatedColor = '#' + validatedColor;
+      }
+
+      console.log('updateRestaurantInfo called with:', {
+        name,
+        logo,
+        customPrompt,
+        slug,
+        phoneNumber,
+        reservas,
+        redes_sociales,
+        color: validatedColor
+      });
+
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
@@ -468,12 +495,12 @@ function createMenuStore() {
             name,
             logo,
             customPrompt,
+            slug: slug || '',
             phoneNumber,
-            slug: slug || '', // Use empty string instead of null
-            color: color || state.color || '#85A3FA', // Use provided color, fallback to state color, then default
-            updatedAt: new Date(),
             reservas,
             redes_sociales,
+            color: validatedColor || state.color || '#85A3FA',
+            updatedAt: new Date(),
           };
         }
         
@@ -483,17 +510,16 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
-          color: color || state.color || '#85A3FA',
+          color: validatedColor || state.color || '#85A3FA',
+          reservas,
+          redes_sociales,
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
             restaurant: true
-          },
-          reservas,
-          redes_sociales,
+          }
         };
       });
-      console.log('updateRestaurantInfo completed, new state:', { reservas, redes_sociales });
     },
 
     // Update only reservas and redes_sociales values

@@ -57,7 +57,11 @@
 
   // Called on color radio <input> change
   function onColorChange(value: string) {
-    console.log('Color radio changed to:', value);
+    console.log('ThemeColorSection: Color radio changed to:', value, {
+      currentColor: color,
+      displayColor,
+      customColorValue
+    });
     
     if (value === 'custom') {
       displayColor = 'custom';
@@ -65,6 +69,7 @@
     } else if (value === 'light') {
       // For light theme, save as #85A3FA
       const newColor = '#85A3FA';
+      console.log('ThemeColorSection: Setting light theme color:', newColor);
       color = newColor;
       displayColor = 'light';
       updateColorHelper(
@@ -75,8 +80,14 @@
         phoneNumber,
         currency,
         customColorValue,
-        (val) => color = val,
-        (evt, detail) => dispatch(evt, detail)
+        (val) => {
+          console.log('ThemeColorSection: Color callback with value:', val);
+          color = val;
+        },
+        (evt, detail) => {
+          console.log('ThemeColorSection: Dispatching update with:', detail);
+          dispatch(evt, detail);
+        }
       );
     }
   }
