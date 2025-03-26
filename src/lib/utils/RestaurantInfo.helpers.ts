@@ -87,7 +87,7 @@ export async function handleFileUpload(
   file: File,
   restaurantName: string,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   currency: string,
   dispatch: DispatchFunction,
@@ -122,19 +122,23 @@ export async function handleFileUpload(
       // Preserve the current color from the database
       const existingColor = cRest.color || color;
       
+      // Make sure to preserve the existing customPrompt
+      const existingCustomPrompt = cRest.customPrompt;
+      
       menuStore.updateRestaurantInfo(
         cRest.name,
         logoUrl,
-        cRest.customPrompt,
+        existingCustomPrompt, // Use existing value
         cRest.slug,
         cRest.phoneNumber,
         String(existingColor)
       );
+      
       dispatch('update', {
         id: cRest.id,
         name: cRest.name,
         logo: logoUrl,
-        customPrompt: cRest.customPrompt,
+        customPrompt: existingCustomPrompt, // Use existing value
         phoneNumber: cRest.phoneNumber,
         currency,
         color: existingColor,
@@ -150,6 +154,8 @@ export async function handleFileUpload(
 
       // Generate a new slug
       const newSlug = await generateSlug(restaurantName);
+      
+      // Keep the customPrompt as passed in
       menuStore.createRestaurant(restaurantName, logoUrl, customPrompt, phoneNumber);
 
       const storeState = get(menuStore);
@@ -159,26 +165,31 @@ export async function handleFileUpload(
       }
 
       // Update the newly created restaurant with a valid slug
+      // Make sure to preserve the customPrompt
       menuStore.updateRestaurantInfo(
         restaurantName,
         logoUrl,
-        customPrompt,
+        customPrompt, // Make sure we pass this through
         newSlug,
         phoneNumber,
         String(color)
       );
 
+      // Get current URL values from store
+      const updatedStoreState = get(menuStore);
+
       dispatch('update', {
         id: newId,
         name: restaurantName,
         logo: logoUrl,
-        customPrompt,
+        customPrompt, // Make sure we pass this through
         phoneNumber,
         currency,
         color,
         slug: newSlug,
-        reservas: null,
-        redes_sociales: null
+        // Use values from store instead of null
+        reservas: updatedStoreState.reservas,
+        redes_sociales: updatedStoreState.redes_sociales
       });
     }
     return logoUrl;
@@ -221,7 +232,7 @@ export function handleRestaurantNameInput(
       name: restaurantName,
       logo: menuLogo,
       customPrompt,
-      phoneNumber,
+      phoneNumber: phoneNumber ? Number(phoneNumber) : null,
       currency,
       color,
       slug: cRest?.slug || '',
@@ -276,13 +287,16 @@ export async function updateRestaurantName(
     // Preserve the current color from the database
     const existingColor = cRest?.color || color;
     
+    // Convert phoneNumber to number for the store update
+    const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null;
+    
     // update store
     menuStore.updateRestaurantInfo(
       editingRestaurantName.trim(),
       menuLogo,
       customPrompt,
       newSlug,
-      phoneNumber,
+      numericPhoneNumber,
       String(existingColor)
     );
     
@@ -295,7 +309,7 @@ export async function updateRestaurantName(
       name: editingRestaurantName.trim(),
       logo: menuLogo,
       customPrompt,
-      phoneNumber,
+      phoneNumber: numericPhoneNumber,
       currency,
       color: existingColor,
       slug: newSlug,
@@ -492,7 +506,7 @@ export function handleLogoDelete(
         name: restaurantName,
         logo: null,
         customPrompt,
-        phoneNumber,
+        phoneNumber: phoneNumber ? Number(phoneNumber) : null,
         currency,
         color,
         reservas: reservas,
@@ -547,7 +561,7 @@ export function handleCurrencyChange(
         name: restaurantName,
         logo: menuLogo,
         customPrompt,
-        phoneNumber,
+        phoneNumber: phoneNumber ? Number(phoneNumber) : null,
         currency: value,
         color,
         reservas: reservas,
@@ -783,8 +797,9 @@ export async function handleMenuUploadSuccess(
         currency,
         color,
         slug,
-        reservas: null,
-        redes_sociales: null
+        // Get current URL values from store
+        reservas: storeState.reservas,
+        redes_sociales: storeState.redes_sociales
       };
       console.log('Dispatching update for new restaurant:', updateData);
       dispatchFn('update', updateData);
@@ -799,8 +814,9 @@ export async function handleMenuUploadSuccess(
         currency,
         color,
         slug,
-        reservas: null,
-        redes_sociales: null,
+        // Use values from store instead of null 
+        reservas: storeState.reservas,
+        redes_sociales: storeState.redes_sociales,
         userId: get(user)?.id || '',
         createdAt: new Date(),
         updatedAt: new Date(),

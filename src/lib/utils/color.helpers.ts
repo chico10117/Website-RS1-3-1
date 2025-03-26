@@ -120,6 +120,9 @@ export function updateRestaurantColor(
     });
   } else {
     // For new restaurant, just update local state
+    // Get current URL values from menuStore to prevent resetting them to null
+    const storeState = get(menuStore);
+    
     dispatchFn('update', {
       name: restaurantName,
       logo: menuLogo,
@@ -127,8 +130,9 @@ export function updateRestaurantColor(
       phoneNumber: phoneNumber ? Number(phoneNumber) : null,
       currency,
       color: capitalizedVal,
-      reservas: null,
-      redes_sociales: null
+      // Use values from the store instead of null to preserve URLs when changing colors
+      reservas: storeState.reservas,
+      redes_sociales: storeState.redes_sociales
     });
   }
 }

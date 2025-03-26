@@ -207,9 +207,6 @@
         redes_sociales: currentRedesSociales
       });
       
-      // Force update changes to mark data as changed regardless of state
-      menuStore.updateReservasAndSocials(currentReservas, currentRedesSociales);
-      
       console.log('Calling saveChanges with color in store:', colorValue, 
         'reservas:', $menuStore.reservas, 
         'redes_sociales:', $menuStore.redes_sociales
