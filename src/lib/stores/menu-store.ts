@@ -452,7 +452,8 @@ function createMenuStore() {
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, color: string | null = null) {
+      console.log('updateRestaurantInfo called with URLs:', { reservas, redes_sociales });
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
@@ -469,7 +470,7 @@ function createMenuStore() {
             customPrompt,
             phoneNumber,
             slug: slug || '', // Use empty string instead of null
-            color: state.color || '#85A3FA', // Use the current color value from state
+            color: color || state.color || '#85A3FA', // Use provided color, fallback to state color, then default
             updatedAt: new Date(),
             reservas,
             redes_sociales,
@@ -482,7 +483,7 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
-          color: state.color || '#85A3FA', // Keep the current color value
+          color: color || state.color || '#85A3FA',
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
@@ -492,12 +493,24 @@ function createMenuStore() {
           redes_sociales,
         };
       });
+      console.log('updateRestaurantInfo completed, new state:', { reservas, redes_sociales });
     },
 
     // Update only reservas and redes_sociales values
     updateReservasAndSocials(reservas: string | null, redes_sociales: string | null) {
       // CRITICAL DEBUG: Add a trace to see this method being called 
       console.trace('updateReservasAndSocials TRACE');
+      
+      // Validate URLs before updating
+      if (reservas && typeof reservas === 'string' && reservas.startsWith('#')) {
+        console.warn('CRITICAL: Detected color value in reservas field in updateReservasAndSocials, resetting to null');
+        reservas = null;
+      }
+      
+      if (redes_sociales && typeof redes_sociales === 'string' && redes_sociales.startsWith('#')) {
+        console.warn('CRITICAL: Detected color value in redes_sociales field in updateReservasAndSocials, resetting to null');
+        redes_sociales = null;
+      }
       
       console.log('updateReservasAndSocials called with:', { 
         reservas, 

@@ -178,7 +178,8 @@
           newSlug,
           cleanedPhoneNumber,
           $menuStore.reservas,
-          $menuStore.redes_sociales
+          $menuStore.redes_sociales,
+          colorValue
         );
         
         // Update the current restaurant store

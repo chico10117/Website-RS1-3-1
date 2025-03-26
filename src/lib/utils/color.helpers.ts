@@ -102,6 +102,8 @@ export function updateRestaurantColor(
       cRest.customPrompt,
       cRest.slug,
       cRest.phoneNumber,
+      cRest.reservas,
+      cRest.redes_sociales,
       capitalizedVal
     );
     dispatchFn('update', {
@@ -112,7 +114,9 @@ export function updateRestaurantColor(
       phoneNumber: cRest.phoneNumber,
       currency,
       color: capitalizedVal,
-      slug: cRest.slug
+      slug: cRest.slug,
+      reservas: cRest.reservas,
+      redes_sociales: cRest.redes_sociales
     });
   } else {
     // For new restaurant, just update local state
@@ -120,9 +124,11 @@ export function updateRestaurantColor(
       name: restaurantName,
       logo: menuLogo,
       customPrompt,
-      phoneNumber,
+      phoneNumber: phoneNumber ? Number(phoneNumber) : null,
       currency,
-      color: capitalizedVal
+      color: capitalizedVal,
+      reservas: null,
+      redes_sociales: null
     });
   }
 }

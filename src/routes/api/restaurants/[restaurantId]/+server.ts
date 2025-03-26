@@ -141,11 +141,23 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
 
     // Handle new fields update if provided
     if (updateData.reservas !== undefined) {
-      updateSet.reservas = updateData.reservas;
+      // Validate reservas URL
+      if (updateData.reservas && typeof updateData.reservas === 'string' && updateData.reservas.startsWith('#')) {
+        console.warn('CRITICAL: Detected color value in reservas field in API, resetting to null');
+        updateSet.reservas = null;
+      } else {
+        updateSet.reservas = updateData.reservas;
+      }
     }
     
     if (updateData.redes_sociales !== undefined) {
-      updateSet.redes_sociales = updateData.redes_sociales;
+      // Validate redes_sociales URL
+      if (updateData.redes_sociales && typeof updateData.redes_sociales === 'string' && updateData.redes_sociales.startsWith('#')) {
+        console.warn('CRITICAL: Detected color value in redes_sociales field in API, resetting to null');
+        updateSet.redes_sociales = null;
+      } else {
+        updateSet.redes_sociales = updateData.redes_sociales;
+      }
     }
 
     // Update the restaurant
