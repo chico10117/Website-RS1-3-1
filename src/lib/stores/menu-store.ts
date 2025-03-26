@@ -452,22 +452,7 @@ function createMenuStore() {
     },
 
     // Update restaurant info
-    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, color: string | null = null) {
-      // CRITICAL: Only validate URLs if they are being updated
-      if (reservas !== undefined && reservas !== null) {
-        if (typeof reservas === 'string' && reservas.startsWith('#')) {
-          console.warn('CRITICAL: Prevented color value from being saved to reservas field');
-          reservas = null;
-        }
-      }
-      
-      if (redes_sociales !== undefined && redes_sociales !== null) {
-        if (typeof redes_sociales === 'string' && redes_sociales.startsWith('#')) {
-          console.warn('CRITICAL: Prevented color value from being saved to redes_sociales field');
-          redes_sociales = null;
-        }
-      }
-      
+    updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null) {
       // CRITICAL: Validate that color is actually a color value
       let validatedColor = color;
       if (validatedColor && typeof validatedColor === 'string' && !validatedColor.startsWith('#')) {
@@ -493,23 +478,23 @@ function createMenuStore() {
       update(state => {
         // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
+        const currentRestaurant = currentRestaurantIndex >= 0 ? state.restaurants[currentRestaurantIndex] : null;
         
         // Create a copy of the restaurants array
         const updatedRestaurants = [...state.restaurants];
         
         // Update the current restaurant (if found)
-        if (currentRestaurantIndex >= 0) {
-          const currentRestaurant = updatedRestaurants[currentRestaurantIndex];
+        if (currentRestaurantIndex >= 0 && currentRestaurant) {
           updatedRestaurants[currentRestaurantIndex] = {
             ...currentRestaurant,
             name,
             logo,
             customPrompt,
-            slug: slug || '',
+            slug: slug || currentRestaurant.slug,
             phoneNumber,
-            // CRITICAL: Only update URLs if they are being explicitly set
-            reservas: reservas !== undefined ? reservas : currentRestaurant.reservas,
-            redes_sociales: redes_sociales !== undefined ? redes_sociales : currentRestaurant.redes_sociales,
+            // Only update URLs if they are explicitly set
+            ...(reservas !== undefined ? { reservas } : {}),
+            ...(redes_sociales !== undefined ? { redes_sociales } : {}),
             color: validatedColor || state.color || '#85A3FA',
             updatedAt: new Date(),
           };
@@ -522,7 +507,7 @@ function createMenuStore() {
           customPrompt,
           phoneNumber,
           color: validatedColor || state.color || '#85A3FA',
-          // CRITICAL: Only update URLs in state if they are being explicitly set
+          // Only update URLs in state if they are explicitly set
           ...(reservas !== undefined ? { reservas } : {}),
           ...(redes_sociales !== undefined ? { redes_sociales } : {}),
           restaurants: updatedRestaurants,
