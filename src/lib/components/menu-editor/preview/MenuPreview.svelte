@@ -3,8 +3,8 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { onMount } from 'svelte';
-  //import { menuCache } from '$lib/stores/menu-cache';
-  import { menuState } from '$lib/stores/menu-state';
+  // import { menuCache } from '$lib/stores/menu-cache'; // Removed if menu-cache was deleted
+  // import { menuState } from '$lib/stores/menu-state'; // <--- REMOVED THIS LINE
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { menuStore } from '$lib/stores/menu-store';
 
@@ -33,15 +33,15 @@
     }));
   }
 
-  // Subscribe to menu state changes as fallback
-  $: {
-    const state = $menuState;
-    if (state) {
-      if (state.restaurantName) restaurantName = state.restaurantName;
-      if (state.menuLogo) menuLogo = state.menuLogo;
-      if (state.categories) categories = state.categories;
-    }
-  }
+  // REMOVED THE REACTIVE BLOCK THAT USED menuState
+  // $: {
+  //   const state = $menuState;
+  //   if (state) {
+  //     if (state.restaurantName) restaurantName = state.restaurantName;
+  //     if (state.menuLogo) menuLogo = state.menuLogo;
+  //     if (state.categories) categories = state.categories;
+  //   }
+  // }
 
   // Format price as currency
   function formatPrice(price: number | string): string {
@@ -53,22 +53,22 @@
   // This was causing the preview to clear when navigating
   onMount(() => {
     // Only initialize if no restaurant is selected
-    if (!$currentRestaurant && !$menuStore.categories.length) {
-      menuState.reset();
-    }
+    // if (!$currentRestaurant && !$menuStore.categories.length) {
+    //   menuState.reset(); // menuState is removed, so this line is also removed
+    // }
   });
 </script>
 
 <div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-3 sm:p-6">
   <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800 tracking-tight">{t('menuPreview')}</h2>
-  
+
   <!-- Restaurant Info -->
   {#if restaurantName || menuLogo}
     <div class="flex items-center space-x-3 sm:space-x-4 mb-6 sm:mb-8">
       {#if menuLogo}
-        <img 
-          src={menuLogo} 
-          alt="Restaurant logo" 
+        <img
+          src={menuLogo}
+          alt="Restaurant logo"
           class="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg shadow-md"
         />
       {/if}
@@ -88,8 +88,8 @@
             {#each category.dishes as dish}
               <div class="flex flex-col sm:flex-row items-start space-y-2 sm:space-y-0 sm:space-x-4 p-3 sm:p-4 bg-white/40 backdrop-blur-sm rounded-lg border border-white/50 hover:bg-white/50 transition-colors">
                 {#if dish.imageUrl}
-                  <img 
-                    src={dish.imageUrl} 
+                  <img
+                    src={dish.imageUrl}
                     alt={dish.title}
                     class="w-full sm:w-24 h-48 sm:h-24 object-cover rounded-lg shadow-md"
                   />
@@ -114,4 +114,4 @@
   {:else}
     <p class="text-gray-500 italic">No categories available</p>
   {/if}
-</div> 
+</div>

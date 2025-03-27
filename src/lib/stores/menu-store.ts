@@ -6,7 +6,6 @@ import * as dishService from '$lib/services/dish.service';
 import * as menuService from '$lib/services/menu.service';
 
 export interface MenuStore {
-  // Current data
   restaurants: Restaurant[];
   selectedRestaurant: string | null;
   restaurantName: string;
@@ -18,7 +17,6 @@ export interface MenuStore {
   reservas: string | null;
   redes_sociales: string | null;
   
-  // Tracking changes
   changedItems: {
     restaurant: boolean;
     categories: Set<string>; // IDs of changed categories
@@ -27,16 +25,13 @@ export interface MenuStore {
     deletedDishes: Set<string>;     // IDs of dishes to delete
   };
   
-  // UI state
   isSaving: boolean;
   lastSaveTime: Date | null;
   isLoading: boolean;
 }
 
-// Helper to create a new ID for temporary items
 const createTempId = () => `temp_${Math.random().toString(36).substring(2, 11)}`;
 
-// Helper function to merge database data with unsaved changes
 function mergeWithUnsavedChanges(
   dbCategories: Category[], 
   currentCategories: Category[], 
@@ -45,7 +40,6 @@ function mergeWithUnsavedChanges(
   deletedCategoryIds: Set<string>,
   deletedDishIds: Set<string>
 ): Category[] {
-  // Create a map of database categories by ID for easy lookup
   const dbCategoriesMap = new Map<string, Category>();
   dbCategories.forEach(category => {
     dbCategoriesMap.set(category.id, { 
@@ -54,10 +48,8 @@ function mergeWithUnsavedChanges(
     });
   });
   
-  // Create a map of current categories by ID for easy lookup
   const currentCategoriesMap = new Map<string, Category>();
   currentCategories.forEach(category => {
-    // Skip categories that are marked for deletion
     if (!deletedCategoryIds.has(category.id)) {
       currentCategoriesMap.set(category.id, { 
         ...category,
@@ -66,13 +58,10 @@ function mergeWithUnsavedChanges(
     }
   });
   
-  // Start with all database categories
   const mergedCategories: Category[] = [];
   
-  // Add all database categories that aren't marked for deletion
   dbCategories.forEach(dbCategory => {
     if (!deletedCategoryIds.has(dbCategory.id)) {
-      // If this category has been changed, use the current version
       if (changedCategoryIds.has(dbCategory.id)) {
         const currentCategory = currentCategoriesMap.get(dbCategory.id);
         if (currentCategory) {
@@ -82,20 +71,16 @@ function mergeWithUnsavedChanges(
           });
         }
       } else {
-        // Otherwise use the database version, but check for changed dishes
         const mergedCategory = { 
           ...dbCategory,
           dishes: dbCategory.dishes || [] // Ensure dishes array exists
         };
         
-        // If the category has dishes, check for changes
         if (mergedCategory.dishes && mergedCategory.dishes.length > 0) {
           mergedCategory.dishes = mergedCategory.dishes.filter(dish => !deletedDishIds.has(dish.id));
           
-          // Replace changed dishes with their current versions
           mergedCategory.dishes = mergedCategory.dishes.map(dish => {
             if (changedDishIds.has(dish.id)) {
-              // Find the current version of this dish
               const currentCategory = currentCategoriesMap.get(dbCategory.id);
               if (currentCategory && currentCategory.dishes) {
                 const currentDish = currentCategory.dishes.find(d => d.id === dish.id);
@@ -113,7 +98,6 @@ function mergeWithUnsavedChanges(
     }
   });
   
-  // Add new categories (those with temp IDs)
   currentCategories.forEach(category => {
     if (category.id.startsWith('temp_') && !dbCategoriesMap.has(category.id)) {
       mergedCategories.push({
@@ -126,12 +110,10 @@ function mergeWithUnsavedChanges(
   return mergedCategories;
 }
 
-// Create a persistent map to store unsaved changes across restaurant switches
 const restaurantStates = new Map();
 
 function createMenuStore() {
   const initialState: MenuStore = {
-    // Current data
     restaurants: [],
     selectedRestaurant: null,
     restaurantName: '',
@@ -143,7 +125,6 @@ function createMenuStore() {
     reservas: null,
     redes_sociales: null,
     
-    // Tracking changes
     changedItems: {
       restaurant: false,
       categories: new Set<string>(),
@@ -152,7 +133,6 @@ function createMenuStore() {
       deletedDishes: new Set<string>()
     },
     
-    // UI state
     isSaving: false,
     lastSaveTime: null,
     isLoading: false
@@ -160,12 +140,10 @@ function createMenuStore() {
 
   const { subscribe, set, update } = writable<MenuStore>(initialState);
 
-  // Derived store for the current restaurant
   const currentRestaurant = derived({ subscribe }, $state => 
     $state.restaurants.find(r => r.id === $state.selectedRestaurant)
   );
 
-  // Derived store for whether there are unsaved changes
   const hasUnsavedChanges = derived({ subscribe }, $state => {
     return $state.changedItems.restaurant || 
            $state.changedItems.categories.size > 0 || 
@@ -174,12 +152,10 @@ function createMenuStore() {
            $state.changedItems.deletedDishes.size > 0;
   });
 
-  // Helper function to save the current state before switching restaurants
   function saveCurrentState() {
     const state = get({ subscribe });
     if (!state.selectedRestaurant) return;
     
-    // Only save if there are unsaved changes
     if (state.changedItems.restaurant || 
         state.changedItems.categories.size > 0 || 
         state.changedItems.dishes.size > 0 || 
@@ -206,18 +182,14 @@ function createMenuStore() {
     }
   }
   
-  // Helper function to load and merge data for a restaurant
   async function loadAndMergeData(restaurantId: string) {
     try {
-      // Fetch the restaurant data
       const restaurant = await restaurantService.fetchRestaurantById(restaurantId);
       console.log('Fetched restaurant data:', restaurant);
       
-      // Fetch categories for this restaurant
       const fetchedCategories = await categoryService.fetchCategories(restaurantId);
       console.log('Found categories:', fetchedCategories);
       
-      // Fetch dishes for each category
       const categoriesWithDishes = await Promise.all(
         fetchedCategories.map(async (category) => {
           try {
@@ -237,7 +209,6 @@ function createMenuStore() {
         })
       );
       
-      // Check if we have saved state for this restaurant
       let finalCategories = categoriesWithDishes;
       let changedItems = {
         restaurant: false,
@@ -251,7 +222,6 @@ function createMenuStore() {
         const savedState = restaurantStates.get(restaurantId);
         console.log('Found saved state for restaurant:', restaurantId);
         
-        // Merge the database categories with the saved changes
         finalCategories = mergeWithUnsavedChanges(
           categoriesWithDishes,
           savedState.categories || [],
@@ -261,7 +231,6 @@ function createMenuStore() {
           savedState.changedItems.deletedDishes
         );
         
-        // Restore the change tracking
         changedItems = {
           restaurant: savedState.changedItems.restaurant,
           categories: new Set(savedState.changedItems.categories),
@@ -273,7 +242,6 @@ function createMenuStore() {
         console.log('Merged categories:', finalCategories);
       }
       
-      // Ensure all categories have a dishes array
       finalCategories = finalCategories.map(category => ({
         ...category,
         dishes: category.dishes || []
@@ -294,12 +262,10 @@ function createMenuStore() {
     subscribe,
     hasUnsavedChanges,
     
-    // Reset state to initial values
     reset() {
       set(initialState);
     },
 
-    // Reset change tracking without resetting the data
     resetChanges() {
       update(state => ({
         ...state,
@@ -314,7 +280,6 @@ function createMenuStore() {
       }));
     },
 
-    // Load initial data
     async loadRestaurants() {
       try {
         console.log('Loading restaurants from menuStore...');
@@ -328,7 +293,6 @@ function createMenuStore() {
       }
     },
 
-    // Restaurant actions
     async selectRestaurant(restaurantId: string) {
       console.log('selectRestaurant called with ID:', restaurantId);
       
@@ -338,37 +302,29 @@ function createMenuStore() {
       }
       
       try {
-        // Log the current state
         const currentState = get({ subscribe });
         console.log('Current state before selecting restaurant:', {
           selectedRestaurant: currentState.selectedRestaurant,
           restaurantName: currentState.restaurantName
         });
         
-        // Check if we're already on this restaurant
         if (currentState.selectedRestaurant === restaurantId) {
           console.log('Already on this restaurant, no need to reload');
           return currentState.restaurants.find(r => r.id === restaurantId);
         }
         
-        // First update the state to indicate we're loading
         update(s => ({ ...s, isLoading: true }));
         
-        // Save the current restaurant's state if there are unsaved changes
         saveCurrentState();
         
-        // Load and merge data for the selected restaurant
         const { restaurant, categories, changedItems } = await loadAndMergeData(restaurantId);
         
-        // Ensure color is a hex value, not a numeric value
         let colorValue = restaurant.color || '#85A3FA';
         
-        // If color is "1" (light theme), convert it to the actual hex
         if (colorValue === '1' || colorValue === 'light') {
           colorValue = '#85A3FA';
         }
         
-        // Update the store with the restaurant and categories
         update(s => {
           return {
             ...s,
@@ -386,7 +342,6 @@ function createMenuStore() {
           };
         });
         
-        // Log the updated state
         const updatedState = get({ subscribe });
         console.log('State after selecting restaurant:', {
           selectedRestaurant: updatedState.selectedRestaurant,
@@ -402,20 +357,16 @@ function createMenuStore() {
       }
     },
 
-    // Create a new restaurant
     createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
       const tempId = createTempId();
       
       update(state => {
-        // Get the current color value from state (or use default)
         let currentColor = state.color || '#85A3FA'; 
         
-        // Ensure it's a hex color
         if (currentColor === 'light' || currentColor === '1') {
           currentColor = '#85A3FA';
         }
       
-        // Create a new restaurant object
         const newRestaurant: Restaurant = {
           id: tempId,
           name,
@@ -451,9 +402,7 @@ function createMenuStore() {
       });
     },
 
-    // Update restaurant info
     updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null) {
-      // CRITICAL: Validate that color is actually a color value
       let validatedColor = color;
       if (validatedColor && typeof validatedColor === 'string' && !validatedColor.startsWith('#')) {
         console.warn('CRITICAL: Color value must start with #, got:', validatedColor);
@@ -476,14 +425,11 @@ function createMenuStore() {
       });
 
       update(state => {
-        // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
         const currentRestaurant = currentRestaurantIndex >= 0 ? state.restaurants[currentRestaurantIndex] : null;
         
-        // Create a copy of the restaurants array
         const updatedRestaurants = [...state.restaurants];
         
-        // Update the current restaurant (if found)
         if (currentRestaurantIndex >= 0 && currentRestaurant) {
           updatedRestaurants[currentRestaurantIndex] = {
             ...currentRestaurant,
@@ -492,7 +438,6 @@ function createMenuStore() {
             customPrompt,
             slug: slug || currentRestaurant.slug,
             phoneNumber,
-            // Only update URLs if they are explicitly set
             ...(reservas !== undefined ? { reservas } : {}),
             ...(redes_sociales !== undefined ? { redes_sociales } : {}),
             color: validatedColor || state.color || '#85A3FA',
@@ -507,7 +452,6 @@ function createMenuStore() {
           customPrompt,
           phoneNumber,
           color: validatedColor || state.color || '#85A3FA',
-          // Only update URLs in state if they are explicitly set
           ...(reservas !== undefined ? { reservas } : {}),
           ...(redes_sociales !== undefined ? { redes_sociales } : {}),
           restaurants: updatedRestaurants,
@@ -519,9 +463,7 @@ function createMenuStore() {
       });
     },
 
-    // Update only reservas and redes_sociales values
     updateReservasAndSocials(reservas: string | null, redes_sociales: string | null) {
-      // CRITICAL DEBUG: Add a trace to see this method being called 
       console.trace('updateReservasAndSocials TRACE');
       
       console.log('updateReservasAndSocials called with:', { 
@@ -532,19 +474,15 @@ function createMenuStore() {
       });
       
       update(state => {
-        // CRITICAL DEBUG: Add more logging to ensure the state update is happening
         console.log('Updating store state, before:', { 
           stateReservas: state.reservas, 
           stateRedesSociales: state.redes_sociales 
         });
         
-        // Find the current restaurant in the state
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
         
-        // Create a copy of the restaurants array
         const updatedRestaurants = [...state.restaurants];
         
-        // Update the current restaurant (if found)
         if (currentRestaurantIndex >= 0) {
           updatedRestaurants[currentRestaurantIndex] = {
             ...updatedRestaurants[currentRestaurantIndex],
@@ -554,7 +492,6 @@ function createMenuStore() {
           };
         }
         
-        // CRITICAL: Force the changedItems.restaurant to true
         console.log('Updating store state with:', { reservas, redes_sociales });
         
         const result = {
@@ -568,7 +505,6 @@ function createMenuStore() {
           }
         };
         
-        // CRITICAL DEBUG: Log the result to ensure values are correctly set
         console.log('State after update:', { 
           resultReservas: result.reservas, 
           resultRedesSociales: result.redes_sociales,
@@ -579,7 +515,6 @@ function createMenuStore() {
       });
     },
 
-    // Update only the restaurant name without creating a restaurant yet
     updateLocalRestaurantName(name: string) {
       update(state => {
         return {
@@ -593,7 +528,6 @@ function createMenuStore() {
       });
     },
 
-    // Category actions
     addCategory(name: string) {
       const tempId = createTempId();
       
@@ -605,7 +539,6 @@ function createMenuStore() {
           dishes: []
         };
         
-        // Add to categories and mark as changed
         return {
           ...state,
           categories: [...state.categories, newCategory],
@@ -638,16 +571,13 @@ function createMenuStore() {
     
     deleteCategory(categoryId: string) {
       update(state => {
-        // Filter out the category
         const updatedCategories = state.categories.filter(category => 
           category.id !== categoryId
         );
         
-        // Add to deleted categories set
         const deletedCategories = new Set(state.changedItems.deletedCategories);
         deletedCategories.add(categoryId);
         
-        // Remove from changed categories if it was there
         const changedCategories = new Set(state.changedItems.categories);
         changedCategories.delete(categoryId);
         
@@ -663,7 +593,6 @@ function createMenuStore() {
       });
     },
 
-    // Dish actions
     addDish(categoryId: string, dishData: { title: string, price: string, description: string, imageUrl: string | null }) {
       const tempId = createTempId();
       
@@ -674,7 +603,6 @@ function createMenuStore() {
           categoryId
         };
         
-        // Add dish to the appropriate category
         const updatedCategories = state.categories.map(category => {
           if (category.id === categoryId) {
             return {
@@ -698,7 +626,6 @@ function createMenuStore() {
     
     updateDish(dishId: string, dishData: { title?: string, price?: string, description?: string, imageUrl?: string | null }) {
       update(state => {
-        // Find and update the dish in its category
         const updatedCategories = state.categories.map(category => {
           if (!category.dishes) return { ...category, dishes: [] };
           
@@ -730,7 +657,6 @@ function createMenuStore() {
     
     deleteDish(dishId: string) {
       update(state => {
-        // Find and remove the dish from its category
         const updatedCategories = state.categories.map(category => {
           if (!category.dishes) return { ...category, dishes: [] };
           
@@ -745,11 +671,9 @@ function createMenuStore() {
           };
         });
         
-        // Add to deleted dishes set
         const deletedDishes = new Set(state.changedItems.deletedDishes);
         deletedDishes.add(dishId);
         
-        // Remove from changed dishes if it was there
         const changedDishes = new Set(state.changedItems.dishes);
         changedDishes.delete(dishId);
         
@@ -765,23 +689,19 @@ function createMenuStore() {
       });
     },
 
-    // Save all changes
     async saveChanges() {
       const state = get({ subscribe });
       
       try {
         update(s => ({ ...s, isSaving: true }));
         
-        // Get the current restaurant to access its properties
         const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
         console.log('Current restaurant in store:', currentRestaurantObj);
         
-        // Use the state's color value directly, ensuring it's a hex value
         const colorValue = state.color === 'light' || state.color === '1'
           ? '#85A3FA'
           : state.color;
         
-        // CRITICAL: Preserve existing URLs if they're not being updated
         const reservas = state.reservas !== undefined ? state.reservas : currentRestaurantObj?.reservas;
         const redes_sociales = state.redes_sociales !== undefined ? state.redes_sociales : currentRestaurantObj?.redes_sociales;
         
@@ -802,7 +722,6 @@ function createMenuStore() {
           }
         });
         
-        // Save changes using the existing menu service
         const result = await menuService.saveMenuChanges(
           {
             name: state.restaurantName,
@@ -817,16 +736,13 @@ function createMenuStore() {
           state.selectedRestaurant
         );
         
-        // Update state with saved data
         update(s => {
-          // Update restaurants list
           const restaurantIndex = s.restaurants.findIndex(r => r.id === result.restaurant.id);
           const restaurants = [...s.restaurants];
           
           if (restaurantIndex >= 0) {
             restaurants[restaurantIndex] = {
               ...result.restaurant,
-              // CRITICAL: Preserve URLs if they exist in the result
               reservas: result.restaurant.reservas ?? restaurants[restaurantIndex].reservas,
               redes_sociales: result.restaurant.redes_sociales ?? restaurants[restaurantIndex].redes_sociales
             };
@@ -853,7 +769,6 @@ function createMenuStore() {
               deletedCategories: new Set<string>(),
               deletedDishes: new Set<string>()
             },
-            // CRITICAL: Preserve URLs if they exist in the result
             reservas: result.restaurant.reservas ?? s.reservas,
             redes_sociales: result.restaurant.redes_sociales ?? s.redes_sociales,
           };
