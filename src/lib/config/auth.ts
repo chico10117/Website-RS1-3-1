@@ -1,8 +1,8 @@
-import { PUBLIC_FACEBOOK_APP_ID, PUBLIC_APPLE_CLIENT_ID } from '$env/static/public';
+import { PUBLIC_FACEBOOK_APP_ID, PUBLIC_APPLE_CLIENT_ID, PUBLIC_GOOGLE_CLIENT_ID } from '$env/static/public';
 
 export const authConfig = {
   google: {
-    clientId: '679214507415-iqnk4vg720qs4m07aaot8vi4hmbp8t1e.apps.googleusercontent.com'
+    clientId: PUBLIC_GOOGLE_CLIENT_ID
   },
   // Temporarily disabled - Only using Google auth for now
   // facebook: {
