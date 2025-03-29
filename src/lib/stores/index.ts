@@ -1,12 +1,10 @@
 import { writable, derived, get } from 'svelte/store';
-import type { MenuStore, MenuStoreActions } from './types';
+import type { MenuStore } from './types';
 import * as restaurantActions from './actions/restaurant';
 import * as categoryActions from './actions/category';
 import * as dishActions from './actions/dish';
 
-const restaurantStates = new Map();
-
-function createMenuStore(): MenuStoreActions {
+function createMenuStore() {
   const initialState: MenuStore = {
     restaurants: [],
     selectedRestaurant: null,
@@ -40,36 +38,9 @@ function createMenuStore(): MenuStoreActions {
            $state.changedItems.deletedDishes.size > 0;
   });
 
-  function saveCurrentState() {
-    const state = get({ subscribe });
-    if (!state.selectedRestaurant) return;
-    
-    if (state.changedItems.restaurant || 
-        state.changedItems.categories.size > 0 || 
-        state.changedItems.dishes.size > 0 || 
-        state.changedItems.deletedCategories.size > 0 || 
-        state.changedItems.deletedDishes.size > 0) {
-      
-      restaurantStates.set(state.selectedRestaurant, {
-        restaurantName: state.restaurantName,
-        menuLogo: state.menuLogo,
-        customPrompt: state.customPrompt,
-        phoneNumber: state.phoneNumber,
-        color: state.color,
-        categories: [...state.categories],
-        changedItems: {
-          restaurant: state.changedItems.restaurant,
-          categories: new Set(state.changedItems.categories),
-          dishes: new Set(state.changedItems.dishes),
-          deletedCategories: new Set(state.changedItems.deletedCategories),
-          deletedDishes: new Set(state.changedItems.deletedDishes)
-        }
-      });
-    }
-  }
-
   return {
     subscribe,
+    hasUnsavedChanges,
     
     reset: () => set(initialState),
     
@@ -95,10 +66,9 @@ function createMenuStore(): MenuStoreActions {
       update(s => ({ ...s, isLoading: true }));
       
       try {
-        saveCurrentState();
         const result = await restaurantActions.selectRestaurant(get({ subscribe }), restaurantId);
         update(s => result);
-        return result.restaurants.find(r => r.id === restaurantId)!;
+        return result.restaurant;
       } catch (error) {
         update(s => ({ ...s, isLoading: false }));
         throw error;
@@ -183,5 +153,5 @@ function createMenuStore(): MenuStoreActions {
   };
 }
 
-const menuStore = createMenuStore();
-export { menuStore }; 
+export const menuStore = createMenuStore();
+export type { MenuStore, MenuStoreActions } from './types'; 

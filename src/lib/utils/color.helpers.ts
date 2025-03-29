@@ -1,7 +1,7 @@
 import { toasts } from '$lib/stores/toast';
 import { get } from 'svelte/store';
 import { currentRestaurant } from '$lib/stores/restaurant';
-import { menuStore } from '$lib/stores/menu-store';
+import { menuStore } from '$lib/stores';
 import type { UpdateEvent } from './RestaurantInfo.helpers';
 
 /**

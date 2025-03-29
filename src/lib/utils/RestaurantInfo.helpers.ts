@@ -2,24 +2,12 @@
 import { get } from 'svelte/store';
 import { currentRestaurant } from '$lib/stores/restaurant';
 import { user } from '$lib/stores/user';
-import { menuStore } from '$lib/stores/menu-store';
+import { menuStore } from '$lib/stores';
 import { toasts } from '$lib/stores/toast';
 import { generateSlug } from '$lib/utils/slug';
 import type { Restaurant } from '$lib/types/menu.types';
 import { language } from '$lib/stores/language';
-
-export interface UpdateEvent {
-  id?: string;
-  name: string;
-  logo: string | null;
-  customPrompt: string | null;
-  phoneNumber: number | null;
-  color: string | number;
-  currency: string;
-  reservas: string | null;
-  redes_sociales: string | null;
-  slug?: string;
-}
+import type { MenuStore, UpdateEvent } from '$lib/stores/types';
 
 // For dispatch functions, accept more flexible parameter types
 type DispatchFunction = {
@@ -223,8 +211,17 @@ export function handleRestaurantNameInput(
     if (!restaurantName || selectedRestaurant || isCreatingRestaurant) {
       return;
     }
-    // Just update the local store name, no restaurant created in DB
-    menuStore.updateLocalRestaurantName(restaurantName);
+    // Update restaurant info in the store
+    menuStore.updateRestaurantInfo(
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      null,
+      parsePhoneNumber(phoneNumber),
+      null,
+      null,
+      String(color)
+    );
 
     const cRest = get(currentRestaurant);
     dispatch('update', {
@@ -232,7 +229,7 @@ export function handleRestaurantNameInput(
       name: restaurantName,
       logo: menuLogo,
       customPrompt,
-      phoneNumber: phoneNumber ? Number(phoneNumber) : null,
+      phoneNumber: parsePhoneNumber(phoneNumber),
       currency,
       color,
       slug: cRest?.slug || '',
@@ -429,14 +426,14 @@ export function handleCustomPromptInput(
         menuLogo,
         newValue,
         get(currentRestaurant)?.slug || null,
-        phoneNumber,
+        parsePhoneNumber(phoneNumber),
         String(color)
       );
       dispatchFn('update', {
         name: restaurantName,
         logo: menuLogo,
         customPrompt: newValue,
-        phoneNumber,
+        phoneNumber: parsePhoneNumber(phoneNumber),
         currency,
         color,
         reservas: reservas,
@@ -763,7 +760,7 @@ export async function handleMenuUploadSuccess(
         console.log('Processing categories:', categories.length);
         
         for (const category of categories) {
-          // Create category and get its ID
+          // Create category and get its ID - now returns a string
           const categoryId = menuStore.addCategory(category.name);
           console.log('Created category:', { name: category.name, id: categoryId });
 
@@ -832,6 +829,40 @@ export async function handleMenuUploadSuccess(
 /**
  * Handle menu upload error
  */
-export function handleMenuUploadError(event: CustomEvent, t: (key: string) => string) {
-  toasts.error(t('error') + ': ' + event.detail);
+export function handleMenuUploadError(event: CustomEvent, t: (key: string) => string): void {
+  const error = event.detail;
+  console.error('Menu upload error:', error);
+  toasts.error(t('error') + ': ' + (error.message || t('unknownError')));
+}
+
+export function handleRestaurantNameChange(
+  newName: string,
+  menuLogo: string | null,
+  customPrompt: string | null,
+  phoneNumber: number | null,
+  color: string,
+  currency: string,
+  reservas: string | null,
+  redes_sociales: string | null,
+  dispatch: (type: string, detail?: any) => void
+) {
+  dispatch('update', {
+    restaurantName: newName,
+    menuLogo,
+    customPrompt,
+    phoneNumber,
+    color,
+    currency,
+    reservas,
+    redes_sociales
+  });
+}
+
+/**
+ * Convert phone number string to number or null
+ */
+function parsePhoneNumber(phone: string | null): number | null {
+  if (!phone) return null;
+  const num = Number(phone);
+  return isNaN(num) ? null : num;
 } 

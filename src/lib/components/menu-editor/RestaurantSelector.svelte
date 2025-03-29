@@ -3,7 +3,7 @@
   import { currentRestaurant } from '$lib/stores/restaurant';
   import type { Restaurant } from '$lib/types/menu.types';
   import { Button } from '$lib/components/ui/button';
-  import { menuStore } from '$lib/stores/menu-store';
+  import { menuStore } from '$lib/stores';
   import * as restaurantService from '$lib/services/restaurant.service';
   import { toasts } from '$lib/stores/toast';
   import { translations } from '$lib/i18n/translations';

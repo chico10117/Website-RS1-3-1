@@ -3,7 +3,7 @@
   import type { Dish } from '$lib/types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuStore } from '$lib/stores/menu-store';
+  import { menuStore } from '$lib/stores';
   import { toasts } from '$lib/stores/toast';
   import { currentRestaurant } from '$lib/stores/restaurant';
 

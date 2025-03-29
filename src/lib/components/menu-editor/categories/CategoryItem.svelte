@@ -3,7 +3,7 @@
   import type { Category, Dish } from '$lib/types/menu.types';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
-  import { menuStore } from '$lib/stores/menu-store';
+  import { menuStore } from '$lib/stores';
   import DishList from '../dishes/DishList.svelte';
   import { toasts } from '$lib/stores/toast';
   import { currentRestaurant } from '$lib/stores/restaurant';

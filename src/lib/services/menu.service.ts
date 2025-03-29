@@ -1,9 +1,9 @@
 import type { Restaurant, Category, Dish } from '$lib/types/menu.types';
-import type { MenuStore } from '$lib/stores/menu-store';
+import type { MenuStore } from '$lib/stores/types';
 import * as restaurantService from './restaurant.service';
 import * as categoryService from './category.service';
 import * as dishService from './dish.service';
-import { menuStore } from '$lib/stores/menu-store';
+import { menuStore } from '$lib/stores';
 import { get } from 'svelte/store';
 
 interface SaveResult {

@@ -3,7 +3,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { currentRestaurant } from '$lib/stores/restaurant';
-  import { menuStore } from '$lib/stores/menu-store';
+  import { menuStore } from '$lib/stores';
   import { get } from 'svelte/store';
   import type { Restaurant } from '$lib/types/menu.types';
   
@@ -36,7 +36,7 @@
   export let customPrompt: string | null = null;
   export let currency: string = '€';
   export let color: string = '#85A3FA';
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let reservas: string | null = null;
   export let redes_sociales: string | null = null;
 
@@ -75,6 +75,35 @@
       redes_sociales,
       dispatch
     );
+  }
+
+  function handlePhoneChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const phoneValue = input.value || null;
+    const numericPhone = phoneValue ? parseInt(phoneValue.replace(/\D/g, ''), 10) : null;
+    
+    menuStore.updateRestaurantInfo(
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      null,
+      numericPhone,
+      reservas,
+      redes_sociales,
+      color
+    );
+
+    // Dispatch update event
+    dispatch('update', {
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      phoneNumber: numericPhone,
+      color,
+      currency,
+      reservas,
+      redes_sociales
+    });
   }
 
   onMount(() => {
@@ -185,22 +214,8 @@
     <!-- Phone Number -->
     <div class="space-y-2 mb-12">
       <PhoneInput
-        {phoneNumber}
-        on:change={(event) => {
-          const { phoneNumber: newPhoneNumber } = event.detail;
-          phoneNumber = newPhoneNumber;
-          handlePhoneNumberChange(
-            newPhoneNumber,
-            restaurantName,
-            menuLogo,
-            customPrompt,
-            color,
-            currency,
-            reservas,
-            redes_sociales,
-            dispatch
-          );
-        }}
+        phoneNumber={phoneNumber?.toString()}
+        on:change={handlePhoneChange}
       />
     </div>
 

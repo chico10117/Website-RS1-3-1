@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { menuStore } from '$lib/stores/menu-store';
+  import { menuStore } from '$lib/stores';
   import { language } from '$lib/stores/language';
   import { translations } from '$lib/i18n/translations';
   import { onMount } from 'svelte';

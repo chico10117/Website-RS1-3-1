@@ -6,7 +6,7 @@
   // import { menuCache } from '$lib/stores/menu-cache'; // Removed if menu-cache was deleted
   // import { menuState } from '$lib/stores/menu-state'; // <--- REMOVED THIS LINE
   import { currentRestaurant } from '$lib/stores/restaurant';
-  import { menuStore } from '$lib/stores/menu-store';
+  import { menuStore } from '$lib/stores';
 
   export let restaurantName: string = '';
   export let menuLogo: string | null = null;
