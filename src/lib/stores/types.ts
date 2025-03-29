@@ -71,6 +71,10 @@ export interface MenuStoreActions {
     redes_sociales?: string | null,
     color?: string | null
   ) => void;
+  updateReservasAndSocials: (
+    reservas: string | null,
+    redes_sociales: string | null
+  ) => void;
   addCategory: (name: string) => string;
   updateCategory: (categoryId: string, name: string) => void;
   deleteCategory: (categoryId: string) => void;

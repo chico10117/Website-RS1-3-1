@@ -83,6 +83,31 @@ function createMenuStore() {
       update(state => restaurantActions.updateRestaurantInfo(state, name, logo, customPrompt, slug, phoneNumber, reservas, redes_sociales, color));
     },
 
+    updateReservasAndSocials: (reservas: string | null, redes_sociales: string | null) => {
+      update(state => {
+        console.log('Updating reservas and socials in store:', { reservas, redes_sociales });
+        
+        const currentState = get({ subscribe });
+        const name = currentState.restaurantName;
+        const logo = currentState.menuLogo;
+        const customPrompt = currentState.customPrompt;
+        const phoneNumber = currentState.phoneNumber;
+        const color = currentState.color;
+        
+        return restaurantActions.updateRestaurantInfo(
+          state,
+          name,
+          logo,
+          customPrompt,
+          null,
+          phoneNumber,
+          reservas,
+          redes_sociales,
+          color
+        );
+      });
+    },
+
     addCategory: (name: string) => {
       let tempId = '';
       update(state => {

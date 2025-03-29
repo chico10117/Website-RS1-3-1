@@ -106,12 +106,54 @@
     });
   }
 
+  // Watch for changes in the currentRestaurant store
+  $: if ($currentRestaurant) {
+    // When the current restaurant changes, update the component state
+    console.log('Current restaurant updated:', $currentRestaurant);
+    
+    // Update color from restaurant
+    if ($currentRestaurant.color) {
+      console.log('Setting color from database:', $currentRestaurant.color);
+      color = $currentRestaurant.color;
+    }
+    
+    // Update phone number from restaurant
+    if ($currentRestaurant.phoneNumber !== undefined) {
+      console.log('Setting phone number from database:', $currentRestaurant.phoneNumber);
+      phoneNumber = $currentRestaurant.phoneNumber;
+    }
+    
+    // Update URLs from restaurant
+    if ($currentRestaurant.reservas !== undefined) {
+      console.log('Setting reservas URL from database:', $currentRestaurant.reservas);
+      reservas = $currentRestaurant.reservas;
+    }
+    
+    if ($currentRestaurant.redes_sociales !== undefined) {
+      console.log('Setting social media URL from database:', $currentRestaurant.redes_sociales);
+      redes_sociales = $currentRestaurant.redes_sociales;
+    }
+  }
+
+  // Watch for changes in menuStore selectedRestaurant
+  $: if ($menuStore.selectedRestaurant) {
+    // Ensure we're getting the latest values from menuStore
+    console.log('MenuStore selected restaurant updated:', $menuStore);
+    
+    // Syncing component state with menuStore
+    phoneNumber = $menuStore.phoneNumber;
+    color = $menuStore.color;
+    reservas = $menuStore.reservas;
+    redes_sociales = $menuStore.redes_sociales;
+  }
+
   onMount(() => {
     // Add detailed debugging of component mount
     console.log('RestaurantInfo component mounted with initial values:', {
       reservas,
       redes_sociales,
-      color
+      color,
+      phoneNumber
     });
 
     // Load restaurant data from the currentRestaurant store if available
@@ -122,6 +164,24 @@
       // Load the color value from the restaurant record
       if (cRest.color) {
         console.log('Setting color from database:', cRest.color);
+        color = cRest.color;
+      }
+      
+      // Load the phone number from the restaurant record
+      if (cRest.phoneNumber !== undefined) {
+        console.log('Setting phone number from database:', cRest.phoneNumber);
+        phoneNumber = cRest.phoneNumber;
+      }
+      
+      // Load URLs from the restaurant record
+      if (cRest.reservas !== undefined) {
+        console.log('Setting reservas URL from database:', cRest.reservas);
+        reservas = cRest.reservas;
+      }
+      
+      if (cRest.redes_sociales !== undefined) {
+        console.log('Setting social media URL from database:', cRest.redes_sociales);
+        redes_sociales = cRest.redes_sociales;
       }
     }
   });
@@ -214,7 +274,7 @@
     <!-- Phone Number -->
     <div class="space-y-2 mb-12">
       <PhoneInput
-        phoneNumber={phoneNumber?.toString()}
+        phoneNumber={phoneNumber}
         on:change={handlePhoneChange}
       />
     </div>
