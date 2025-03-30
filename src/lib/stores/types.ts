@@ -7,6 +7,7 @@ export interface MenuStore {
   menuLogo: string | null;
   customPrompt: string | null;
   phoneNumber: number | null;
+  currency: string;
   categories: Category[];
   color: string;
   reservas: string | null;
@@ -59,7 +60,8 @@ export interface MenuStoreActions {
     customPrompt?: string | null,
     phoneNumber?: number | null,
     reservas?: string | null,
-    redes_sociales?: string | null
+    redes_sociales?: string | null,
+    currency?: string
   ) => void;
   updateRestaurantInfo: (
     name: string,
@@ -69,11 +71,8 @@ export interface MenuStoreActions {
     phoneNumber?: number | null,
     reservas?: string | null,
     redes_sociales?: string | null,
-    color?: string | null
-  ) => void;
-  updateReservasAndSocials: (
-    reservas: string | null,
-    redes_sociales: string | null
+    color?: string | null,
+    currency?: string
   ) => void;
   addCategory: (name: string) => string;
   updateCategory: (categoryId: string, name: string) => void;

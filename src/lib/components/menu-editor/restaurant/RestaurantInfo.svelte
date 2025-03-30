@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onMount, createEventDispatcher, afterUpdate } from 'svelte';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { menuStore } from '$lib/stores';
   import { get } from 'svelte/store';
   import type { Restaurant } from '$lib/types/menu.types';
+  import type { UpdateEvent } from '$lib/stores/types';
   
   // Import extracted components
   import MenuUploader from './MenuUploader.svelte';
@@ -13,18 +14,19 @@
   import LogoUploader from './LogoUploader.svelte';
   import CustomPromptInput from './CustomPromptInput.svelte';
   import ThemeColorSection from './ThemeColorSection.svelte';
-  import PhoneInput from './PhoneInput.svelte';
   import CurrencyPicker from './CurrencyPicker.svelte';
   import UrlInputSection from './UrlInputSection.svelte';
+  import PhoneInput from './PhoneInput.svelte';
 
   // Import our helpers
-  import { type UpdateEvent, 
+  import {
     handleRestaurantSelect,
     handleCurrencyChange,
-    handleMenuUploadSuccess, 
-    handleMenuUploadError,
-    handlePhoneNumberChange
+    handleMenuUploadSuccess,
+    handleMenuUploadError
   } from '$lib/utils/RestaurantInfo.helpers';
+
+  import { cleanPhoneNumber } from '$lib/utils/cleanphoneNumber_helper';
 
   /******************
    *   PROPERTIES   *
@@ -77,114 +79,142 @@
     );
   }
 
-  function handlePhoneChange(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const phoneValue = input.value || null;
-    const numericPhone = phoneValue ? parseInt(phoneValue.replace(/\D/g, ''), 10) : null;
-    
+  // Handle phone number changes locally
+  function handlePhoneChange(event: CustomEvent<number | null>) {
+    const newValue = event.detail;
+    console.log('!!! RestaurantInfo: handlePhoneChange received:', newValue);
+    phoneNumber = newValue; // Update local state ONLY
+
+    // REMOVED: Direct call to menuStore.updateRestaurantInfo
+    /*
     menuStore.updateRestaurantInfo(
       restaurantName,
       menuLogo,
       customPrompt,
       null,
-      numericPhone,
+      phoneNumber,
       reservas,
       redes_sociales,
-      color
+      color,
+      currency
     );
+    */
 
-    // Dispatch update event
+    // REMOVED: Direct dispatch call
+    /*
     dispatch('update', {
       restaurantName,
       menuLogo,
       customPrompt,
-      phoneNumber: numericPhone,
+      phoneNumber: phoneNumber,
       color,
       currency,
       reservas,
       redes_sociales
     });
-  }
-
-  // Watch for changes in the currentRestaurant store
-  $: if ($currentRestaurant) {
-    // When the current restaurant changes, update the component state
-    console.log('Current restaurant updated:', $currentRestaurant);
-    
-    // Update color from restaurant
-    if ($currentRestaurant.color) {
-      console.log('Setting color from database:', $currentRestaurant.color);
-      color = $currentRestaurant.color;
-    }
-    
-    // Update phone number from restaurant
-    if ($currentRestaurant.phoneNumber !== undefined) {
-      console.log('Setting phone number from database:', $currentRestaurant.phoneNumber);
-      phoneNumber = $currentRestaurant.phoneNumber;
-    }
-    
-    // Update URLs from restaurant
-    if ($currentRestaurant.reservas !== undefined) {
-      console.log('Setting reservas URL from database:', $currentRestaurant.reservas);
-      reservas = $currentRestaurant.reservas;
-    }
-    
-    if ($currentRestaurant.redes_sociales !== undefined) {
-      console.log('Setting social media URL from database:', $currentRestaurant.redes_sociales);
-      redes_sociales = $currentRestaurant.redes_sociales;
-    }
-  }
-
-  // Watch for changes in menuStore selectedRestaurant
-  $: if ($menuStore.selectedRestaurant) {
-    // Ensure we're getting the latest values from menuStore
-    console.log('MenuStore selected restaurant updated:', $menuStore);
-    
-    // Syncing component state with menuStore
-    phoneNumber = $menuStore.phoneNumber;
-    color = $menuStore.color;
-    reservas = $menuStore.reservas;
-    redes_sociales = $menuStore.redes_sociales;
+    */
   }
 
   onMount(() => {
     // Add detailed debugging of component mount
     console.log('RestaurantInfo component mounted with initial values:', {
-      reservas,
-      redes_sociales,
-      color,
-      phoneNumber
+      restaurantName, menuLogo, selectedRestaurant, customPrompt, currency, color, phoneNumber, reservas, redes_sociales
     });
 
     // Load restaurant data from the currentRestaurant store if available
     const cRest = get(currentRestaurant);
     if (cRest) {
-      console.log('Loading restaurant data from store:', cRest);
-      
-      // Load the color value from the restaurant record
-      if (cRest.color) {
-        console.log('Setting color from database:', cRest.color);
-        color = cRest.color;
-      }
-      
-      // Load the phone number from the restaurant record
-      if (cRest.phoneNumber !== undefined) {
-        console.log('Setting phone number from database:', cRest.phoneNumber);
-        phoneNumber = cRest.phoneNumber;
-      }
-      
-      // Load URLs from the restaurant record
-      if (cRest.reservas !== undefined) {
-        console.log('Setting reservas URL from database:', cRest.reservas);
-        reservas = cRest.reservas;
-      }
-      
-      if (cRest.redes_sociales !== undefined) {
-        console.log('Setting social media URL from database:', cRest.redes_sociales);
-        redes_sociales = cRest.redes_sociales;
-      }
+      console.log('Loading initial restaurant data from store:', cRest);
+      updateLocalStateFromRestaurant(cRest);
     }
   });
+
+  // Helper function to update local state from a Restaurant object
+  function updateLocalStateFromRestaurant(restaurantData: Restaurant) {
+    console.log('Updating local state from restaurant:', restaurantData);
+    restaurantName = restaurantData.name;
+    menuLogo = restaurantData.logo;
+    customPrompt = restaurantData.customPrompt;
+    phoneNumber = restaurantData.phoneNumber ? parseInt(restaurantData.phoneNumber.toString().replace(/\D/g, ''), 10) : null;
+    color = restaurantData.color || '#85A3FA';
+    currency = restaurantData.currency || '€';
+    reservas = restaurantData.reservas;
+    redes_sociales = restaurantData.redes_sociales;
+    currentRestaurant.set(restaurantData);
+  }
+
+  // Reactive statement to update fields when selectedRestaurant changes
+  $: if (selectedRestaurant && restaurants.length > 0) {
+    const restaurantData = restaurants.find(r => r.id === selectedRestaurant);
+    if (restaurantData) {
+      updateLocalStateFromRestaurant(restaurantData);
+    } else {
+      console.warn(`[RestaurantInfo] Restaurant with ID ${selectedRestaurant} not found in restaurants list.`);
+    }
+  } else if (!selectedRestaurant) {
+    console.log('[RestaurantInfo] No restaurant selected. State potentially reset or retained based on logic.');
+  }
+
+  // Reactive update when currency changes
+  $: if ($menuStore.selectedRestaurant && currency !== $menuStore.currency) {
+    const cleanedPhoneNumber = cleanPhoneNumber(phoneNumber); // Need current cleaned phone
+    menuStore.updateRestaurantInfo(
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      null, 
+      cleanedPhoneNumber, 
+      reservas,
+      redes_sociales,
+      color,
+      currency 
+    );
+  }
+
+  // Reactive update when phone number changes
+  $: {
+    if ($menuStore.selectedRestaurant) {
+      const localPhoneNumberState = phoneNumber; // Use temporary variable for clarity in logs
+      const cleanedLocalPhoneNumber = cleanPhoneNumber(localPhoneNumberState);
+      const storePhoneNumber = $menuStore.phoneNumber;
+      
+      console.log('!!! RestaurantInfo: Reactive block check:', {
+        localPhoneNumberState,
+        cleanedLocalPhoneNumber,
+        storePhoneNumber
+      });
+
+      if (cleanedLocalPhoneNumber !== storePhoneNumber) {
+        console.log('!!! RestaurantInfo: Phone number changed, attempting store update...');
+        menuStore.updateRestaurantInfo(
+          restaurantName,
+          menuLogo,
+          customPrompt,
+          null, 
+          cleanedLocalPhoneNumber, 
+          reservas,
+          redes_sociales,
+          color,
+          currency
+        );
+      }
+    }
+  }
+
+  // Reactive update for name
+  $: if (restaurantName !== $menuStore.restaurantName) {
+    menuStore.updateRestaurantInfo(
+      restaurantName,
+      menuLogo,
+      customPrompt,
+      null,
+      phoneNumber,
+      reservas,
+      redes_sociales,
+      color,
+      currency
+    );
+  }
 </script>
 
 <div class="space-y-4">
@@ -265,10 +295,10 @@
     />
 
     <!-- Currency Selection -->
-    <CurrencyPicker 
-      value={currency} 
-      {t} 
-      on:change={onCurrencyChange} 
+    <CurrencyPicker
+      value={currency}
+      {t}
+      on:change={onCurrencyChange}
     />
 
     <!-- Phone Number -->

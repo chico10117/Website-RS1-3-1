@@ -6,7 +6,7 @@
   export let phoneNumber: number | null = null;
 
   const dispatch = createEventDispatcher<{
-    change: { phoneNumber: number | null };
+    change: number | null; // Expect to dispatch number or null
   }>();
 
   // Make translations reactive
@@ -20,40 +20,29 @@
     return translations[key][currentLanguage] || key;
   };
 
-  let localPhoneNumber = phoneNumber?.toString() || '';
+  // Local state for the input value (string)
+  let inputValue: string = '';
 
-  // Initialize from prop
-  $: if (phoneNumber !== undefined && phoneNumber !== null) {
-    localPhoneNumber = phoneNumber.toString();
-  }
+  // Sync input value from prop when it changes externally
+  $: inputValue = phoneNumber !== null ? phoneNumber.toString() : '';
 
-  function handlePhoneNumberInput(event: Event) {
+  // Handle input, parse, and dispatch the processed value
+  function handleInput(event: Event) {
     const input = event.target as HTMLInputElement;
-    localPhoneNumber = input.value;
-    
-    // Process phone number: remove ALL spaces and non-digit characters and convert to number
-    let processed: number | null = null;
-    if (localPhoneNumber.trim()) {
-      // First remove all spaces, then remove any remaining non-digit characters
-      const noSpaces = localPhoneNumber.replace(/\s+/g, '');
-      const digitsOnly = noSpaces.replace(/\D/g, '');
-      
-      // Only set the phone number if it's a valid number
-      if (digitsOnly.length > 0) {
-        try {
-          // Convert to number to validate it's a valid integer
-          const numericValue = Number(digitsOnly);
-          if (!isNaN(numericValue) && Number.isInteger(numericValue)) {
-            processed = numericValue;  // Store as number instead of string
-            console.log('Processed phone number:', processed); // Debug log
-          }
-        } catch (e) {
-          console.error('Error converting phone number to integer:', e);
-        }
+    inputValue = input.value; // Keep local string state
+
+    const cleanedValue = input.value.replace(/\D/g, ''); // Remove non-digits
+    let numericValue: number | null = null;
+
+    if (cleanedValue) {
+      const parsed = parseInt(cleanedValue, 10);
+      if (!isNaN(parsed)) {
+        numericValue = parsed;
       }
     }
     
-    dispatch('change', { phoneNumber: processed });
+    // Dispatch the processed number or null
+    dispatch('change', numericValue);
   }
 </script>
 
@@ -64,13 +53,12 @@
   <div class="flex gap-2">
     <input
       type="tel"
-      value={localPhoneNumber}
-      on:input={handlePhoneNumberInput}
+      value={inputValue}
+      on:input={handleInput}
       placeholder={t('enterPhoneNumber')}
       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ease-in-out bg-white/80 backdrop-blur-sm"
     />
   </div>
-
 </div>
 
 <style>

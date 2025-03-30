@@ -3,22 +3,16 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
+  import { handleFileUpload, handleDrag, handleDrop, handleLogoDelete, ensureString } from '$lib/utils/RestaurantInfo.helpers';
+  import type { UpdateEvent } from '$lib/stores/types';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { get } from 'svelte/store';
-  import { 
-    handleDrag,
-    handleDrop,
-    handleFileUpload,
-    handleLogoDelete,
-    ensureString,
-    type UpdateEvent
-  } from '$lib/utils/RestaurantInfo.helpers';
 
   export let restaurantName = '';
   export let menuLogo: string | null = null;
   export let selectedRestaurant: string | null = null;
   export let customPrompt: string | null = null;
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let color: string = '#85A3FA';
   export let currency: string = '€';
   export let reservas: string | null = null;

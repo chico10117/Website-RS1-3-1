@@ -201,7 +201,7 @@ export function handleRestaurantNameInput(
   isCreatingRestaurant: boolean,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   currency: string,
   dispatch: DispatchFunction,
@@ -217,7 +217,7 @@ export function handleRestaurantNameInput(
       menuLogo,
       customPrompt,
       null,
-      parsePhoneNumber(phoneNumber),
+      phoneNumber,
       null,
       null,
       String(color)
@@ -229,7 +229,7 @@ export function handleRestaurantNameInput(
       name: restaurantName,
       logo: menuLogo,
       customPrompt,
-      phoneNumber: parsePhoneNumber(phoneNumber),
+      phoneNumber: phoneNumber,
       currency,
       color,
       slug: cRest?.slug || '',
@@ -259,7 +259,7 @@ export async function updateRestaurantName(
   selectedRestaurant: string | null,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   currency: string,
   reservas: string | null,
@@ -284,16 +284,13 @@ export async function updateRestaurantName(
     // Preserve the current color from the database
     const existingColor = cRest?.color || color;
     
-    // Convert phoneNumber to number for the store update
-    const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null;
-    
     // update store
     menuStore.updateRestaurantInfo(
       editingRestaurantName.trim(),
       menuLogo,
       customPrompt,
       newSlug,
-      numericPhoneNumber,
+      phoneNumber,
       String(existingColor)
     );
     
@@ -306,7 +303,7 @@ export async function updateRestaurantName(
       name: editingRestaurantName.trim(),
       logo: menuLogo,
       customPrompt,
-      phoneNumber: numericPhoneNumber,
+      phoneNumber: phoneNumber,
       currency,
       color: existingColor,
       slug: newSlug,
@@ -367,7 +364,7 @@ export function handleCustomPromptInput(
   selectedRestaurant: string | null,
   restaurantName: string,
   menuLogo: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   currency: string,
   reservas: string | null,
@@ -426,14 +423,14 @@ export function handleCustomPromptInput(
         menuLogo,
         newValue,
         get(currentRestaurant)?.slug || null,
-        parsePhoneNumber(phoneNumber),
+        phoneNumber,
         String(color)
       );
       dispatchFn('update', {
         name: restaurantName,
         logo: menuLogo,
         customPrompt: newValue,
-        phoneNumber: parsePhoneNumber(phoneNumber),
+        phoneNumber: phoneNumber,
         currency,
         color,
         reservas: reservas,
@@ -459,7 +456,7 @@ export function handleLogoDelete(
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   currency: string,
   reservas: string | null,
@@ -503,7 +500,7 @@ export function handleLogoDelete(
         name: restaurantName,
         logo: null,
         customPrompt,
-        phoneNumber: phoneNumber ? Number(phoneNumber) : null,
+        phoneNumber: phoneNumber,
         currency,
         color,
         reservas: reservas,
@@ -526,7 +523,7 @@ export function handleCurrencyChange(
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   reservas: string | null,
   redes_sociales: string | null,
@@ -558,7 +555,7 @@ export function handleCurrencyChange(
         name: restaurantName,
         logo: menuLogo,
         customPrompt,
-        phoneNumber: phoneNumber ? Number(phoneNumber) : null,
+        phoneNumber: phoneNumber,
         currency: value,
         color,
         reservas: reservas,
@@ -636,26 +633,6 @@ export function handlePhoneNumberChange(
   } catch (error) {
     console.error('Error updating phone number:', error);
   }
-}
-
-// Function to clean phone number - ensure it's a valid number without spaces
-function cleanPhoneNumber(phone: any): number | null {
-  if (phone === null || phone === undefined) return null;
-  
-  // If it's already a number, return it
-  if (typeof phone === 'number') return phone;
-  
-  // Convert to string, remove all spaces and non-digit characters
-  const cleaned = phone.toString().replace(/\s+/g, '').replace(/\D/g, '');
-  
-  // Convert back to number if we have digits
-  if (cleaned.length > 0) {
-    const numericValue = Number(cleaned);
-    if (!isNaN(numericValue) && Number.isInteger(numericValue)) {
-      return numericValue;
-    }
-  }
-  return null;
 }
 
 /**
@@ -790,7 +767,7 @@ export async function handleMenuUploadSuccess(
         name: finalName,
         logo: restaurant.logo || null,
         customPrompt: restaurant.customPrompt || null,
-        phoneNumber: cleanPhoneNumber(restaurant.phoneNumber),
+        phoneNumber: restaurant.phoneNumber || null,
         currency,
         color,
         slug,
@@ -856,13 +833,4 @@ export function handleRestaurantNameChange(
     reservas,
     redes_sociales
   });
-}
-
-/**
- * Convert phone number string to number or null
- */
-function parsePhoneNumber(phone: string | null): number | null {
-  if (!phone) return null;
-  const num = Number(phone);
-  return isNaN(num) ? null : num;
 } 

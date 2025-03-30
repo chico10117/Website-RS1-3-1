@@ -19,7 +19,7 @@ export async function loadRestaurants(state: MenuStore) {
   }
 }
 
-export function createRestaurant(state: MenuStore, name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null) {
+export function createRestaurant(state: MenuStore, name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, currency: string = '€') {
   const tempId = createTempId();
   let currentColor = state.color || '#85A3FA';
   
@@ -35,7 +35,7 @@ export function createRestaurant(state: MenuStore, name: string, logo: string | 
     customPrompt,
     phoneNumber,
     userId: '',
-    currency: '€',
+    currency: currency,
     color: currentColor,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -52,6 +52,7 @@ export function createRestaurant(state: MenuStore, name: string, logo: string | 
     customPrompt,
     phoneNumber,
     color: currentColor,
+    currency: currency,
     changedItems: {
       ...state.changedItems,
       restaurant: true
@@ -61,7 +62,7 @@ export function createRestaurant(state: MenuStore, name: string, logo: string | 
   };
 }
 
-export function updateRestaurantInfo(state: MenuStore, name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null) {
+export function updateRestaurantInfo(state: MenuStore, name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null, currency?: string | null) {
   let validatedColor = color;
   if (validatedColor && typeof validatedColor === 'string' && !validatedColor.startsWith('#')) {
     console.warn('CRITICAL: Color value must start with #, got:', validatedColor);
@@ -84,6 +85,7 @@ export function updateRestaurantInfo(state: MenuStore, name: string, logo: strin
       ...(reservas !== undefined ? { reservas } : {}),
       ...(redes_sociales !== undefined ? { redes_sociales } : {}),
       color: validatedColor || state.color || '#85A3FA',
+      currency: currency || currentRestaurant.currency || '€',
       updatedAt: new Date(),
     };
   }
@@ -97,6 +99,7 @@ export function updateRestaurantInfo(state: MenuStore, name: string, logo: strin
     color: validatedColor || state.color || '#85A3FA',
     ...(reservas !== undefined ? { reservas } : {}),
     ...(redes_sociales !== undefined ? { redes_sociales } : {}),
+    currency: currency || state.currency || '€',
     restaurants: updatedRestaurants,
     changedItems: {
       ...state.changedItems,
@@ -175,7 +178,7 @@ export async function saveChanges(state: MenuStore) {
       logo: state.menuLogo,
       customPrompt: state.customPrompt,
       phoneNumber: state.phoneNumber,
-      currency: currentRestaurantObj?.currency || '€',
+      currency: state.currency || '€',
       color: colorValue,
       reservas,
       redes_sociales,

@@ -14,6 +14,7 @@ function createMenuStore(): MenuStoreActions {
     menuLogo: null,
     customPrompt: null,
     phoneNumber: null,
+    currency: '€',
     categories: [],
     color: '1',
     reservas: null,
@@ -56,6 +57,7 @@ function createMenuStore(): MenuStoreActions {
         customPrompt: state.customPrompt,
         phoneNumber: state.phoneNumber,
         color: state.color,
+        currency: state.currency,
         categories: [...state.categories],
         changedItems: {
           restaurant: state.changedItems.restaurant,
@@ -105,12 +107,12 @@ function createMenuStore(): MenuStoreActions {
       }
     },
 
-    createRestaurant: (name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null) => {
-      update(state => restaurantActions.createRestaurant(state, name, logo, customPrompt, phoneNumber, reservas, redes_sociales));
+    createRestaurant: (name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, currency: string = '€') => {
+      update(state => restaurantActions.createRestaurant(state, name, logo, customPrompt, phoneNumber, reservas, redes_sociales, currency));
     },
 
-    updateRestaurantInfo: (name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null) => {
-      update(state => restaurantActions.updateRestaurantInfo(state, name, logo, customPrompt, slug, phoneNumber, reservas, redes_sociales, color));
+    updateRestaurantInfo: (name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null, currency?: string | null) => {
+      update(state => restaurantActions.updateRestaurantInfo(state, name, logo, customPrompt, slug, phoneNumber, reservas, redes_sociales, color, currency));
     },
 
     addCategory: (name: string) => {
@@ -160,6 +162,7 @@ function createMenuStore(): MenuStoreActions {
           customPrompt: result.restaurant.customPrompt,
           phoneNumber: result.restaurant.phoneNumber,
           color: result.restaurant.color,
+          currency: result.restaurant.currency,
           categories: result.categories,
           isSaving: false,
           lastSaveTime: new Date(),

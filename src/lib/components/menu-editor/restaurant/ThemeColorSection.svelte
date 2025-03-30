@@ -14,7 +14,7 @@
   export let selectedRestaurant: string | null = null;
   export let menuLogo: string | null = null;
   export let customPrompt: string | null = null;
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let color: string = '#85A3FA';
   export let currency: string = '€';
 
