@@ -9,17 +9,19 @@
   } from '$lib/utils/color.helpers';
   
   // Props
-  export let value: string = '';
+  export let value: string = ''; // This will now be the actual hex color (#85A3FA or custom)
   export let showCustomColorPicker: boolean = false;
   export let colorOptions: { value: string | number, label: string }[] = [];
   export let selectedRestaurant: string | null = null;
   export let t: (key: string) => string;
-  export let customHexColor: string = '';
   
-  // Component state
-  let customColorValue = '';
-  let customColorInput = '';
-  let tempColorValue = '';
+  // Determine the effective hex color directly from value prop
+  $: effectiveHexColor = (value && value.startsWith('#')) ? value.toUpperCase() : '#85A3FA';
+  
+  // Component state derived reactively from props
+  $: customColorValue = effectiveHexColor;
+  $: customColorInput = showCustomColorPicker ? effectiveHexColor : '';
+  $: tempColorValue = showCustomColorPicker ? effectiveHexColor : '';
   
   // Simplified color palette with just 10 vibrant colors in 2 rows
   const colorPalette = [
@@ -36,65 +38,14 @@
     cancel: void;
   }>();
   
-  // Reset values when value changes to a standard color
-  $: if (value && value === '#85A3FA') {
-    // If the value is the light theme color, reset custom color values
-    customColorValue = '';
-    tempColorValue = '';
-    customColorInput = '';
-  }
-  
-  // If customHexColor is provided, use it
-  $: {
-    if (customHexColor && typeof customHexColor === 'string' && customHexColor.startsWith('#')) {
-      if (customHexColor !== '#85A3FA') {
-        customColorValue = customHexColor.toUpperCase();
-        tempColorValue = customColorValue;
-        customColorInput = customColorValue;
-      }
-    }
-  }
-  
-  // If the 'value' prop is a hex, assume it's custom
-  $: {
-    if (value && typeof value === 'string' && value.startsWith('#')) {
-      if (value !== '#85A3FA') {
-        customColorValue = value.toUpperCase();
-        tempColorValue = customColorValue;
-        customColorInput = customColorValue;
-        // For custom colors, dispatch a change event to set the color to 'custom'
-        dispatch('change', 'custom');
-      }
-    }
-  }
-  
   // Whenever customColorValue changes, store it
   $: saveCustomColorToStorage(customColorValue, selectedRestaurant);
 
   onMount(() => {
-    // Check if there's a color in the currentRestaurant store
-    const cRest = get(currentRestaurant);
-    if (cRest && cRest.color) {
-      if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
-        // Use the color from the database (hex value)
-        const dbColor = cRest.color.toUpperCase();
-        if (dbColor === '#85A3FA') {
-          // If it's the light theme color, dispatch 'light'
-          dispatch('change', 'light');
-        } else {
-          customColorValue = dbColor;
-          tempColorValue = dbColor;
-          customColorInput = dbColor;
-          // For custom hex colors, dispatch 'custom'
-          dispatch('change', 'custom');
-          showCustomColorPicker = true;
-        }
-        console.log('ColorPicker: Loaded hex color from database:', dbColor);
-      }
-    } else {
-      // No color in store, use default light theme
-      dispatch('change', 'light');
-    }
+    // Initialization is now handled by reactive declarations above.
+    // We can just log the initial state if needed.
+    console.log('ColorPicker Mounted Initial Props:', { value, showCustomColorPicker }); 
+    console.log('ColorPicker Initial Derived State:', { effectiveHexColor, customColorValue, customColorInput, tempColorValue });
   });
   
   // Event handlers
@@ -126,9 +77,6 @@
   function onCancelCustomColor() {
     dispatch('cancel');
   }
-  
-  // Check if the current color is a hex color (for radio button selection)
-  $: isHexColor = value && typeof value === 'string' && value.startsWith('#') ? true : false;
 </script>
 
 <div class="space-y-4">
@@ -140,7 +88,11 @@
             type="radio"
             name="color"
             value={option.value}
-            checked={value === String(option.value) || (isHexColor && String(option.value) === '5')}
+            checked={(
+              (String(option.value) === 'light') && effectiveHexColor === '#85A3FA'
+            ) || (
+              (String(option.value) === 'custom') && effectiveHexColor !== '#85A3FA'
+            )}
             on:change={() => onColorChange(option.value)}
             class="form-radio text-blue-600"
           />
