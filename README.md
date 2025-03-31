@@ -12,8 +12,8 @@ The Menu Editor is a comprehensive web application built with SvelteKit (using S
 - Link user profiles with their managed restaurants.
 - Customizable restaurant details (logo, colors, typography, etc. - *partially implemented/planned*).
 - Slug generation for unique restaurant access (*needs refinement*).
-- Ability to upload menu files (*planned*).
-- Customizable AI prompt for menu generation (*planned*).
+- Ability to upload menu files (*needs refinement*).
+
 
 ## Tech Stack
 - **Framework:** SvelteKit (with Svelte 5 Runes)
@@ -41,6 +41,9 @@ src
 │   │   ├── Header.svelte
 │   │   ├── LanguageSwitch.svelte
 │   │   ├── menu-editor
+│   │   │   ├── MenuEditor.svelte
+│   │   │   ├── RestaurantSelector.svelte
+│   │   │   ├── SaveButton.svelte
 │   │   │   ├── categories
 │   │   │   │   ├── AddCategory.svelte
 │   │   │   │   ├── CategoryItem.svelte
@@ -49,24 +52,24 @@ src
 │   │   │   │   ├── DishForm.svelte
 │   │   │   │   ├── DishItem.svelte
 │   │   │   │   └── DishList.svelte
-│   │   │   ├── MenuEditor.svelte
 │   │   │   ├── preview
 │   │   │   │   └── MenuPreview.svelte
-│   │   │   ├── restaurant
-│   │   │   │   ├── ColorPicker.svelte
-│   │   │   │   ├── CurrencyPicker.svelte
-│   │   │   │   ├── CustomPromptInput.svelte
-│   │   │   │   ├── LogoUploader.svelte
-│   │   │   │   ├── MenuUploader.svelte
-│   │   │   │   ├── PhoneInput.svelte
-│   │   │   │   ├── RestaurantInfo.svelte
-│   │   │   │   ├── RestaurantNameInput.svelte
-│   │   │   │   ├── ThemeColorSection.svelte
-│   │   │   │   ├── UrlInputSection.svelte
-│   │   │   │   └── UrlInput.svelte
-│   │   │   ├── RestaurantSelector.svelte
-│   │   │   └── SaveButton.svelte
+│   │   │   └── restaurant
+│   │   │       ├── ColorPicker.svelte
+│   │   │       ├── CurrencyPicker.svelte
+│   │   │       ├── CustomPromptInput.svelte
+│   │   │       ├── LogoUploader.svelte
+│   │   │       ├── MenuUploader.svelte
+│   │   │       ├── PhoneInput.svelte
+│   │   │       ├── RestaurantInfo.svelte
+│   │   │       ├── RestaurantNameInput.svelte
+│   │   │       ├── ThemeColorSection.svelte
+│   │   │       ├── UrlInputSection.svelte
+│   │   │       └── UrlInput.svelte
 │   │   └── ui
+│   │       ├── ConfirmDialog.svelte
+│   │       ├── LanguageSwitch.svelte
+│   │       ├── Toast.svelte
 │   │       ├── button
 │   │       │   ├── button.svelte
 │   │       │   ├── index.ts
@@ -78,107 +81,109 @@ src
 │   │       ├── checkbox
 │   │       │   ├── checkbox.svelte
 │   │       │   └── index.ts
-│   │       ├── ConfirmDialog.svelte
 │   │       ├── input
 │   │       │   ├── index.ts
 │   │       │   └── input.svelte
-│   │       ├── LanguageSwitch.svelte
-│   │       ├── modal
-│   │       │   └── modal.svelte
-│   │       └── Toast.svelte
+│   │       └── modal
+│   │           └── modal.svelte
 │   ├── config
 │   │   ├── auth.ts
 │   │   └── env.ts
 │   ├── data
-│   │   └── restaurants # Example generated data
+│   │   └── restaurants
 │   │       ├── README.md
-│   │       └── ... .ts
-│   ├── db # Drizzle ORM schema, migrations, client setup (likely server-only)
-│   │   ├── migrate.ts # Drizzle Kit migration script
-│   │   ├── schema.ts # Drizzle schema definition
-│   │   └── index.ts # DB client export
+│   │       ├── restaurant-data-prueba-reco-1739808527066.ts
+│   │       ├── restaurant-data-prueba-reco-1739808730896.ts
+│   │       ├── restaurant-data-prueba-reco-1739808887868.ts
+│   │       ├── restaurant-data-prueba-reco-1739809055675.ts
+│   │       ├── restaurant-data-prueba-reco-1739809230507.ts
+│   │       ├── restaurant-data-prueba-reco-1739809258645.ts
+│   │       ├── restaurant-data-prueba-reco-1739809332833.ts
+│   │       └── restaurant-data-restaurante-prueba-reco-1739809361774.ts
+│   ├── env.d.ts
 │   ├── i18n
 │   │   └── translations.ts
-│   ├── server # Server-only modules (ensure not imported in client code)
+│   ├── server
 │   │   ├── auth
 │   │   │   └── auth-server.ts
-│   │   ├── database.ts # Server DB utilities
-│   │   └── email
-│   │       └── email-server.ts
-│   ├── services # Data fetching/mutation logic
+│   │   ├── database.ts
+│   │   ├── email
+│   │   │   └── email-server.ts
+│   │   ├── migrate.ts
+│   │   └── schema.ts
+│   ├── services
 │   │   ├── auth.service.ts
 │   │   ├── category.service.ts
 │   │   ├── dish.service.ts
 │   │   ├── menu.service.ts
 │   │   └── restaurant.service.ts
-│   ├── stores # Svelte stores (Runes)
-│   │   ├── actions
-│   │   │   ├── category.ts
-│   │   │   ├── dish.ts
-│   │   │   └── restaurant.ts
-│   │   ├── index.ts
+│   ├── stores
 │   │   ├── language.ts
 │   │   ├── menu-store.ts
 │   │   ├── restaurant.ts
 │   │   ├── toast.ts
-│   │   ├── types.ts
-│   │   ├── user.ts
-│   │   └── utils.ts
-│   ├── types # Shared TypeScript types
+│   │   └── user.ts
+│   ├── types
 │   │   ├── menu.types.ts
 │   │   └── server-types.ts
-│   ├── utils # Utility functions usable on client & server
-│   │   ├── cleanphoneNumber_helper.ts
-│   │   ├── color.helpers.ts
+│   ├── types.ts
+│   ├── utils
 │   │   ├── RestaurantInfo.helpers.ts
-│   │   ├── slug.ts
-│   │   └── index.ts # Often used for exporting utils (like cn)
-│   └── env.d.ts # Environment variable types
-└── routes # SvelteKit file-based routing
-    ├── api # API endpoints
-    │   ├── auth # Authentication related endpoints
-    │   │   ├── apple/+server.ts
-    │   │   ├── auth.server.ts # Potentially shared auth logic
-    │   │   ├── check/+server.ts
-    │   │   ├── facebook/+server.ts
-    │   │   ├── google/+server.ts
-    │   │   ├── logout/+server.ts
-    │   │   └── me/+server.ts
-    │   ├── categories/[categoryId]/dishes # Nested API routes for dishes
-    │   │   ├── [dishId]/+server.ts
-    │   │   └── +server.ts
-    │   ├── process-images/+server.ts
-    │   ├── restaurants # API routes for restaurants
-    │   │   ├── restaurant.api.ts # Potentially shared logic
-    │   │   ├── [restaurantId]
-    │   │   │   ├── categories # Nested routes for categories
-    │   │   │   │   ├── category.api.ts
-    │   │   │   │   ├── [categoryId]
-    │   │   │   │   │   ├── dishes
-    │   │   │   │   │   │   ├── dish.api.ts
-    │   │   │   │   │   │   ├── [dishId]/+server.ts
-    │   │   │   │   │   │   └── +server.ts
-    │   │   │   │   │   └── +server.ts
-    │   │   │   │   └── +server.ts
+│   │   ├── color.helpers.ts
+│   │   └── slug.ts
+│   └── utils.ts
+└── routes
+    ├── +layout.js
+    ├── +layout.server.ts
+    ├── +layout.svelte
+    ├── +page.server.ts
+    ├── +page.svelte
+    ├── api
+    │   ├── auth
+    │   │   ├── apple
     │   │   │   └── +server.ts
+    │   │   ├── auth.server.ts
+    │   │   ├── check
+    │   │   │   └── +server.ts
+    │   │   ├── facebook
+    │   │   │   └── +server.ts
+    │   │   ├── google
+    │   │   │   └── +server.ts
+    │   │   ├── logout
+    │   │   │   └── +server.ts
+    │   │   └── me
+    │   │       └── +server.ts
+    │   ├── categories
+    │   │   └── [categoryId]
+    │   │       └── dishes
+    │   │           ├── [dishId]
+    │   │           │   └── +server.ts
+    │   │           └── +server.ts
+    │   ├── process-images
     │   │   └── +server.ts
-    │   ├── seed/+server.ts # Database seeding endpoint
-    │   ├── slug # Slug generation/checking endpoints
-    │   │   ├── check/+server.ts
+    │   ├── restaurants
+    │   │   ├── +server.ts
+    │   │   ├── [restaurantId]
+    │   │   │   ├── +server.ts
+    │   │   │   └── categories
+    │   │   │       ├── [categoryId]
+    │   │   │       │   └── +server.ts
+    │   │   │       └── +server.ts
+    │   │   └── restaurant.api.ts
+    │   ├── seed
     │   │   └── +server.ts
-    │   └── upload # File upload endpoint
+    │   ├── slug
+    │   │   ├── +server.ts
+    │   │   └── check
+    │   │       └── +server.ts
+    │   └── upload
     │       ├── +server.ts
     │       └── upload.api.ts
-    ├── +layout.js # Shared client-side layout logic
-    ├── +layout.server.ts # Shared server-side layout logic
-    ├── +layout.svelte # Root layout component
-    ├── login # Login page
+    ├── login
     │   └── +page.svelte
-    ├── menu-editor/restaurant/RestaurantInfo.svelte # Example page route, potentially needs adjustment
-    ├── +page.server.ts # Root page server logic
-    ├── +page.svelte # Root page component (e.g., landing page)
-    └── pdftoimages # Specific utility page
+    └── pdftoimages
         └── +page.svelte
+
 # (Other root files: svelte.config.js, vite.config.js, package.json, etc.)
 ```
 
