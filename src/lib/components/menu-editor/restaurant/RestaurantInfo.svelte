@@ -18,10 +18,11 @@
   import UrlInputSection from './UrlInputSection.svelte';
 
   // Import our helpers
-  import { type UpdateEvent, 
+  import {
+    type UpdateEvent,
     handleRestaurantSelect,
     handleCurrencyChange,
-    handleMenuUploadSuccess, 
+    handleMenuUploadSuccess,
     handleMenuUploadError,
     handlePhoneNumberChange
   } from '$lib/utils/RestaurantInfo.helpers';
@@ -36,7 +37,7 @@
   export let customPrompt: string | null = null;
   export let currency: string = '€';
   export let color: string = '#85A3FA';
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let reservas: string | null = null;
   export let redes_sociales: string | null = null;
 
@@ -53,7 +54,7 @@
 
   // Reactive translations
   $: currentLanguage = $language;
-  $: t = (key: string) => translations[key][currentLanguage];
+  $: t = (key: string) => translations[key]?.[currentLanguage] || translations[key]?.['es'] || key;
 
   // Called on <select> for restaurant
   function onRestaurantSelect(event: Event) {
@@ -63,7 +64,7 @@
   // Called on currency <input> change
   function onCurrencyChange(e: CustomEvent<string>) {
     const value = e.detail;
-    currency = value;
+    console.log('RestaurantInfo: onCurrencyChange triggered. New value:', value);
     handleCurrencyChange(
       value,
       restaurantName,
@@ -75,6 +76,21 @@
       redes_sociales,
       dispatch
     );
+  }
+
+  // Helper to dispatch a full update event
+  function dispatchFullUpdate() {
+    dispatch('update', {
+      id: selectedRestaurant || undefined,
+      name: restaurantName,
+      logo: menuLogo,
+      customPrompt: customPrompt,
+      phoneNumber: phoneNumber,
+      currency: currency,
+      color: color,
+      reservas: reservas,
+      redes_sociales: redes_sociales,
+    });
   }
 
   onMount(() => {
@@ -108,9 +124,10 @@
       <MenuUploader
         {restaurantName}
         {customPrompt}
-        restaurantId={$currentRestaurant?.id || null}
+        restaurantId={selectedRestaurant || get(currentRestaurant)?.id || null}
         on:success={async (event) => {
-          handleMenuUploadSuccess(event, dispatch, currency, color);
+          const currentState = { restaurantName, menuLogo, customPrompt, phoneNumber, currency, color, reservas, redes_sociales };
+          await handleMenuUploadSuccess(event, dispatch, currentState, t);
         }}
         on:error={(event) => {
           handleMenuUploadError(event, t);
@@ -172,6 +189,8 @@
       bind:phoneNumber
       bind:color
       bind:currency
+      bind:reservas
+      bind:redes_sociales
       on:update={(event) => dispatch('update', event.detail)}
     />
 
@@ -185,26 +204,25 @@
     <!-- Phone Number -->
     <div class="space-y-2 mb-12">
       <PhoneInput
-        {phoneNumber}
+        bind:phoneNumber
         on:change={(event) => {
-          const { phoneNumber: newPhoneNumber } = event.detail;
-          phoneNumber = newPhoneNumber;
-          handlePhoneNumberChange(
-            newPhoneNumber,
-            restaurantName,
-            menuLogo,
+          phoneNumber = event.detail.phoneNumber;
+          dispatch('update', {
+            id: selectedRestaurant || undefined,
+            name: restaurantName,
+            logo: menuLogo,
             customPrompt,
-            color,
+            phoneNumber: event.detail.phoneNumber,
             currency,
+            color,
             reservas,
             redes_sociales,
-            dispatch
-          );
+          });
         }}
       />
     </div>
 
-    <!-- URL Inputs -->
+    <!-- URL Inputs. -->
     <UrlInputSection
       bind:restaurantName
       bind:selectedRestaurant
@@ -215,7 +233,9 @@
       bind:currency
       bind:reservas
       bind:redes_sociales
-      on:update={(event) => dispatch('update', event.detail)}
+      on:update={(event) => {
+        dispatchFullUpdate();
+      }}
     />
   </div>
 </div>

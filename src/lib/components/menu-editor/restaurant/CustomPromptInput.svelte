@@ -11,7 +11,7 @@
   export let selectedRestaurant: string | null = null;
   export let menuLogo: string | null = null;
   export let customPrompt: string | null = null;
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let color: string = '#85A3FA';
   export let currency: string = '€';
   export let reservas: string | null = null;
@@ -26,26 +26,21 @@
 
   // Called on customPrompt <textarea> input
   function onCustomPromptInput(event: Event) {
+    // Call the helper to dispatch the partial update
     const newVal = handleCustomPromptInput(
       event,
       selectedRestaurant,
-      restaurantName,
-      menuLogo,
-      phoneNumber,
-      color,
-      currency,
-      reservas,
-      redes_sociales,
       t,
       dispatch
     );
-    if (newVal !== null) {
-      customPrompt = newVal; // keep local store in sync
-    }
+    // DO NOT update local state here. Rely on the prop passed down.
+    // if (newVal !== null) {
+    //   customPrompt = newVal; 
+    // }
   }
 
-  // Computed for UI
-  $: displayCustomPrompt = ensureString(customPrompt);
+  // No longer need displayCustomPrompt derived from local state
+  // $: displayCustomPrompt = ensureString(customPrompt);
 </script>
 
 <div class="space-y-2">
@@ -55,7 +50,7 @@
   <div class="relative">
     <textarea
       id="customPrompt"
-      value={displayCustomPrompt}
+      value={ensureString(customPrompt)}
       on:input={onCustomPromptInput}
       placeholder={t('customPromptPlaceholder')}
       class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-2
@@ -63,7 +58,7 @@
              duration-200 ease-in-out bg-white/80 backdrop-blur-sm resize-none"
     ></textarea>
     <div class="absolute bottom-2 right-2 text-sm text-gray-500">
-      {displayCustomPrompt.length}/5000
+      {ensureString(customPrompt).length}/5000
     </div>
   </div>
 </div> 

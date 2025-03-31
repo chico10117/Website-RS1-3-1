@@ -18,7 +18,7 @@
   export let menuLogo: string | null = null;
   export let selectedRestaurant: string | null = null;
   export let customPrompt: string | null = null;
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let color: string = '#85A3FA';
   export let currency: string = '€';
   export let reservas: string | null = null;
@@ -113,21 +113,18 @@
           menuLogo = logoUrl;
           console.log('Local state updated with new logo URL');
           
-          // Then use the helper to update stores and dispatch event
+          // Then use the helper to dispatch the event with the correct signature
           const updatedUrl = await handleFileUpload(
             file,
-            restaurantName,
-            customPrompt,
-            phoneNumber ? Number(phoneNumber) : null,
-            color,
-            currency,
-            dispatch,
-            t
+            selectedRestaurant,
+            t,
+            dispatch
           );
           
-          if (updatedUrl) {
-            menuLogo = updatedUrl;
-          }
+          // Optional: Update local menuLogo again if handleFileUpload modified the URL (it shouldn't now)
+          // if (updatedUrl && updatedUrl !== logoUrl) { 
+          //   menuLogo = updatedUrl;
+          // }
         }
       } finally {
         isUploading = false;
@@ -164,21 +161,18 @@
         menuLogo = logoUrl;
         console.log('Local state updated with new logo URL');
         
-        // Then use the helper to update stores and dispatch event
+        // Then use the helper to dispatch the event with the correct signature
         const updatedUrl = await handleFileUpload(
           file,
-          restaurantName,
-          customPrompt,
-          phoneNumber ? Number(phoneNumber) : null,
-          color,
-          currency,
-          dispatch,
-          t
+          selectedRestaurant,
+          t,
+          dispatch
         );
-        
-        if (updatedUrl) {
-          menuLogo = updatedUrl;
-        }
+
+        // Optional: Update local menuLogo again if handleFileUpload modified the URL (it shouldn't now)
+        // if (updatedUrl && updatedUrl !== logoUrl) { 
+        //   menuLogo = updatedUrl;
+        // }
       }
     } finally {
       isUploading = false;
@@ -192,35 +186,16 @@
       event.preventDefault();
     }
     
+    // Call helper with updated signature
     const result = handleLogoDelete(
-      event,
-      restaurantName,
-      menuLogo,
-      customPrompt,
-      phoneNumber,
-      color,
-      currency,
-      reservas,
-      redes_sociales,
+      selectedRestaurant,
       dispatch
     );
     
     // Update local state
     menuLogo = result;
     
-    // Also manually dispatch an update event
-    dispatch('update', {
-      id: selectedRestaurant || undefined,
-      name: restaurantName,
-      logo: menuLogo,
-      customPrompt,
-      phoneNumber: phoneNumber ? Number(phoneNumber) : null,
-      color,
-      currency,
-      reservas,
-      redes_sociales,
-      slug: ''
-    });
+    // No need to manually dispatch here anymore, handleLogoDelete does it.
   }
 </script>
 

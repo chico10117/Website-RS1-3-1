@@ -8,7 +8,7 @@
   import { generateSlug } from '$lib/utils/slug';
   import { io } from 'socket.io-client';
   import {onMount} from "svelte";
-  console.log("SERVER IO",process.env.SMART_SERVER_HOST )
+  //console.log("SERVER IO",process.env.SMART_SERVER_HOST )
   // Initialize the socket connection with user id as namespace
   const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
 
@@ -216,10 +216,14 @@
       const result = await menuStore.saveChanges();
       
       // Debug the result
-      console.log('Save result:', {
+      console.log('*******Save result:', {
+        //logo: result.restaurant.logo,
+        customPrompt: result.restaurant.customPrompt,
+        color: result.restaurant.color,
+        currency: result.restaurant.currency,
+        phoneNumber: result.restaurant.phoneNumber,
         reservas: result.restaurant.reservas,
         redes_sociales: result.restaurant.redes_sociales,
-        resultValues: JSON.stringify(result.restaurant),
       });
       
       const restId = $menuStore.selectedRestaurant;

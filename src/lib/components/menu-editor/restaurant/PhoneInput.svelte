@@ -22,9 +22,15 @@
 
   let localPhoneNumber = phoneNumber?.toString() || '';
 
-  // Initialize from prop
-  $: if (phoneNumber !== undefined && phoneNumber !== null) {
-    localPhoneNumber = phoneNumber.toString();
+  // Initialize from prop AND REACT TO CHANGES
+  $: {
+    // This needs to handle the case where phoneNumber becomes null
+    if (phoneNumber !== undefined && phoneNumber !== null) {
+      localPhoneNumber = phoneNumber.toString();
+    } else {
+      // Explicitly clear localPhoneNumber if the prop is null/undefined
+      localPhoneNumber = '';
+    }
   }
 
   function handlePhoneNumberInput(event: Event) {
@@ -45,7 +51,6 @@
           const numericValue = Number(digitsOnly);
           if (!isNaN(numericValue) && Number.isInteger(numericValue)) {
             processed = numericValue;  // Store as number instead of string
-            console.log('Processed phone number:', processed); // Debug log
           }
         } catch (e) {
           console.error('Error converting phone number to integer:', e);
@@ -53,6 +58,7 @@
       }
     }
     
+    // Only dispatch the phone number change
     dispatch('change', { phoneNumber: processed });
   }
 </script>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { currentRestaurant } from '$lib/stores/restaurant';
@@ -16,7 +16,7 @@
   export let selectedRestaurant: string | null = null;
   export let isCreatingRestaurant = false;
   export let customPrompt: string | null = null;
-  export let phoneNumber: string | null = null;
+  export let phoneNumber: number | null = null;
   export let color: string = '#85A3FA';
   export let currency: string = '€';
   export let reservas: string | null = null;

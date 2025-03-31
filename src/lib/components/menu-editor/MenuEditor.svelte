@@ -98,46 +98,63 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ 
-    id?: string; 
-    name: string; 
-    logo: string | null; 
-    customPrompt: string | null; 
-    phoneNumber: string | null;
-    currency: string; 
-    color: string | number;
-    reservas: string | null;
-    redes_sociales: string | null;
-  }>) {
-    const { 
-      id, 
-      name, 
-      logo, 
-      customPrompt, 
-      phoneNumber, 
-      currency, 
-      color,
-      reservas,
-      redes_sociales
-    } = event.detail;
-    
-    console.log('Extracted color from event:', color, 'type:', typeof color);
-    
-    // Validate required fields
-    if (!name || typeof name !== 'string') {
-      console.error('Invalid or missing restaurant name');
-      toasts.error(t('error') + ': Missing restaurant name');
-      return;
-    }
+  async function handleRestaurantUpdate(event: CustomEvent<UpdateEvent>) {
+    const updatePayload = event.detail;
+    console.log('MenuEditor: handleRestaurantUpdate received:', updatePayload);
 
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      console.error('Restaurant name cannot be empty');
+    const currentStoreState = get(menuStore);
+
+    // Determine if it's an update or creation based on ID in payload or selectedRestaurant
+    const restaurantId = updatePayload.id || currentStoreState.selectedRestaurant;
+    const isUpdate = !!restaurantId && !restaurantId.startsWith('temp_');
+
+    // Get the base data (current store state for updates, default for creation)
+    const baseData = isUpdate 
+      ? {
+          name: currentStoreState.restaurantName,
+          logo: currentStoreState.menuLogo,
+          customPrompt: currentStoreState.customPrompt,
+          phoneNumber: currentStoreState.phoneNumber,
+          currency: currentStoreState.currency,
+          color: currentStoreState.color,
+          reservas: currentStoreState.reservas,
+          redes_sociales: currentStoreState.redes_sociales,
+          slug: currentStoreState.restaurants.find(r => r.id === restaurantId)?.slug || null
+        }
+      : { // Defaults for creation
+          name: '',
+          logo: null,
+          customPrompt: null,
+          phoneNumber: null,
+          currency: '€',
+          color: '#85A3FA',
+          reservas: null,
+          redes_sociales: null,
+          slug: null
+        };
+
+    // Merge the incoming payload onto the base data
+    // Filter out 'id' from the payload before merging
+    const { id: payloadId, ...payloadWithoutId } = updatePayload;
+    const mergedData = { ...baseData, ...payloadWithoutId };
+
+    // Validate name
+    if (!mergedData.name || typeof mergedData.name !== 'string' || !mergedData.name.trim()) {
+      console.error('Invalid or missing restaurant name in merged data');
       toasts.error(t('error') + ': Restaurant name cannot be empty');
       return;
     }
 
-    // Get the current user ID
+    // Validate color (ensure hex string)
+    let validatedColorString = String(mergedData.color || ''); // Ensure it's a string
+    if (validatedColorString && !validatedColorString.startsWith('#')) {
+      console.warn('Invalid color format in merged data, defaulting to light theme.', validatedColorString);
+      validatedColorString = '#85A3FA';
+    }
+    // Use the validated string color going forward
+    mergedData.color = validatedColorString;
+
+    // Ensure user ID exists (although create/update service might handle this)
     const userId = $user?.id;
     if (!userId) {
       console.error('Authentication error: No user ID available');
@@ -145,62 +162,44 @@
       return;
     }
 
-    // Ensure color is a string
-    const colorValue = String(color);
-    console.log('Converted color to string:', colorValue);
-
-    if (id) {
-      // Update existing restaurant
-      console.log('Updating restaurant with all values:', { name, logo, customPrompt, slug: $currentRestaurant?.slug, phoneNumber, colorValue, reservas, redes_sociales });
-      
-      // Convert phoneNumber to number if it's a string
-      const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null;
-      
-      // Use the parameters correctly - explicitly pass color as the last parameter
-      menuStore.updateRestaurantInfo(
-        name, 
-        logo, 
-        customPrompt, 
-        $currentRestaurant?.slug || null, 
-        numericPhoneNumber,
-        reservas,
-        redes_sociales,
-        colorValue  // Explicitly pass color here
-      );
-      
-      // Force an explicit update to the URL values to ensure they're set correctly
-      if (reservas !== undefined || redes_sociales !== undefined) {
-        console.log('Explicitly updating URL values:', { reservas, redes_sociales });
-        menuStore.updateReservasAndSocials(reservas, redes_sociales);
+    try {
+      if (isUpdate && restaurantId) {
+        // Update existing restaurant in the store
+        console.log('MenuEditor: Updating store for existing restaurant:', restaurantId, mergedData);
+        menuStore.updateRestaurantInfo(
+          mergedData.name,
+          mergedData.logo,
+          mergedData.customPrompt,
+          mergedData.slug, // Pass slug from base/current data
+          mergedData.phoneNumber,
+          mergedData.reservas,
+          mergedData.redes_sociales,
+          mergedData.color, // Already validated as string
+          mergedData.currency
+        );
+      } else {
+        // Create new restaurant in the store
+        console.log('MenuEditor: Calling createRestaurant in store:', mergedData);
+        menuStore.createRestaurant(
+          mergedData.name,
+          mergedData.logo,
+          mergedData.customPrompt,
+          mergedData.phoneNumber,
+          mergedData.reservas,
+          mergedData.redes_sociales,
+          mergedData.currency
+          // Note: Color is handled internally by createRestaurant based on current store state
+        );
+        // Post-creation sync with currentRestaurant might need review
+        const newState = get(menuStore);
+        const newRestaurant = newState.restaurants.find(r => r.id === newState.selectedRestaurant);
+        if (newRestaurant) {
+          currentRestaurant.set(newRestaurant); // Sync currentRestaurant store
+        }
       }
-    } else {
-      // Create new restaurant
-      console.log('Creating restaurant with all values:', { name, logo, customPrompt, phoneNumber, colorValue, reservas, redes_sociales });
-      
-      // Create the restaurant
-      menuStore.createRestaurant(
-        name, 
-        logo, 
-        customPrompt, 
-        phoneNumber, 
-        reservas,
-        redes_sociales
-      );
-      
-      // Force an explicit update to the URL values to ensure they're set correctly
-      if (reservas !== undefined || redes_sociales !== undefined) {
-        console.log('Explicitly updating URL values:', { reservas, redes_sociales });
-        menuStore.updateReservasAndSocials(reservas, redes_sociales);
-      }
-      
-      // Update the current restaurant store
-      const newRestaurant = $menuStore.restaurants.find(r => r.name === name);
-      if (newRestaurant) {
-        currentRestaurant.set({
-          ...newRestaurant,
-          color: colorValue
-        });
-      }
+    } catch (error) {
+       console.error("Error processing restaurant update in store:", error);
+       toasts.error(t('error') + ': ' + (error instanceof Error ? error.message : 'Failed to update restaurant'));
     }
   }
 
@@ -306,11 +305,11 @@
               customPrompt={$menuStore.customPrompt}
               selectedRestaurant={$menuStore.selectedRestaurant}
               restaurants={$menuStore.restaurants}
-              currency={$currentRestaurant?.currency || '€'}
-              color={$currentRestaurant?.color || '#85A3FA'}
-              phoneNumber={$currentRestaurant?.phoneNumber || null}
-              reservas={$currentRestaurant?.reservas || null}
-              redes_sociales={$currentRestaurant?.redes_sociales || null}
+              currency={$menuStore.currency || '€'}
+              color={$menuStore.color || '#85A3FA'}
+              phoneNumber={$menuStore.phoneNumber || null}
+              reservas={$menuStore.reservas || null}
+              redes_sociales={$menuStore.redes_sociales || null}
               on:update={handleRestaurantUpdate}
             />
           
@@ -319,7 +318,7 @@
                 categories={$menuStore.categories}
                 selectedRestaurant={$menuStore.selectedRestaurant}
                 restaurantName={$menuStore.restaurantName}
-                currency={$currentRestaurant?.currency || '€'}
+                currency={$menuStore.currency || '€'}
                 on:update={handleCategoriesUpdate}
               />
             </div>
@@ -332,7 +331,7 @@
             restaurantName={$menuStore.restaurantName}
             menuLogo={$menuStore.menuLogo}
             categories={$menuStore.categories}
-            currency={$currentRestaurant?.currency || '€'}
+            currency={$menuStore.currency || '€'}
           />
         </div>
       </div>

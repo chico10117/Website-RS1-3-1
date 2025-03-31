@@ -81,17 +81,13 @@ export async function handleDrop(
 }
 
 /**
- * Upload the file using /api/upload and update the store(s).
+ * Upload the file using /api/upload and ONLY dispatch the change.
  */
 export async function handleFileUpload(
   file: File,
-  restaurantName: string,
-  customPrompt: string | null,
-  phoneNumber: number | null,
-  color: string | number,
-  currency: string,
-  dispatch: DispatchFunction,
-  t: (key: string) => string
+  restaurantId: string | null, // Need ID to dispatch
+  t: (key: string) => string,
+  dispatch: DispatchFunction
 ) {
   let isUploading = false;
   try {
@@ -116,84 +112,22 @@ export async function handleFileUpload(
     const uploadResult = await uploadResponse.json();
     const logoUrl = uploadResult.url || null;
 
-    const cRest = get(currentRestaurant);
-    // If editing an existing restaurant
-    if (cRest) {
-      // Preserve the current color from the database
-      const existingColor = cRest.color || color;
-      
-      // Use the customPrompt PASSED IN from the component,
-      // not the one currently in the store (cRest.customPrompt)
-      const updatedCustomPrompt = customPrompt; // Use the parameter
-      
-      menuStore.updateRestaurantInfo(
-        cRest.name,
-        logoUrl,
-        updatedCustomPrompt, // Use the parameter value
-        cRest.slug,
-        cRest.phoneNumber,
-        String(existingColor)
-      );
-      
+    // ONLY dispatch the changed logo URL
+    if (logoUrl !== null) {
       dispatch('update', {
-        id: cRest.id,
-        name: cRest.name,
+        id: restaurantId || undefined,
         logo: logoUrl,
-        customPrompt: updatedCustomPrompt, // Use the parameter value
-        phoneNumber: cRest.phoneNumber,
-        currency,
-        color: existingColor,
-        slug: cRest.slug,
-        reservas: cRest.reservas,
-        redes_sociales: cRest.redes_sociales
-      });
+      } as Partial<UpdateEvent>); // Dispatch partial update
     } else {
-      // For a new restaurant
-      if (!restaurantName) {
-        throw new Error('Restaurant name is required');
-      }
-
-      // Generate a new slug
-      const newSlug = await generateSlug(restaurantName);
-      
-      // Keep the customPrompt as passed in
-      menuStore.createRestaurant(restaurantName, logoUrl, customPrompt, phoneNumber);
-
-      const storeState = get(menuStore);
-      const newId = storeState.selectedRestaurant;
-      if (!newId) {
-        throw new Error('Failed to create restaurant');
-      }
-
-      // Update the newly created restaurant with a valid slug
-      // Make sure to preserve the customPrompt
-      menuStore.updateRestaurantInfo(
-        restaurantName,
-        logoUrl,
-        customPrompt, // Make sure we pass this through
-        newSlug,
-        phoneNumber,
-        String(color)
-      );
-
-      // Get current URL values from store
-      const updatedStoreState = get(menuStore);
-
-      dispatch('update', {
-        id: newId,
-        name: restaurantName,
-        logo: logoUrl,
-        customPrompt, // Make sure we pass this through
-        phoneNumber,
-        currency,
-        color,
-        slug: newSlug,
-        // Use values from store instead of null
-        reservas: updatedStoreState.reservas,
-        redes_sociales: updatedStoreState.redes_sociales
-      });
+        // Optionally handle null URL case, maybe dispatch null?
+        dispatch('update', {
+            id: restaurantId || undefined,
+            logo: null,
+        } as Partial<UpdateEvent>);
     }
-    return logoUrl;
+
+    return logoUrl; // Return the URL for local state update in component
+
   } catch (error) {
     console.error('Error uploading logo:', error);
     if (error instanceof Error) {
@@ -258,67 +192,46 @@ export function cancelEditingRestaurant(setEditingName: (name: string) => void, 
   setIsEditing(false);
 }
 
+/**
+ * Called when the restaurant name is confirmed (e.g., checkmark clicked)
+ */
 export async function updateRestaurantName(
   editingRestaurantName: string,
   selectedRestaurant: string | null,
-  menuLogo: string | null,
-  customPrompt: string | null,
-  phoneNumber: string | null,
-  color: string | number,
-  currency: string,
-  reservas: string | null,
-  redes_sociales: string | null,
+  // REMOVED other fields as they are not directly changed here
   dispatchFn: DispatchFunction,
   t: (key: string) => string,
   setLocalRestaurantName: (val: string) => void,
   setIsEditing: (val: boolean) => void
 ) {
-  if (!editingRestaurantName.trim()) {
+  const trimmedName = editingRestaurantName.trim();
+  if (!trimmedName) {
     toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
     return;
   }
-  if (!selectedRestaurant) {
+  
+  const currentStoreState = get(menuStore);
+  const restaurantId = selectedRestaurant || currentStoreState.selectedRestaurant;
+
+  if (!restaurantId) {
     toasts.error(t('error') + ': ' + t('noRestaurantSelected'));
     return;
   }
+
   try {
-    const newSlug = await generateSlug(editingRestaurantName.trim());
-    const cRest = get(currentRestaurant);
+    const newSlug = await generateSlug(trimmedName);
     
-    // Preserve the current color from the database
-    const existingColor = cRest?.color || color;
-    
-    // Convert phoneNumber to number for the store update
-    const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null;
-    
-    // update store
-    menuStore.updateRestaurantInfo(
-      editingRestaurantName.trim(),
-      menuLogo,
-      customPrompt,
-      newSlug,
-      numericPhoneNumber,
-      String(existingColor)
-    );
-    
-    // update local name
-    setLocalRestaurantName(editingRestaurantName.trim());
-    
-    // Dispatch update event
+    // Dispatch ONLY the name and slug change
     dispatchFn('update', {
-      id: selectedRestaurant,
-      name: editingRestaurantName.trim(),
-      logo: menuLogo,
-      customPrompt,
-      phoneNumber: numericPhoneNumber,
-      currency,
-      color: existingColor,
+      id: restaurantId,
+      name: trimmedName,
       slug: newSlug,
-      reservas: reservas,
-      redes_sociales: redes_sociales
-    });
+    } as Partial<UpdateEvent>); // Dispatch partial update
     
+    // update local component state
+    setLocalRestaurantName(trimmedName);
     setIsEditing(false);
+
   } catch (error) {
     console.error('Error updating restaurant name:', error);
     if (error instanceof Error) {
@@ -364,163 +277,62 @@ export function handleRestaurantSelect(event: Event, dispatchFn: (event: 'select
 }
 
 /**
- * Handle custom prompt changes
+ * Handle custom prompt input change
  */
 export function handleCustomPromptInput(
   event: Event,
-  selectedRestaurant: string | null,
-  restaurantName: string,
-  menuLogo: string | null,
-  phoneNumber: string | null,
-  color: string | number,
-  currency: string,
-  reservas: string | null,
-  redes_sociales: string | null,
+  selectedRestaurantId: string | null, // Need ID to dispatch
   t: (key: string) => string,
   dispatchFn: DispatchFunction
 ): string | null {
-  if (!restaurantName && !selectedRestaurant) {
-    toasts.error(t('error') + ': ' + t('pleaseEnterRestaurantNameFirst'));
-    return null;
-  }
+  const target = event.target as HTMLTextAreaElement;
+  const newValue = target.value;
 
   try {
-    const textarea = event.target as HTMLTextAreaElement;
-    const value = textarea.value;
-    
-    // Check length
-    if (value.length > 5000) {
-      toasts.error(t('error') + ': ' + t('customPromptTooLong'));
-      return null;
+    // Basic validation (optional)
+    if (newValue.length > 5000) { 
+      toasts.info(t('customPromptTooLong'));
+      // Maybe truncate or prevent further input?
+      // For now, just dispatch the truncated value
+      const truncatedValue = newValue.substring(0, 5000);
+       dispatchFn('update', {
+        id: selectedRestaurantId || undefined,
+        customPrompt: truncatedValue,
+      } as Partial<UpdateEvent>); // Dispatch partial update
+      return truncatedValue;
     }
-    
-    // Adjust value to null if empty or the string otherwise
-    const newValue = value.trim() === '' ? null : value;
-    const cRest = get(currentRestaurant);
-    
-    // For existing restaurant
-    if (cRest) {
-      // Preserve the current color from the database
-      const existingColor = cRest.color || color;
-      
-      menuStore.updateRestaurantInfo(
-        cRest.name,
-        cRest.logo,
-        newValue,
-        cRest.slug,
-        cRest.phoneNumber,
-        String(existingColor)
-      );
-      dispatchFn('update', {
-        id: cRest.id,
-        name: cRest.name,
-        logo: cRest.logo,
-        customPrompt: newValue,
-        phoneNumber: cRest.phoneNumber,
-        currency,
-        color: existingColor,
-        slug: cRest.slug,
-        reservas: cRest.reservas,
-        redes_sociales: cRest.redes_sociales
-      });
-    } else {
-      // For new local restaurant
-      const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null; // Convert here
-      menuStore.updateRestaurantInfo(
-        restaurantName,
-        menuLogo,
-        newValue,
-        get(currentRestaurant)?.slug || null,
-        numericPhoneNumber, // Use converted value
-        String(color)
-      );
-      dispatchFn('update', {
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt: newValue,
-        phoneNumber: numericPhoneNumber, // Use converted value
-        currency,
-        color,
-        reservas: reservas,
-        redes_sociales: redes_sociales
-      });
-    }
+
+    // Dispatch ONLY the prompt change
+    dispatchFn('update', {
+      id: selectedRestaurantId || undefined,
+      customPrompt: newValue,
+    } as Partial<UpdateEvent>); // Dispatch partial update
     
     return newValue;
+
   } catch (error) {
     console.error('Error updating custom prompt:', error);
     if (error instanceof Error) {
       toasts.error(t('error') + ': ' + error.message);
     }
-    return null;
+    return null; // Return null on error to signal failure
   }
 }
 
 /**
- * Handle logo deletion
+ * Handle deleting the logo.
  */
 export function handleLogoDelete(
-  event: MouseEvent,
-  restaurantName: string,
-  menuLogo: string | null,
-  customPrompt: string | null,
-  phoneNumber: string | null,
-  color: string | number,
-  currency: string,
-  reservas: string | null,
-  redes_sociales: string | null,
+  selectedRestaurantId: string | null, // Need ID to dispatch
   dispatchFn: DispatchFunction
-): string | null {
-  event.preventDefault();
-  event.stopPropagation();
-  if (!menuLogo) return null;
+) {
+  // Dispatch ONLY the logo change (setting it to null)
+  dispatchFn('update', {
+    id: selectedRestaurantId || undefined,
+    logo: null,
+  } as Partial<UpdateEvent>); // Dispatch partial update
 
-  try {
-    const cRest = get(currentRestaurant);
-    // For existing restaurant
-    if (cRest) {
-      // Preserve the current color from the database
-      const existingColor = cRest.color || color;
-
-      menuStore.updateRestaurantInfo(
-        cRest.name,
-        null, // Remove logo
-        cRest.customPrompt,
-        cRest.slug,
-        cRest.phoneNumber,
-        String(existingColor)
-      );
-      dispatchFn('update', {
-        id: cRest.id,
-        name: cRest.name,
-        logo: null,
-        customPrompt: cRest.customPrompt,
-        phoneNumber: cRest.phoneNumber,
-        currency,
-        color: existingColor,
-        slug: cRest.slug,
-        reservas: cRest.reservas,
-        redes_sociales: cRest.redes_sociales
-      });
-    } else {
-      // For new local restaurant
-      dispatchFn('update', {
-        name: restaurantName,
-        logo: null,
-        customPrompt,
-        phoneNumber: phoneNumber ? Number(phoneNumber) : null,
-        currency,
-        color,
-        reservas: reservas,
-        redes_sociales: redes_sociales
-      });
-    }
-    
-    return null; // Update successful, return null logo
-  } catch (error) {
-    console.error('Error deleting logo:', error);
-    return menuLogo; // Return original logo on error
-  }
+  return null; // Return null for local state update in component
 }
 
 /**
@@ -531,52 +343,43 @@ export function handleCurrencyChange(
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   color: string | number,
   reservas: string | null,
   redes_sociales: string | null,
   dispatchFn: DispatchFunction
 ) {
   try {
-    const cRest = get(currentRestaurant);
-    
-    // For existing restaurant
-    if (cRest) {
-      // Preserve the current color from the database
-      const existingColor = cRest.color || color;
-      
-      dispatchFn('update', {
-        id: cRest.id,
-        name: cRest.name,
-        logo: cRest.logo,
-        customPrompt: cRest.customPrompt,
-        phoneNumber: cRest.phoneNumber,
-        currency: value,
-        color: existingColor,
-        slug: cRest.slug,
-        reservas: cRest.reservas,
-        redes_sociales: cRest.redes_sociales
-      });
-    } else {
-      // For new local restaurant
-      dispatchFn('update', {
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt,
-        phoneNumber: phoneNumber ? Number(phoneNumber) : null,
-        currency: value,
-        color,
-        reservas: reservas,
-        redes_sociales: redes_sociales
-      });
+    const currentUser = get(user);
+    if (!currentUser) {
+      throw new Error('User not authenticated');
     }
+
+    const cRest = get(currentRestaurant);
+
+    // Dispatch an update event with ALL relevant current data,
+    // including the NEW currency and the EXISTING color.
+    dispatchFn('update', {
+      id: cRest?.id || undefined, // Use current restaurant ID if available
+      name: restaurantName, // Use current name
+      logo: menuLogo, // Use current logo
+      customPrompt: customPrompt, // Use current prompt
+      phoneNumber: phoneNumber, // Use current phone number
+      currency: value, // Use the NEW currency value
+      color: String(color), // Use the CURRENT color value, ensure it's a string
+      reservas: reservas, // Use current reservas
+      redes_sociales: redes_sociales, // Use current redes sociales
+      slug: cRest?.slug // Include slug if available
+    });
+
   } catch (error) {
-    console.error('Error updating currency:', error);
+    console.error('Error handling currency change:', error);
+    // Optionally add a user-facing toast notification here
   }
 }
 
 /**
- * Handle phone number change 
+ * Handle phone number change
  */
 export function handlePhoneNumberChange(
   newPhoneNumber: number | null,
@@ -595,7 +398,7 @@ export function handlePhoneNumberChange(
     // For existing restaurant
     if (cRest) {
       // Preserve the current color from the database
-      const existingColor = cRest.color || color;
+      // const existingColor = cRest.color || color; // No longer needed, let updateRestaurantInfo handle it
       
       menuStore.updateRestaurantInfo(
         cRest.name,
@@ -603,7 +406,12 @@ export function handlePhoneNumberChange(
         cRest.customPrompt,
         cRest.slug,
         newPhoneNumber,
-        String(existingColor)
+        // String(existingColor) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        undefined, // reservas
+        undefined, // redes_sociales
+        undefined, // color
+        cRest.currency // Pass existing currency
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -611,8 +419,8 @@ export function handlePhoneNumberChange(
         logo: cRest.logo,
         customPrompt: cRest.customPrompt,
         phoneNumber: newPhoneNumber,
-        currency,
-        color: existingColor,
+        currency: cRest.currency, // Use current restaurant's currency
+        color: cRest.color, // Dispatch the actual current color from store
         slug: cRest.slug,
         reservas: cRest.reservas,
         redes_sociales: cRest.redes_sociales
@@ -623,17 +431,23 @@ export function handlePhoneNumberChange(
         restaurantName,
         menuLogo,
         customPrompt,
-        null, // No slug for new restaurant
+        null, // slug
         newPhoneNumber,
-        String(color)
+        // String(color) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        reservas, // Pass existing reservas if available
+        redes_sociales, // Pass existing redes_sociales if available
+        undefined, // color
+        currency // Pass existing currency
       );
       dispatchFn('update', {
+        id: undefined,
         name: restaurantName,
         logo: menuLogo,
-        customPrompt,
+        customPrompt: customPrompt, // Explicitly set customPrompt
         phoneNumber: newPhoneNumber,
         currency,
-        color,
+        // color, // Remove explicit color from dispatch for new restaurant
         reservas: reservas,
         redes_sociales: redes_sociales
       });
@@ -663,57 +477,97 @@ function cleanPhoneNumber(phone: any): number | null {
   return null;
 }
 
+interface RestaurantState {
+  restaurantName: string;
+  menuLogo: string | null;
+  customPrompt: string | null;
+  phoneNumber: number | null;
+  currency: string;
+  color: string;
+  reservas: string | null;
+  redes_sociales: string | null;
+}
 /**
  * Handle menu upload success
  */
 export async function handleMenuUploadSuccess(
   event: CustomEvent,
   dispatchFn: DispatchFunction,
-  currency: string,
-  color: string
+  currentState: RestaurantState,
+  t: (key: string) => string
 ) {
   try {
     console.log('handleMenuUploadSuccess received event:', {
       detail: event.detail,
-      currency,
-      color
+      currentState
     });
 
     const cRest = get(currentRestaurant);
     console.log('Current restaurant from store:', cRest);
     
     if (cRest) {
-      // Validate required fields
-      if (!cRest.name) {
-        // Use placeholder instead of throwing error
-        const placeholderName = get(language) === 'es' ? 'Restaurante desconocido' : 'Unknown restaurant';
-        cRest.name = placeholderName;
-        console.log('Using placeholder name for existing restaurant:', placeholderName);
+      // Get the data potentially returned from the processing API
+      const { restaurantData } = event.detail;
+      const uploadedRestaurantInfo = restaurantData?.restaurant || {};
+      const uploadedCategories = restaurantData?.categories || [];
+      const uploadedDishes = uploadedCategories.flatMap((cat: any) => cat.dishes || []);
+
+      // Preserve the current UI color if not provided by upload
+      const existingColor = uploadedRestaurantInfo.color || currentState.color || cRest.color || '#85A3FA';
+
+      // Merge: Prioritize uploaded data, then current component state, then store state
+      const finalName = uploadedRestaurantInfo.name || currentState.restaurantName || cRest.name || t('unknownRestaurant');
+      const finalLogo = uploadedRestaurantInfo.logo || currentState.menuLogo || cRest.logo;
+      const finalPrompt = uploadedRestaurantInfo.customPrompt || currentState.customPrompt || cRest.customPrompt;
+      const finalPhone = cleanPhoneNumber(uploadedRestaurantInfo.phoneNumber !== undefined ? uploadedRestaurantInfo.phoneNumber : currentState.phoneNumber !== undefined ? currentState.phoneNumber : cRest.phoneNumber);
+      const finalCurrency = uploadedRestaurantInfo.currency || currentState.currency || cRest.currency || '€';
+      const finalReservas = uploadedRestaurantInfo.reservas || currentState.reservas || cRest.reservas;
+      const finalRedes = uploadedRestaurantInfo.redes_sociales || currentState.redes_sociales || cRest.redes_sociales;
+
+      // Update the store with the merged/updated data - FOCUS ON INFO UPDATE
+      // We assume the backend/upload API handles category/dish creation/update if needed
+      menuStore.updateRestaurantInfo(
+        finalName,
+        finalLogo,
+        finalPrompt,
+        cRest.slug,
+        finalPhone,
+        String(existingColor)
+      );
+
+      // If categories/dishes were processed and returned, update the store for them too
+      if (uploadedCategories.length > 0) {
+        console.log('Uploaded categories data available, update menuStore if specific methods exist:', uploadedCategories);
       }
 
-      // Preserve the current color from the database
-      const existingColor = cRest.color || color;
-      console.log('Using color for existing restaurant:', existingColor);
-      
-      // Update the dispatch with preserved color
+      // Need similar handling for dishes if menuStore supports it
+      if (uploadedDishes.length > 0) {
+        // This might need a more granular update depending on menuStore capabilities
+        // e.g., menuStore.setDishes(uploadedDishes);
+        // For now, just logging
+        console.log('Uploaded dishes data available, consider updating menuStore if method exists:', uploadedDishes);
+      }
+
+      // Dispatch the merged UI state
       const updateData = {
         id: cRest.id,
-        name: cRest.name,
-        logo: cRest.logo,
-        customPrompt: cRest.customPrompt,
-        phoneNumber: cRest.phoneNumber,
-        currency,
+        name: finalName,
+        logo: finalLogo,
+        customPrompt: finalPrompt,
+        phoneNumber: finalPhone,
+        currency: finalCurrency,
         color: existingColor,
         slug: cRest.slug,
-        reservas: cRest.reservas,
-        redes_sociales: cRest.redes_sociales
+        reservas: finalReservas,
+        redes_sociales: finalRedes
       };
-      console.log('Dispatching update for existing restaurant:', updateData);
+      console.log('Dispatching update for existing restaurant after upload:', updateData);
       dispatchFn('update', updateData);
+
     } else {
-      // For a new restaurant
+      // For a NEW restaurant being created FROM an upload
       const { restaurantData } = event.detail;
-      console.log('Processing new restaurant data:', restaurantData);
+      console.log('Processing new restaurant data from upload:', restaurantData);
 
       if (!restaurantData || !restaurantData.restaurant) {
         console.error('Invalid restaurant data received:', restaurantData);
@@ -723,23 +577,31 @@ export async function handleMenuUploadSuccess(
       // Extract restaurant data
       const { restaurant, categories } = restaurantData;
       console.log('Extracted categories:', categories);
-      
-      // Use placeholder if no restaurant name
-      const placeholderName = get(language) === 'es' ? 'Restaurante desconocido' : 'Unknown restaurant';
-      const finalName = restaurant.name || placeholderName;
+
+      // Use placeholder if no restaurant name provided in upload or component state
+      const finalName = restaurant.name || currentState.restaurantName || t('unknownRestaurant');
       console.log('Using name for new restaurant:', finalName);
 
       // Generate a slug for the new restaurant
       const slug = await generateSlug(finalName);
 
-      // Create the restaurant in the store first
+      // Extract details, prioritizing uploaded data then component state
+      const finalLogo = restaurant.logo || currentState.menuLogo;
+      const finalPrompt = restaurant.customPrompt || currentState.customPrompt;
+      const finalPhone = cleanPhoneNumber(restaurant.phoneNumber !== undefined ? restaurant.phoneNumber : currentState.phoneNumber);
+      const finalCurrency = restaurant.currency || currentState.currency || '€';
+      const finalColor = restaurant.color || currentState.color || '#85A3FA';
+      const finalReservas = restaurant.reservas || currentState.reservas;
+      const finalRedes = restaurant.redes_sociales || currentState.redes_sociales;
+
+      // Create the restaurant in the store first (this selects it)
       menuStore.createRestaurant(
         finalName,
-        restaurant.logo || null,
-        restaurant.customPrompt || null,
-        restaurant.phoneNumber || null,
-        null, // reservas
-        null  // redes_sociales
+        finalLogo,
+        finalPrompt,
+        finalPhone,
+        finalReservas,
+        finalRedes
       );
 
       // Get the newly created restaurant ID
@@ -750,20 +612,21 @@ export async function handleMenuUploadSuccess(
         throw new Error('Failed to create restaurant');
       }
 
-      // Update with the proper slug and other details
+      // Update with the proper slug and other details (redundant? createRestaurant should handle most)
+      // Let's ensure color and currency are set correctly if createRestaurant doesn't
       menuStore.updateRestaurantInfo(
         finalName,
-        restaurant.logo || null,
-        restaurant.customPrompt || null,
+        finalLogo,
+        finalPrompt,
         slug,
-        restaurant.phoneNumber || null,
-        String(color)
+        finalPhone,
+        String(finalColor)
       );
 
-      // Add categories and dishes
+      // Add categories and dishes from the upload
       if (categories && Array.isArray(categories)) {
         console.log('Processing categories:', categories.length);
-        
+
         for (const category of categories) {
           // Create category and get its ID
           const categoryId = menuStore.addCategory(category.name);
@@ -772,7 +635,7 @@ export async function handleMenuUploadSuccess(
           // Add dishes if they exist
           if (category.dishes && Array.isArray(category.dishes)) {
             console.log(`Processing ${category.dishes.length} dishes for category ${category.name}`);
-            
+
             for (const dish of category.dishes) {
               const dishData = {
                 title: dish.title || 'Untitled Dish',
@@ -781,7 +644,7 @@ export async function handleMenuUploadSuccess(
                 imageUrl: dish.imageUrl || null
               };
               console.log('Adding dish:', dishData);
-              
+
               // Add the dish to the store
               menuStore.addDish(categoryId, dishData);
             }
@@ -789,45 +652,26 @@ export async function handleMenuUploadSuccess(
         }
       }
 
-      // For new restaurant that didn't exist before, we use the passed color
+      // Dispatch the final state to the parent component
       const updateData = {
         id: newId,
         name: finalName,
-        logo: restaurant.logo || null,
-        customPrompt: restaurant.customPrompt || null,
-        phoneNumber: cleanPhoneNumber(restaurant.phoneNumber),
-        currency,
-        color,
+        logo: finalLogo,
+        customPrompt: finalPrompt,
+        phoneNumber: finalPhone,
+        currency: finalCurrency,
+        color: finalColor,
         slug,
-        // Get current URL values from store
-        reservas: storeState.reservas,
-        redes_sociales: storeState.redes_sociales
+        reservas: finalReservas,
+        redes_sociales: finalRedes
       };
-      console.log('Dispatching update for new restaurant:', updateData);
+      console.log('Dispatching update for new restaurant from upload:', updateData);
       dispatchFn('update', updateData);
 
-      // Update the current restaurant store with proper types
-      currentRestaurant.set({
-        id: newId,
-        name: finalName,
-        logo: restaurant.logo || null,
-        customPrompt: restaurant.customPrompt || null,
-        phoneNumber: restaurant.phoneNumber || null,
-        currency,
-        color,
-        slug,
-        // Use values from store instead of null 
-        reservas: storeState.reservas,
-        redes_sociales: storeState.redes_sociales,
-        userId: get(user)?.id || '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        categories: categories || []
-      });
     }
   } catch (error) {
     console.error('Error handling menu upload success:', error);
-    throw error; // Re-throw to allow proper error handling up the chain
+    toasts.error(t('errorProcessingUpload') + ': ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
@@ -835,5 +679,6 @@ export async function handleMenuUploadSuccess(
  * Handle menu upload error
  */
 export function handleMenuUploadError(event: CustomEvent, t: (key: string) => string) {
-  toasts.error(t('error') + ': ' + event.detail);
+  const errorMessage = event.detail?.message || event.detail || 'Unknown upload error';
+  toasts.error(t('error') + ': ' + t('menuUploadFailed') + ' - ' + errorMessage);
 } 
