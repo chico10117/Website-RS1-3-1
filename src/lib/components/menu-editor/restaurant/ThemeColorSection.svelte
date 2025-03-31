@@ -3,29 +3,26 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import ColorPicker from './ColorPicker.svelte';
-  import {
-    updateColorToLight,
-    onAcceptCustomColor,
-    onCancelCustomColor
-  } from '$lib/utils/color.helpers';
+  import type { UpdateEvent } from '$lib/utils/RestaurantInfo.helpers';
   
-  export let restaurantName = '';
-  export let selectedRestaurant: string | null = null;
-  export let menuLogo: string | null = null;
-  export let customPrompt: string | null = null;
-  export let phoneNumber: number | null = null;
+  export let restaurantName: string;
+  export let selectedRestaurant: string | null;
+  export let menuLogo: string | null;
+  export let customPrompt: string | null;
+  export let phoneNumber: number | null;
   export let color: string = '#85A3FA';
-  export let currency: string = '€';
-  export let reservas: string | null = null;
-  export let redes_sociales: string | null = null;
+  export let currency: string;
+  export let reservas: string | null;
+  export let redes_sociales: string | null;
+  export let t: (key: string) => string;
 
+  // Local state
   let showCustomColorPicker = false;
-  let customColorValue = (color && typeof color === 'string' && color !== '#85A3FA') ? color.toUpperCase() : '';
-  let displayColor = (color && typeof color === 'string' && color === '#85A3FA') ? 'light' : 'custom';
-  let userClickedCustom = false;
+  let customColorValue = '';
+  let displayColor = 'light';
 
   const dispatch = createEventDispatcher<{
-    update: any;
+    update: UpdateEvent;
   }>();
 
   $: currentLanguage = $language;
@@ -36,85 +33,102 @@
     { value: 'custom', label: t('colorCustom') }
   ];
 
+  // Handle initial and subsequent color changes
   $: {
     if (color && typeof color === 'string') {
       if (color === '#85A3FA') {
         displayColor = 'light';
         customColorValue = '';
-        if (!userClickedCustom) {
-          showCustomColorPicker = false;
-        }
-      } else if (color.startsWith('#')) {
-        customColorValue = color.toUpperCase();
-        displayColor = 'custom';
         showCustomColorPicker = false;
+      } else if (color.startsWith('#')) {
+        displayColor = 'custom';
+        customColorValue = color;
+        showCustomColorPicker = true;
       }
-    } else {
-      displayColor = 'light';
-      customColorValue = '';
-      showCustomColorPicker = false;
     }
-    console.log("ThemeColorSection: Prop 'color' changed or internal state updated", { color, displayColor, customColorValue, showCustomColorPicker, userClickedCustom });
   }
 
-  function onColorChange(value: string) {
-    console.log('ThemeColorSection: Color radio changed to:', value);
-    displayColor = value;
-
-    if (value === 'custom') {
-      showCustomColorPicker = true;
-      userClickedCustom = true;
-    } else if (value === 'light') {
+  function onRadioChange(value: string) {
+    if (value === 'light') {
       showCustomColorPicker = false;
       customColorValue = '';
-      userClickedCustom = false;
-      updateColorToLight(
-        restaurantName,
-        menuLogo,
+      dispatch('update', {
+        id: selectedRestaurant || undefined,
+        name: restaurantName,
+        logo: menuLogo,
         customPrompt,
         phoneNumber,
+        color: '#85A3FA',
         currency,
         reservas,
         redes_sociales,
-        selectedRestaurant,
-        (evt, detail) => dispatch(evt, detail)
-      );
+      });
+    } else if (value === 'custom') {
+      showCustomColorPicker = true;
+      // If we have a previous custom color, use it
+      if (customColorValue && customColorValue !== '#85A3FA') {
+        dispatch('update', {
+          id: selectedRestaurant || undefined,
+          name: restaurantName,
+          logo: menuLogo,
+          customPrompt,
+          phoneNumber,
+          color: customColorValue,
+          currency,
+          reservas,
+          redes_sociales,
+        });
+      }
     }
   }
 
-  function handleAcceptCustomColor(event: CustomEvent<string>) {
-    const acceptedHexColor = event.detail.toUpperCase();
-    console.log('ThemeColorSection: Accepting custom color:', acceptedHexColor);
-    customColorValue = acceptedHexColor;
-    displayColor = 'custom';
-    showCustomColorPicker = false;
-    userClickedCustom = false;
-
-    onAcceptCustomColor(
-      acceptedHexColor,
-      restaurantName,
-      menuLogo,
+  function onColorAccept(event: CustomEvent<string>) {
+    const newColor = event.detail;
+    customColorValue = newColor;
+    dispatch('update', {
+      id: selectedRestaurant || undefined,
+      name: restaurantName,
+      logo: menuLogo,
       customPrompt,
       phoneNumber,
+      color: newColor,
       currency,
       reservas,
       redes_sociales,
-      selectedRestaurant,
-      (evt, detail) => dispatch(evt, detail)
-    );
+    });
   }
 
-  function handleCancelCustomColor() {
-    console.log('ThemeColorSection: Custom color cancelled.');
-    showCustomColorPicker = false;
-    userClickedCustom = false;
-
-    if (color === '#85A3FA') {
-      displayColor = 'light';
+  function onColorCancel() {
+    if (customColorValue && customColorValue !== '#85A3FA') {
+      // Return to previous custom color
+      dispatch('update', {
+        id: selectedRestaurant || undefined,
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt,
+        phoneNumber,
+        color: customColorValue,
+        currency,
+        reservas,
+        redes_sociales,
+      });
     } else {
-      displayColor = 'custom';
+      // Return to light theme
+      showCustomColorPicker = false;
+      displayColor = 'light';
+      customColorValue = '';
+      dispatch('update', {
+        id: selectedRestaurant || undefined,
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt,
+        phoneNumber,
+        color: '#85A3FA',
+        currency,
+        reservas,
+        redes_sociales,
+      });
     }
-    onCancelCustomColor();
   }
 </script>
 
@@ -132,10 +146,10 @@
             name="color-theme-selector"
             value={option.value}
             checked={displayColor === option.value}
-            on:change={() => onColorChange(option.value)}
+            on:change={() => onRadioChange(option.value)}
             class="form-radio text-blue-600"
           />
-          <span class="text-sm text-gray-700 ">
+          <span class="text-sm text-gray-700">
             {option.label}
           </span>
         </label>
@@ -151,8 +165,8 @@
           colorOptions={[]}
           {selectedRestaurant}
           {t}
-          on:accept={handleAcceptCustomColor}
-          on:cancel={handleCancelCustomColor}
+          on:accept={onColorAccept}
+          on:cancel={onColorCancel}
         />
       </div>
     {/if}
