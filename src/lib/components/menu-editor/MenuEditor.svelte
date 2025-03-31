@@ -103,7 +103,7 @@
     name: string; 
     logo: string | null; 
     customPrompt: string | null; 
-    phoneNumber: string | null;
+    phoneNumber: number | null;
     currency: string; 
     color: string | number;
     reservas: string | null;

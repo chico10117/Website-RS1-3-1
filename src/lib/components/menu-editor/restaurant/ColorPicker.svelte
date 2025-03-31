@@ -4,7 +4,7 @@
   import { get } from 'svelte/store';
   import {
     handleCustomColorSelect,
-    onCustomColorInput as handleCustomColorInputChange,
+    handleCustomColorInputValidation as handleCustomColorInputChange,
     saveCustomColorToStorage
   } from '$lib/utils/color.helpers';
   
@@ -102,20 +102,20 @@
     dispatch('change', String(newValue));
   }
   
-  function onCustomColorSelect(hexColor: string) {
-    const capitalizedHexColor = hexColor.toUpperCase();
+  function onPaletteSelect(hexColor: string) {
+    // Use the helper to update temp value
     handleCustomColorSelect(
-      capitalizedHexColor, 
-      (v: string) => tempColorValue = v, 
-      (v: string) => customColorInput = v
+      hexColor,
+      (v) => tempColorValue = v // Call with 2 arguments
     );
+    // Set the input directly here
+    customColorInput = hexColor.toUpperCase();
   }
   
-  function onCustomColorInput() {
+  function onHexInputChange() {
     handleCustomColorInputChange(
       customColorInput,
-      (val: string) => customColorInput = val,
-      (val: string) => tempColorValue = val
+      (v) => tempColorValue = v // Pass the setTempColorValue callback
     );
   }
   
@@ -157,7 +157,7 @@
             <button
               class="w-12 h-12 rounded-lg transition-transform hover:scale-110 shadow-sm border border-gray-200 active:scale-95 touch-manipulation"
               style="background-color: {hexColor}"
-              on:click={() => onCustomColorSelect(hexColor)}
+              on:click={() => onPaletteSelect(hexColor)}
               aria-label="Color swatch"
             />
           {/each}
@@ -170,7 +170,7 @@
             bind:value={customColorInput}
             placeholder="#000000"
             class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            on:input={onCustomColorInput}
+            on:input={onHexInputChange}
             aria-label="Enter hex color code"
           />
           <div

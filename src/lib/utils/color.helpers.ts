@@ -5,22 +5,22 @@ import { menuStore } from '$lib/stores/menu-store';
 import type { UpdateEvent } from './RestaurantInfo.helpers';
 
 /**
- * Handle selecting a color from the palette
+ * Handle selecting a color from the palette - ONLY sets temp value now
  */
 export function handleCustomColorSelect(
-  hexColor: string, 
-  setTempColorValue: (val: string) => void,
-  setCustomColorInput: (val: string) => void
+  hexColor: string,
+  setTempColorValue: (val: string) => void
+  // setCustomColorInput: (val: string) => void // Removed 3rd argument
 ) {
   const capitalizedHexColor = hexColor.toUpperCase();
   setTempColorValue(capitalizedHexColor);
-  setCustomColorInput(capitalizedHexColor);
+  // setCustomColorInput(capitalizedHexColor); // Removed this line
 }
 
 /**
- * Handle custom color input change
+ * Handle custom color input change (validation)
  */
-export function handleCustomColorInput(
+export function handleCustomColorInputValidation(
   customColorInput: string,
   setTempColorValue: (val: string) => void
 ) {
@@ -30,165 +30,7 @@ export function handleCustomColorInput(
   } else if (/^[0-9A-F]{6}$/i.test(customColorInput)) {
     setTempColorValue(`#${customColorInput}`.toUpperCase());
   }
-}
-
-/**
- * Accept custom color
- */
-export function acceptCustomColor(
-  tempColorValue: string,
-  setCustomColorValue: (val: string) => void,
-  updateColorFn: (val: string) => void,
-  setShowCustomColorPicker: (val: boolean) => void
-) {
-  if (tempColorValue) {
-    const capitalizedColorValue = tempColorValue.toUpperCase();
-    setCustomColorValue(capitalizedColorValue);
-    updateColorFn(capitalizedColorValue);
-    setShowCustomColorPicker(false);
-    
-    console.log('Custom color accepted:', capitalizedColorValue);
-  }
-}
-
-/**
- * Cancel custom color picker
- */
-export function cancelCustomColor(
-  customColorValue: string,
-  setShowCustomColorPicker: (val: boolean) => void,
-  setColor: (val: string) => void,
-  updateColorFn: (val: string) => void
-) {
-  setShowCustomColorPicker(false);
-  
-  // Reset to light theme color if no custom color was set
-  if (!customColorValue) {
-    const lightThemeColor = '#85A3FA';
-    setColor(lightThemeColor);
-    updateColorFn(lightThemeColor);
-  }
-}
-
-/**
- * Update restaurant color in store
- */
-export function updateRestaurantColor(
-  val: string,
-  restaurantName: string,
-  menuLogo: string | null,
-  customPrompt: string | null,
-  phoneNumber: string | null,
-  color: string,
-  currency: string,
-  customColorValue: string,
-  dispatchFn: (event: 'update', detail: UpdateEvent) => void
-) {
-  // Make sure hex color values are capitalized
-  const capitalizedVal = val.startsWith('#') ? val.toUpperCase() : val;
-  
-  console.log('Updating restaurant color', {
-    newColor: capitalizedVal,
-    currentColor: color
-  });
-
-  // For existing restaurant, update the store
-  const cRest = get(currentRestaurant);
-  if (cRest) {
-    console.log('Updating existing restaurant color to:', capitalizedVal);
-    menuStore.updateRestaurantInfo(
-      cRest.name,
-      cRest.logo,
-      cRest.customPrompt,
-      cRest.slug,
-      cRest.phoneNumber,
-      cRest.reservas,
-      cRest.redes_sociales,
-      capitalizedVal
-    );
-    dispatchFn('update', {
-      id: cRest.id,
-      name: cRest.name,
-      logo: cRest.logo,
-      customPrompt: cRest.customPrompt,
-      phoneNumber: cRest.phoneNumber,
-      currency,
-      color: capitalizedVal,
-      slug: cRest.slug,
-      reservas: cRest.reservas,
-      redes_sociales: cRest.redes_sociales
-    });
-  } else {
-    // For new restaurant, just update local state
-    // Get current URL values from menuStore to prevent resetting them to null
-    const storeState = get(menuStore);
-    
-    dispatchFn('update', {
-      name: restaurantName,
-      logo: menuLogo,
-      customPrompt,
-      phoneNumber: phoneNumber ? Number(phoneNumber) : null,
-      currency,
-      color: capitalizedVal,
-      // Use values from the store instead of null to preserve URLs when changing colors
-      reservas: storeState.reservas,
-      redes_sociales: storeState.redes_sociales
-    });
-  }
-}
-
-/**
- * Check and initialize custom color value when needed
- */
-export function initializeCustomColor(
-  color: string, 
-  selectedRestaurant: string | null,
-  setCustomColorValue: (val: string) => void,
-  setTempColorValue: (val: string) => void,
-  setCustomColorInput: (val: string) => void,
-  setColor?: (val: string) => void,
-  setShowCustomColorPicker?: (val: boolean) => void
-) {
-  const cRest = get(currentRestaurant);
-  
-  // First try to get color from database via currentRestaurant store
-  if (cRest && cRest.color) {
-    // If the color from DB is a hex value (starts with #)
-    if (typeof cRest.color === 'string' && cRest.color.startsWith('#')) {
-      const dbColor = cRest.color.toUpperCase();
-      setCustomColorValue(dbColor);
-      setTempColorValue(dbColor);
-      setCustomColorInput(dbColor);
-      
-      // If callbacks provided, also set color to '5' and show picker
-      if (setColor) {
-        setColor('5');
-      }
-      if (setShowCustomColorPicker) {
-        setShowCustomColorPicker(true);
-      }
-      
-      console.log('Loaded custom color from database:', dbColor);
-      return;
-    }
-  }
-  
-  // Fallback to localStorage if needed
-  if (color === '5' && typeof window !== 'undefined') {
-    const savedColor = localStorage.getItem(`customColor_${selectedRestaurant || 'new'}`);
-    if (savedColor) {
-      setCustomColorValue(savedColor);
-      setTempColorValue(savedColor);
-      setCustomColorInput(savedColor);
-      
-      // If callback provided, show picker
-      if (setShowCustomColorPicker) {
-        setShowCustomColorPicker(true);
-      }
-      
-      console.log('Loaded custom color from localStorage:', savedColor);
-    }
-  }
+  // If invalid, tempColorValue remains unchanged, providing visual feedback
 }
 
 /**
@@ -203,173 +45,92 @@ export function saveCustomColorToStorage(
   }
 }
 
+// Type for the dispatch function expected by helpers
+type ColorDispatchFunction = (
+  event: 'update',
+  detail: UpdateEvent
+) => void;
+
 /**
- * Update color value and dispatch the change
+ * Update color based on selection (specifically for light theme selection)
  */
-export function updateColor(
-  val: string, 
+export function updateColorToLight(
+  // newColorValue: string, // Implicitly 'light' -> '#85A3FA'
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   currency: string,
-  customColorValue: string,
-  setColor: (color: string) => void,
-  dispatchFn: (event: 'update', detail: any) => void
+  reservas: string | null,
+  redes_sociales: string | null,
+  selectedRestaurantId: string | null, // Added ID
+  dispatchFn: ColorDispatchFunction
 ) {
-  console.log('updateColor called with:', val);
-  
-  // Safely handle both numeric and hex color values
-  const newColor = typeof val === 'string' && val.startsWith('#') 
-    ? val.toUpperCase() // For hex colors, ensure they're capitalized
-    : val; // For standard color numbers, keep as is
-  
-  setColor(newColor);
-  console.log('Local color prop updated to:', newColor);
-  
-  updateRestaurantColor(
-    val,
-    restaurantName,
-    menuLogo,
-    customPrompt,
-    phoneNumber,
-    newColor,
-    currency,
-    customColorValue,
-    (evt, detail) => {
-      console.log('Dispatching color update event with color:', detail.color);
-      dispatchFn(evt, detail);
-    }
-  );
-}
+  const finalColor = '#85A3FA'; // Standard hex for light theme
 
-/**
- * Handler for color radio button change 
- */
-export function onColorChange(
-  value: string,
-  customColorValue: string,
-  restaurantName: string,
-  menuLogo: string | null,
-  customPrompt: string | null,
-  phoneNumber: string | null,
-  currency: string,
-  color: string,
-  setShowCustomColorPicker: (val: boolean) => void,
-  setTempColorValue: (val: string) => void,
-  setCustomColorInput: (val: string) => void,
-  setColor: (val: string) => void,
-  dispatchFn: (event: 'update', detail: any) => void
-) {
-  if (value === 'custom') {
-    // If selecting custom color option, update the UI but don't change the color value yet
-    setShowCustomColorPicker(true);
-    if (customColorValue) {
-      setTempColorValue(customColorValue);
-      setCustomColorInput(customColorValue);
-    }
-  } else {
-    // For light theme, save as #85A3FA
-    const newColor = '#85A3FA';
-    setColor(newColor); // Update the local color prop
-    updateRestaurantColor(
-      newColor,
-      restaurantName,
-      menuLogo,
-      customPrompt,
-      phoneNumber,
-      color,
-      currency,
-      customColorValue,
-      dispatchFn
-    );
-  }
-}
+  console.log("Setting color to light theme:", finalColor);
 
-/**
- * Handle custom color input change (with capitalization)
- */
-export function onCustomColorInput(
-  customColorInput: string,
-  setCustomColorInput: (val: string) => void,
-  setTempColorValue: (val: string) => void
-) {
-  const capitalizedInput = customColorInput.toUpperCase();
-  setCustomColorInput(capitalizedInput);
-  handleCustomColorInput(capitalizedInput, setTempColorValue);
+  // Dispatch the update event with the light theme color and other current state
+  dispatchFn('update', {
+    id: selectedRestaurantId || undefined, // Include the ID
+    name: restaurantName,
+    logo: menuLogo,
+    customPrompt: customPrompt,
+    phoneNumber: phoneNumber,
+    currency: currency,
+    color: finalColor,
+    // slug is handled by save logic based on ID
+    reservas: reservas,
+    redes_sociales: redes_sociales,
+  });
 }
 
 /**
  * Handle accepting a custom color
  */
 export function onAcceptCustomColor(
-  tempColorValue: string,
+  tempColorValue: string, // The hex color selected/entered
   restaurantName: string,
   menuLogo: string | null,
   customPrompt: string | null,
-  phoneNumber: string | null,
+  phoneNumber: number | null,
   currency: string,
-  customColorValue: string,
-  setColor: (val: string) => void,
-  setCustomColorValue: (val: string) => void,
-  setShowCustomColorPicker: (val: boolean) => void,
-  dispatchFn: (event: 'update', detail: any) => void
+  reservas: string | null,
+  redes_sociales: string | null,
+  selectedRestaurantId: string | null, // Added ID
+  dispatchFn: ColorDispatchFunction
 ) {
-  console.log('Accepting custom color:', tempColorValue);
-  setColor(tempColorValue); // Update the local color prop directly
-  
-  acceptCustomColor(
-    tempColorValue,
-    (v: string) => {
-      console.log('Setting customColorValue to:', v);
-      setCustomColorValue(v);
-    },
-    (val: string) => {
-      console.log('Calling updateColor with:', val);
-      updateColor(
-        val,
-        restaurantName,
-        menuLogo,
-        customPrompt,
-        phoneNumber,
-        currency,
-        customColorValue,
-        setColor,
-        dispatchFn
-      );
-    },
-    setShowCustomColorPicker
-  );
+  if (!/^#[0-9A-F]{6}$/i.test(tempColorValue)) {
+    console.error("Attempted to accept invalid hex color:", tempColorValue);
+    // Optionally add a user toast message here
+    return; // Don't proceed with invalid color
+  }
+  const finalColor = tempColorValue.toUpperCase();
+
+  console.log("Accepting custom color:", finalColor);
+
+  // Dispatch the update event with the accepted custom color
+  dispatchFn('update', {
+    id: selectedRestaurantId || undefined, // Include the ID
+    name: restaurantName,
+    logo: menuLogo,
+    customPrompt: customPrompt,
+    phoneNumber: phoneNumber,
+    currency: currency,
+    color: finalColor,
+    // slug is handled by save logic based on ID
+    reservas: reservas,
+    redes_sociales: redes_sociales,
+  });
 }
 
 /**
- * Handle canceling custom color selection
+ * Handle canceling custom color selection (No dispatch needed)
  */
 export function onCancelCustomColor(
-  customColorValue: string,
-  restaurantName: string,
-  menuLogo: string | null,
-  customPrompt: string | null,
-  phoneNumber: string | null,
-  currency: string,
-  setColor: (val: string) => void,
-  setShowCustomColorPicker: (val: boolean) => void,
-  dispatchFn: (event: 'update', detail: any) => void
+  // No dispatch needed, parent handles UI reset
 ) {
-  cancelCustomColor(
-    customColorValue,
-    setShowCustomColorPicker,
-    setColor,
-    (val: string) => updateColor(
-      val,
-      restaurantName,
-      menuLogo,
-      customPrompt,
-      phoneNumber,
-      currency,
-      customColorValue,
-      setColor,
-      dispatchFn
-    )
-  );
+  console.log("Custom color cancelled. Parent should handle state reset.");
+  // Parent (`ThemeColorSection`) should handle reverting its visual state
+  // (e.g., closing the picker, resetting radio buttons if needed).
 } 

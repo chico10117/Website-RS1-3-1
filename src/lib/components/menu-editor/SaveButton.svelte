@@ -8,9 +8,9 @@
   import { generateSlug } from '$lib/utils/slug';
   import { io } from 'socket.io-client';
   import {onMount} from "svelte";
-  console.log("SERVER IO",process.env.SMART_SERVER_HOST )
+  //console.log("SERVER IO",process.env.SMART_SERVER_HOST )
   // Initialize the socket connection with user id as namespace
-  const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
+  //const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
 
   // Function to clean phone number - ensure it's a valid number without spaces
   function cleanPhoneNumber(phone: number | null | undefined): number | null {
@@ -38,24 +38,24 @@
     return translations[key][currentLanguage];
   };
 
-  onMount(()=> {
+  // onMount(()=> {
 
-    socket.on('connect', () => {
-      console.log('Connected to server', $menuStore);
-    })
-    socket.emit('check', 'Hello from the client');
+  //   socket.on('connect', () => {
+  //     console.log('Connected to server', $menuStore);
+  //   })
+  //   socket.emit('check', 'Hello from the client');
 
-    socket.on('images-generating', () => {
-      console.log('Procesando imagenes');
-    });
-    socket.on('image-generated', () => {
-      console.log('Imagen Generada');
-    });
-    socket.on('queue-finished', () => {
-      console.log('Queue finished');
-      toasts.success(t('completedProcessingImages') || 'Images created');
-    });
-  })
+  //   socket.on('images-generating', () => {
+  //     console.log('Procesando imagenes');
+  //   });
+  //   socket.on('image-generated', () => {
+  //     console.log('Imagen Generada');
+  //   });
+  //   socket.on('queue-finished', () => {
+  //     console.log('Queue finished');
+  //     toasts.success(t('completedProcessingImages') || 'Images created');
+  //   });
+  // })
 
 
 
@@ -216,10 +216,13 @@
       const result = await menuStore.saveChanges();
       
       // Debug the result
-      console.log('Save result:', {
+      console.log('*******Save result:', {
+        //logo: result.restaurant.logo,
+        customPrompt: result.restaurant.customPrompt,
+        color: result.restaurant.color,
+        currency: result.restaurant.currency,
         reservas: result.restaurant.reservas,
         redes_sociales: result.restaurant.redes_sociales,
-        resultValues: JSON.stringify(result.restaurant),
       });
       
       const restId = $menuStore.selectedRestaurant;
