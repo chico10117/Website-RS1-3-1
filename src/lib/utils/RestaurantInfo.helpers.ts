@@ -122,13 +122,14 @@ export async function handleFileUpload(
       // Preserve the current color from the database
       const existingColor = cRest.color || color;
       
-      // Make sure to preserve the existing customPrompt
-      const existingCustomPrompt = cRest.customPrompt;
+      // Use the customPrompt PASSED IN from the component,
+      // not the one currently in the store (cRest.customPrompt)
+      const updatedCustomPrompt = customPrompt; // Use the parameter
       
       menuStore.updateRestaurantInfo(
         cRest.name,
         logoUrl,
-        existingCustomPrompt, // Use existing value
+        updatedCustomPrompt, // Use the parameter value
         cRest.slug,
         cRest.phoneNumber,
         String(existingColor)
@@ -138,7 +139,7 @@ export async function handleFileUpload(
         id: cRest.id,
         name: cRest.name,
         logo: logoUrl,
-        customPrompt: existingCustomPrompt, // Use existing value
+        customPrompt: updatedCustomPrompt, // Use the parameter value
         phoneNumber: cRest.phoneNumber,
         currency,
         color: existingColor,
@@ -424,19 +425,20 @@ export function handleCustomPromptInput(
       });
     } else {
       // For new local restaurant
+      const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null; // Convert here
       menuStore.updateRestaurantInfo(
         restaurantName,
         menuLogo,
         newValue,
         get(currentRestaurant)?.slug || null,
-        phoneNumber,
+        numericPhoneNumber, // Use converted value
         String(color)
       );
       dispatchFn('update', {
         name: restaurantName,
         logo: menuLogo,
         customPrompt: newValue,
-        phoneNumber,
+        phoneNumber: numericPhoneNumber, // Use converted value
         currency,
         color,
         reservas: reservas,
