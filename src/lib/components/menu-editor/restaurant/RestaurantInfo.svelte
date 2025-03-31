@@ -206,18 +206,18 @@
       <PhoneInput
         bind:phoneNumber
         on:change={(event) => {
-          const newPhoneNumber = event.detail.phoneNumber;
-          handlePhoneNumberChange(
-            newPhoneNumber,
-            restaurantName,
-            menuLogo,
+          phoneNumber = event.detail.phoneNumber;
+          dispatch('update', {
+            id: selectedRestaurant || undefined,
+            name: restaurantName,
+            logo: menuLogo,
             customPrompt,
-            color,
+            phoneNumber: event.detail.phoneNumber,
             currency,
+            color,
             reservas,
             redes_sociales,
-            dispatch
-          );
+          });
         }}
       />
     </div>

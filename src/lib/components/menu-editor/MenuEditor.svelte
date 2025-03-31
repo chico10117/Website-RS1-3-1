@@ -99,36 +99,62 @@
 
   // Event handlers
   async function handleRestaurantUpdate(event: CustomEvent<UpdateEvent>) {
-    const { 
-      id, 
-      name, 
-      logo, 
-      customPrompt, 
-      phoneNumber, 
-      currency,
-      color,
-      reservas,
-      redes_sociales
-    } = event.detail;
+    const updatePayload = event.detail;
+    console.log('MenuEditor: handleRestaurantUpdate received:', updatePayload);
 
-    console.log('MenuEditor: handleRestaurantUpdate received:', event.detail);
-    console.log('MenuEditor: Extracted currency from event.detail:', currency);
+    const currentStoreState = get(menuStore);
 
-    // Validate required fields
-    if (!name || typeof name !== 'string') {
-      console.error('Invalid or missing restaurant name');
-      toasts.error(t('error') + ': Missing restaurant name');
-      return;
-    }
+    // Determine if it's an update or creation based on ID in payload or selectedRestaurant
+    const restaurantId = updatePayload.id || currentStoreState.selectedRestaurant;
+    const isUpdate = !!restaurantId && !restaurantId.startsWith('temp_');
 
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      console.error('Restaurant name cannot be empty');
+    // Get the base data (current store state for updates, default for creation)
+    const baseData = isUpdate 
+      ? {
+          name: currentStoreState.restaurantName,
+          logo: currentStoreState.menuLogo,
+          customPrompt: currentStoreState.customPrompt,
+          phoneNumber: currentStoreState.phoneNumber,
+          currency: currentStoreState.currency,
+          color: currentStoreState.color,
+          reservas: currentStoreState.reservas,
+          redes_sociales: currentStoreState.redes_sociales,
+          slug: currentStoreState.restaurants.find(r => r.id === restaurantId)?.slug || null
+        }
+      : { // Defaults for creation
+          name: '',
+          logo: null,
+          customPrompt: null,
+          phoneNumber: null,
+          currency: '€',
+          color: '#85A3FA',
+          reservas: null,
+          redes_sociales: null,
+          slug: null
+        };
+
+    // Merge the incoming payload onto the base data
+    // Filter out 'id' from the payload before merging
+    const { id: payloadId, ...payloadWithoutId } = updatePayload;
+    const mergedData = { ...baseData, ...payloadWithoutId };
+
+    // Validate name
+    if (!mergedData.name || typeof mergedData.name !== 'string' || !mergedData.name.trim()) {
+      console.error('Invalid or missing restaurant name in merged data');
       toasts.error(t('error') + ': Restaurant name cannot be empty');
       return;
     }
 
-    // Get the current user ID
+    // Validate color (ensure hex string)
+    let validatedColorString = String(mergedData.color || ''); // Ensure it's a string
+    if (validatedColorString && !validatedColorString.startsWith('#')) {
+      console.warn('Invalid color format in merged data, defaulting to light theme.', validatedColorString);
+      validatedColorString = '#85A3FA';
+    }
+    // Use the validated string color going forward
+    mergedData.color = validatedColorString;
+
+    // Ensure user ID exists (although create/update service might handle this)
     const userId = $user?.id;
     if (!userId) {
       console.error('Authentication error: No user ID available');
@@ -136,54 +162,43 @@
       return;
     }
 
-    // Ensure color is a hex string
-    let colorValue = String(color);
-    if (!colorValue.startsWith('#')) {
-      colorValue = '#85A3FA'; // Default to light theme if not a valid hex format from event
-      console.warn('Invalid color format received in update event, defaulting to light theme.', color);
-    }
-    console.log('Using color value:', colorValue);
-
     try {
-      if (id) {
-        // Update existing restaurant
-        console.log('MenuEditor: Updating existing restaurant:', { id, name, currency, colorValue /* ... other fields */ });
+      if (isUpdate && restaurantId) {
+        // Update existing restaurant in the store
+        console.log('MenuEditor: Updating store for existing restaurant:', restaurantId, mergedData);
         menuStore.updateRestaurantInfo(
-          name,
-          logo,
-          customPrompt,
-          $currentRestaurant?.slug || null,
-          phoneNumber,
-          reservas,
-          redes_sociales,
-          colorValue,
-          currency
+          mergedData.name,
+          mergedData.logo,
+          mergedData.customPrompt,
+          mergedData.slug, // Pass slug from base/current data
+          mergedData.phoneNumber,
+          mergedData.reservas,
+          mergedData.redes_sociales,
+          mergedData.color, // Already validated as string
+          mergedData.currency
         );
       } else {
-        // Create new restaurant
-        console.log('MenuEditor: Creating new restaurant:', { name, currency, colorValue /* ... other fields */ });
+        // Create new restaurant in the store
+        console.log('MenuEditor: Calling createRestaurant in store:', mergedData);
         menuStore.createRestaurant(
-          name,
-          logo,
-          customPrompt,
-          phoneNumber,
-          reservas,
-          redes_sociales,
-          currency
+          mergedData.name,
+          mergedData.logo,
+          mergedData.customPrompt,
+          mergedData.phoneNumber,
+          mergedData.reservas,
+          mergedData.redes_sociales,
+          mergedData.currency
+          // Note: Color is handled internally by createRestaurant based on current store state
         );
-        // Get the newly created restaurant to update currentRestaurant store
-        // This logic might need refinement depending on how createRestaurant updates the state
-        const newRestaurant = $menuStore.restaurants.find(r => r.name === name && r.id.startsWith('temp_'));
+        // Post-creation sync with currentRestaurant might need review
+        const newState = get(menuStore);
+        const newRestaurant = newState.restaurants.find(r => r.id === newState.selectedRestaurant);
         if (newRestaurant) {
-          currentRestaurant.set({
-            ...newRestaurant,
-            color: colorValue,
-            currency: currency
-          });
+          currentRestaurant.set(newRestaurant); // Sync currentRestaurant store
         }
       }
     } catch (error) {
-       console.error("Error processing restaurant update:", error);
+       console.error("Error processing restaurant update in store:", error);
        toasts.error(t('error') + ': ' + (error instanceof Error ? error.message : 'Failed to update restaurant'));
     }
   }
@@ -290,11 +305,11 @@
               customPrompt={$menuStore.customPrompt}
               selectedRestaurant={$menuStore.selectedRestaurant}
               restaurants={$menuStore.restaurants}
-              currency={$currentRestaurant?.currency || '€'}
-              color={$currentRestaurant?.color || '#85A3FA'}
-              phoneNumber={$currentRestaurant?.phoneNumber || null}
-              reservas={$currentRestaurant?.reservas || null}
-              redes_sociales={$currentRestaurant?.redes_sociales || null}
+              currency={$menuStore.currency || '€'}
+              color={$menuStore.color || '#85A3FA'}
+              phoneNumber={$menuStore.phoneNumber || null}
+              reservas={$menuStore.reservas || null}
+              redes_sociales={$menuStore.redes_sociales || null}
               on:update={handleRestaurantUpdate}
             />
           
@@ -303,7 +318,7 @@
                 categories={$menuStore.categories}
                 selectedRestaurant={$menuStore.selectedRestaurant}
                 restaurantName={$menuStore.restaurantName}
-                currency={$currentRestaurant?.currency || '€'}
+                currency={$menuStore.currency || '€'}
                 on:update={handleCategoriesUpdate}
               />
             </div>
@@ -316,7 +331,7 @@
             restaurantName={$menuStore.restaurantName}
             menuLogo={$menuStore.menuLogo}
             categories={$menuStore.categories}
-            currency={$currentRestaurant?.currency || '€'}
+            currency={$menuStore.currency || '€'}
           />
         </div>
       </div>
