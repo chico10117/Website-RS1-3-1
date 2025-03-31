@@ -222,7 +222,7 @@
       />
     </div>
 
-    <!-- URL Inputs -->
+    <!-- URL Inputs. -->
     <UrlInputSection
       bind:restaurantName
       bind:selectedRestaurant
