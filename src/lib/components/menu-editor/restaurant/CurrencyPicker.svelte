@@ -17,7 +17,6 @@
     change: string;
   }>();
 
-  // Event handlers
   function onChange(newValue: string) {
     dispatch('change', newValue);
   }
@@ -33,10 +32,10 @@
         <input
           type="radio"
           name="currency"
+          class="form-radio text-blue-600"
           value={option.value}
           checked={value === option.value}
           on:change={() => onChange(option.value)}
-          class="form-radio text-blue-600"
         />
         <span class="text-sm text-gray-700">{option.label}</span>
       </label>
