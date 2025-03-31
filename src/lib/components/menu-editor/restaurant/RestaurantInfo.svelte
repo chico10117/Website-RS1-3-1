@@ -64,7 +64,7 @@
   // Called on currency <input> change
   function onCurrencyChange(e: CustomEvent<string>) {
     const value = e.detail;
-    currency = value;
+    console.log('RestaurantInfo: onCurrencyChange triggered. New value:', value);
     handleCurrencyChange(
       value,
       restaurantName,

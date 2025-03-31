@@ -98,31 +98,21 @@
   });
 
   // Event handlers
-  async function handleRestaurantUpdate(event: CustomEvent<{ 
-    id?: string; 
-    name: string; 
-    logo: string | null; 
-    customPrompt: string | null; 
-    phoneNumber: number | null;
-    currency: string; 
-    color: string | number;
-    reservas: string | null;
-    redes_sociales: string | null;
-  }>) {
+  async function handleRestaurantUpdate(event: CustomEvent<UpdateEvent>) {
     const { 
       id, 
       name, 
       logo, 
       customPrompt, 
       phoneNumber, 
-      currency, 
+      currency,
       color,
       reservas,
       redes_sociales
     } = event.detail;
-    
-    console.log('Extracted color from event:', color, 'type:', typeof color);
-    
+
+    console.log('MenuEditor: handleRestaurantUpdate received:', event.detail);
+
     // Validate required fields
     if (!name || typeof name !== 'string') {
       console.error('Invalid or missing restaurant name');
@@ -145,62 +135,55 @@
       return;
     }
 
-    // Ensure color is a string
-    const colorValue = String(color);
-    console.log('Converted color to string:', colorValue);
+    // Ensure color is a hex string
+    let colorValue = String(color);
+    if (!colorValue.startsWith('#')) {
+      colorValue = '#85A3FA'; // Default to light theme if not a valid hex format from event
+      console.warn('Invalid color format received in update event, defaulting to light theme.', color);
+    }
+    console.log('Using color value:', colorValue);
 
-    if (id) {
-      // Update existing restaurant
-      console.log('Updating restaurant with all values:', { name, logo, customPrompt, slug: $currentRestaurant?.slug, phoneNumber, colorValue, reservas, redes_sociales });
-      
-      // Convert phoneNumber to number if it's a string
-      const numericPhoneNumber = phoneNumber ? Number(phoneNumber) : null;
-      
-      // Use the parameters correctly - explicitly pass color as the last parameter
-      menuStore.updateRestaurantInfo(
-        name, 
-        logo, 
-        customPrompt, 
-        $currentRestaurant?.slug || null, 
-        numericPhoneNumber,
-        reservas,
-        redes_sociales,
-        colorValue  // Explicitly pass color here
-      );
-      
-      // Force an explicit update to the URL values to ensure they're set correctly
-      if (reservas !== undefined || redes_sociales !== undefined) {
-        console.log('Explicitly updating URL values:', { reservas, redes_sociales });
-        menuStore.updateReservasAndSocials(reservas, redes_sociales);
+    try {
+      if (id) {
+        // Update existing restaurant
+        console.log('MenuEditor: Updating existing restaurant:', { id, name, currency, colorValue /* ... other fields */ });
+        menuStore.updateRestaurantInfo(
+          name,
+          logo,
+          customPrompt,
+          $currentRestaurant?.slug || null,
+          phoneNumber,
+          reservas,
+          redes_sociales,
+          colorValue,
+          currency
+        );
+      } else {
+        // Create new restaurant
+        console.log('MenuEditor: Creating new restaurant:', { name, currency, colorValue /* ... other fields */ });
+        menuStore.createRestaurant(
+          name,
+          logo,
+          customPrompt,
+          phoneNumber,
+          reservas,
+          redes_sociales,
+          currency
+        );
+        // Get the newly created restaurant to update currentRestaurant store
+        // This logic might need refinement depending on how createRestaurant updates the state
+        const newRestaurant = $menuStore.restaurants.find(r => r.name === name && r.id.startsWith('temp_'));
+        if (newRestaurant) {
+          currentRestaurant.set({
+            ...newRestaurant,
+            color: colorValue,
+            currency: currency
+          });
+        }
       }
-    } else {
-      // Create new restaurant
-      console.log('Creating restaurant with all values:', { name, logo, customPrompt, phoneNumber, colorValue, reservas, redes_sociales });
-      
-      // Create the restaurant
-      menuStore.createRestaurant(
-        name, 
-        logo, 
-        customPrompt, 
-        phoneNumber, 
-        reservas,
-        redes_sociales
-      );
-      
-      // Force an explicit update to the URL values to ensure they're set correctly
-      if (reservas !== undefined || redes_sociales !== undefined) {
-        console.log('Explicitly updating URL values:', { reservas, redes_sociales });
-        menuStore.updateReservasAndSocials(reservas, redes_sociales);
-      }
-      
-      // Update the current restaurant store
-      const newRestaurant = $menuStore.restaurants.find(r => r.name === name);
-      if (newRestaurant) {
-        currentRestaurant.set({
-          ...newRestaurant,
-          color: colorValue
-        });
-      }
+    } catch (error) {
+       console.error("Error processing restaurant update:", error);
+       toasts.error(t('error') + ': ' + (error instanceof Error ? error.message : 'Failed to update restaurant'));
     }
   }
 

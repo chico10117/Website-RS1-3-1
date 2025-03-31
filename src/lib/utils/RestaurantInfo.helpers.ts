@@ -539,41 +539,31 @@ export function handleCurrencyChange(
   dispatchFn: DispatchFunction
 ) {
   try {
-    const cRest = get(currentRestaurant);
-    
-    // For existing restaurant
-    if (cRest) {
-      // Preserve the current color from the database
-      const existingColor = cRest.color || color;
-      
-      dispatchFn('update', {
-        id: cRest.id,
-        name: cRest.name,
-        logo: cRest.logo,
-        customPrompt: cRest.customPrompt,
-        phoneNumber: cRest.phoneNumber,
-        currency: value,
-        color: existingColor,
-        slug: cRest.slug,
-        reservas: cRest.reservas,
-        redes_sociales: cRest.redes_sociales
-      });
-    } else {
-      // For new local restaurant
-      dispatchFn('update', {
-        id: undefined,
-        name: restaurantName,
-        logo: menuLogo,
-        customPrompt,
-        phoneNumber: phoneNumber,
-        currency: value,
-        color,
-        reservas: reservas,
-        redes_sociales: redes_sociales
-      });
+    const currentUser = get(user);
+    if (!currentUser) {
+      throw new Error('User not authenticated');
     }
+
+    const cRest = get(currentRestaurant);
+
+    // Dispatch an update event with ALL relevant current data,
+    // including the NEW currency and the EXISTING color.
+    dispatchFn('update', {
+      id: cRest?.id || undefined, // Use current restaurant ID if available
+      name: restaurantName, // Use current name
+      logo: menuLogo, // Use current logo
+      customPrompt: customPrompt, // Use current prompt
+      phoneNumber: phoneNumber, // Use current phone number
+      currency: value, // Use the NEW currency value
+      color: String(color), // Use the CURRENT color value, ensure it's a string
+      reservas: reservas, // Use current reservas
+      redes_sociales: redes_sociales, // Use current redes sociales
+      slug: cRest?.slug // Include slug if available
+    });
+
   } catch (error) {
-    console.error('Error updating currency:', error);
+    console.error('Error handling currency change:', error);
+    // Optionally add a user-facing toast notification here
   }
 }
 
