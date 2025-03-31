@@ -401,7 +401,7 @@ export function handleCustomPromptInput(
     // For existing restaurant
     if (cRest) {
       // Preserve the current color from the database
-      const existingColor = cRest.color || color;
+      // const existingColor = cRest.color || color; // No longer needed, let updateRestaurantInfo handle it
       
       menuStore.updateRestaurantInfo(
         cRest.name,
@@ -409,7 +409,12 @@ export function handleCustomPromptInput(
         newValue,
         cRest.slug,
         cRest.phoneNumber,
-        String(existingColor)
+        // String(existingColor) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        undefined, // reservas
+        undefined, // redes_sociales
+        undefined, // color
+        cRest.currency // Pass existing currency
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -417,8 +422,8 @@ export function handleCustomPromptInput(
         logo: cRest.logo,
         customPrompt: newValue,
         phoneNumber: cRest.phoneNumber,
-        currency,
-        color: existingColor,
+        currency: cRest.currency, // Use current restaurant's currency
+        color: cRest.color, // Dispatch the actual current color from store
         slug: cRest.slug,
         reservas: cRest.reservas,
         redes_sociales: cRest.redes_sociales
@@ -429,18 +434,23 @@ export function handleCustomPromptInput(
         restaurantName,
         menuLogo,
         newValue,
-        get(currentRestaurant)?.slug || null,
+        null, // slug
         phoneNumber,
-        String(color)
+        // String(color) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        reservas, // Pass existing reservas if available
+        redes_sociales, // Pass existing redes_sociales if available
+        undefined, // color
+        currency // Pass existing currency
       );
       dispatchFn('update', {
         id: undefined,
         name: restaurantName,
         logo: menuLogo,
-        customPrompt: newValue,
+        customPrompt,
         phoneNumber: phoneNumber,
         currency,
-        color,
+        // color, // Remove explicit color from dispatch for new restaurant
         reservas: reservas,
         redes_sociales: redes_sociales
       });
@@ -480,7 +490,7 @@ export function handleLogoDelete(
     // For existing restaurant
     if (cRest) {
       // Preserve the current color from the database
-      const existingColor = cRest.color || color;
+      // const existingColor = cRest.color || color; // No longer needed, let updateRestaurantInfo handle it
 
       menuStore.updateRestaurantInfo(
         cRest.name,
@@ -488,7 +498,12 @@ export function handleLogoDelete(
         cRest.customPrompt,
         cRest.slug,
         cRest.phoneNumber,
-        String(existingColor)
+        // String(existingColor) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        undefined, // reservas
+        undefined, // redes_sociales
+        undefined, // color
+        cRest.currency // Pass existing currency
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -496,8 +511,8 @@ export function handleLogoDelete(
         logo: null,
         customPrompt: cRest.customPrompt,
         phoneNumber: cRest.phoneNumber,
-        currency,
-        color: existingColor,
+        currency: cRest.currency, // Use current restaurant's currency
+        color: cRest.color, // Dispatch the actual current color from store
         slug: cRest.slug,
         reservas: cRest.reservas,
         redes_sociales: cRest.redes_sociales
@@ -511,7 +526,7 @@ export function handleLogoDelete(
         customPrompt,
         phoneNumber: phoneNumber,
         currency,
-        color,
+        // color, // Remove explicit color from dispatch for new restaurant
         reservas: reservas,
         redes_sociales: redes_sociales
       });
@@ -587,7 +602,7 @@ export function handlePhoneNumberChange(
     // For existing restaurant
     if (cRest) {
       // Preserve the current color from the database
-      const existingColor = cRest.color || color;
+      // const existingColor = cRest.color || color; // No longer needed, let updateRestaurantInfo handle it
       
       menuStore.updateRestaurantInfo(
         cRest.name,
@@ -595,7 +610,12 @@ export function handlePhoneNumberChange(
         cRest.customPrompt,
         cRest.slug,
         newPhoneNumber,
-        String(existingColor)
+        // String(existingColor) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        undefined, // reservas
+        undefined, // redes_sociales
+        undefined, // color
+        cRest.currency // Pass existing currency
       );
       dispatchFn('update', {
         id: cRest.id,
@@ -603,8 +623,8 @@ export function handlePhoneNumberChange(
         logo: cRest.logo,
         customPrompt: cRest.customPrompt,
         phoneNumber: newPhoneNumber,
-        currency,
-        color: existingColor,
+        currency: cRest.currency, // Use current restaurant's currency
+        color: cRest.color, // Dispatch the actual current color from store
         slug: cRest.slug,
         reservas: cRest.reservas,
         redes_sociales: cRest.redes_sociales
@@ -615,18 +635,23 @@ export function handlePhoneNumberChange(
         restaurantName,
         menuLogo,
         customPrompt,
-        null,
+        null, // slug
         newPhoneNumber,
-        String(color)
+        // String(color) // Remove explicit color
+        // Pass undefined for optional args not being set here
+        reservas, // Pass existing reservas if available
+        redes_sociales, // Pass existing redes_sociales if available
+        undefined, // color
+        currency // Pass existing currency
       );
       dispatchFn('update', {
         id: undefined,
         name: restaurantName,
         logo: menuLogo,
-        customPrompt,
+        customPrompt: customPrompt, // Explicitly set customPrompt
         phoneNumber: newPhoneNumber,
         currency,
-        color,
+        // color, // Remove explicit color from dispatch for new restaurant
         reservas: reservas,
         redes_sociales: redes_sociales
       });

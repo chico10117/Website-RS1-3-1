@@ -47,7 +47,6 @@
       logo: menuLogo,
       customPrompt,
       phoneNumber,
-      color,
       currency,
       reservas,
       redes_sociales
@@ -79,7 +78,6 @@
       logo: menuLogo,
       customPrompt,
       phoneNumber,
-      color,
       currency,
       reservas,
       redes_sociales

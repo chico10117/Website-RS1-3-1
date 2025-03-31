@@ -206,8 +206,9 @@
       <PhoneInput
         bind:phoneNumber
         on:change={(event) => {
+          const newPhoneNumber = event.detail.phoneNumber;
           handlePhoneNumberChange(
-            phoneNumber,
+            newPhoneNumber,
             restaurantName,
             menuLogo,
             customPrompt,

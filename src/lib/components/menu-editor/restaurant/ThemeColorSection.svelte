@@ -22,6 +22,7 @@
   let showCustomColorPicker = false;
   let customColorValue = (color && typeof color === 'string' && color !== '#85A3FA') ? color.toUpperCase() : '';
   let displayColor = (color && typeof color === 'string' && color === '#85A3FA') ? 'light' : 'custom';
+  let userClickedCustom = false;
 
   const dispatch = createEventDispatcher<{
     update: any;
@@ -40,16 +41,20 @@
       if (color === '#85A3FA') {
         displayColor = 'light';
         customColorValue = '';
-      } else if (!['light', 'custom'].includes(color)) {
+        if (!userClickedCustom) {
+          showCustomColorPicker = false;
+        }
+      } else if (color.startsWith('#')) {
         customColorValue = color.toUpperCase();
         displayColor = 'custom';
+        showCustomColorPicker = false;
       }
     } else {
       displayColor = 'light';
       customColorValue = '';
       showCustomColorPicker = false;
     }
-    console.log("ThemeColorSection: Prop 'color' changed", { color, displayColor, customColorValue, showCustomColorPicker });
+    console.log("ThemeColorSection: Prop 'color' changed or internal state updated", { color, displayColor, customColorValue, showCustomColorPicker, userClickedCustom });
   }
 
   function onColorChange(value: string) {
@@ -58,9 +63,11 @@
 
     if (value === 'custom') {
       showCustomColorPicker = true;
+      userClickedCustom = true;
     } else if (value === 'light') {
       showCustomColorPicker = false;
       customColorValue = '';
+      userClickedCustom = false;
       updateColorToLight(
         restaurantName,
         menuLogo,
@@ -81,6 +88,7 @@
     customColorValue = acceptedHexColor;
     displayColor = 'custom';
     showCustomColorPicker = false;
+    userClickedCustom = false;
 
     onAcceptCustomColor(
       acceptedHexColor,
@@ -99,6 +107,7 @@
   function handleCancelCustomColor() {
     console.log('ThemeColorSection: Custom color cancelled.');
     showCustomColorPicker = false;
+    userClickedCustom = false;
 
     if (color === '#85A3FA') {
       displayColor = 'light';

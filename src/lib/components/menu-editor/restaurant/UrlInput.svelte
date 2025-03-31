@@ -19,9 +19,16 @@
 
   // Also log when value changes
   $: {
-    console.log(`UrlInput ${id} value changed to:`, value);
-    if (value !== inputValue && value !== null) {
-      inputValue = value || '';
+    console.log(`UrlInput ${id} value prop changed to:`, value);
+    // Handle prop changes, including becoming null
+    if (value === null || value === undefined) {
+      if (inputValue !== '') { // Only update if it's actually different
+        inputValue = '';
+        console.log(`UrlInput ${id} cleared inputValue because prop is null/undefined`);
+      }
+    } else if (value !== inputValue) {
+      inputValue = value;
+      console.log(`UrlInput ${id} updated inputValue from prop`);
     }
   }
 
