@@ -719,16 +719,10 @@ function createMenuStore() {
           logo: state.menuLogo,
           customPrompt: state.customPrompt,
           phoneNumber: state.phoneNumber,
-          currency: currentRestaurantObj?.currency || '€',
+          currency: state.currency || '€',
           color: colorValue,
           reservas,
-          redes_sociales,
-          currentUrls: {
-            stateReservas: state.reservas,
-            stateRedesSociales: state.redes_sociales,
-            currentRestaurantReservas: currentRestaurantObj?.reservas,
-            currentRestaurantRedesSociales: currentRestaurantObj?.redes_sociales
-          }
+          redes_sociales
         });
         
         const result = await menuService.saveMenuChanges(
@@ -737,7 +731,7 @@ function createMenuStore() {
             logo: state.menuLogo,
             customPrompt: state.customPrompt,
             phoneNumber: state.phoneNumber,
-            currency: currentRestaurantObj?.currency || '€',
+            currency: state.currency || '€',
             color: colorValue,
             reservas,
             redes_sociales,

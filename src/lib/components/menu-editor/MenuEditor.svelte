@@ -112,6 +112,7 @@
     } = event.detail;
 
     console.log('MenuEditor: handleRestaurantUpdate received:', event.detail);
+    console.log('MenuEditor: Extracted currency from event.detail:', currency);
 
     // Validate required fields
     if (!name || typeof name !== 'string') {
