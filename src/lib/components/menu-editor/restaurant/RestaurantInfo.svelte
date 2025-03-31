@@ -196,9 +196,22 @@
 
     <!-- Currency Selection -->
     <CurrencyPicker 
-      value={currency} 
+      value={currency}
       {t} 
-      on:change={onCurrencyChange} 
+      on:change={(event) => {
+        const newCurrency = event.detail;
+        dispatch('update', {
+          id: selectedRestaurant || undefined,
+          name: restaurantName,
+          logo: menuLogo,
+          customPrompt,
+          phoneNumber,
+          currency: newCurrency,
+          color,
+          reservas,
+          redes_sociales,
+        });
+      }}
     />
 
     <!-- Phone Number -->

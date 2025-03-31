@@ -305,10 +305,6 @@ function createMenuStore() {
       
       try {
         const currentState = get({ subscribe });
-        console.log('Current state before selecting restaurant:', {
-          selectedRestaurant: currentState.selectedRestaurant,
-          restaurantName: currentState.restaurantName
-        });
         
         if (currentState.selectedRestaurant === restaurantId) {
           console.log('Already on this restaurant, no need to reload');
@@ -322,7 +318,6 @@ function createMenuStore() {
         const { restaurant, categories, changedItems } = await loadAndMergeData(restaurantId);
         
         let colorValue = restaurant.color || '#85A3FA';
-        
         if (colorValue === '1' || colorValue === 'light') {
           colorValue = '#85A3FA';
         }
@@ -335,20 +330,14 @@ function createMenuStore() {
             menuLogo: restaurant.logo,
             customPrompt: restaurant.customPrompt,
             phoneNumber: restaurant.phoneNumber,
-            color: colorValue, // Use properly converted color
-            reservas: restaurant.reservas || null, // Add reservas from restaurant data
-            redes_sociales: restaurant.redes_sociales || null, // Add redes_sociales from restaurant data
+            color: colorValue,
+            currency: restaurant.currency || '€',
+            reservas: restaurant.reservas || null,
+            redes_sociales: restaurant.redes_sociales || null,
             categories: categories,
             isLoading: false,
             changedItems: changedItems
           };
-        });
-        
-        const updatedState = get({ subscribe });
-        console.log('State after selecting restaurant:', {
-          selectedRestaurant: updatedState.selectedRestaurant,
-          restaurantName: updatedState.restaurantName,
-          categoriesCount: updatedState.categories.length
         });
         
         return restaurant;
