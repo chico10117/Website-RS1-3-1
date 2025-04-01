@@ -120,7 +120,9 @@
   }
   
   function onAcceptCustomColor() {
-    dispatch('accept', tempColorValue);
+    if (tempColorValue) {
+      dispatch('accept', tempColorValue);
+    }
   }
   
   function onCancelCustomColor() {
