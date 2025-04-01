@@ -141,7 +141,10 @@
     // Validate name
     if (!mergedData.name || typeof mergedData.name !== 'string' || !mergedData.name.trim()) {
       console.error('Invalid or missing restaurant name in merged data');
-      toasts.error(t('error') + ': Restaurant name cannot be empty');
+      // Only show error if we're saving or if the name field was directly modified
+      if ((updatePayload.id || currentStoreState.selectedRestaurant) && 'name' in updatePayload) {
+        toasts.error(t('error') + ': Restaurant name cannot be empty');
+      }
       return;
     }
 
