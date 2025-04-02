@@ -8,6 +8,7 @@
   import { generateSlug } from '$lib/utils/slug';
   import { io } from 'socket.io-client';
   import {onMount} from "svelte";
+  import { triggerIframeRefresh } from '$lib/stores/iframe-refresh';
   //console.log("SERVER IO",process.env.SMART_SERVER_HOST )
   // Initialize the socket connection with user id as namespace
   const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
@@ -233,6 +234,9 @@
 
       // Show success message
       toasts.success(t('changesSaved') || 'Changes saved');
+      
+      // Trigger iframe refresh
+      triggerIframeRefresh();
       
     } catch (error) {
       console.error('Error saving changes:', error);

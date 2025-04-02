@@ -18,6 +18,7 @@
   import { goto } from '$app/navigation';
   import SaveButton from './SaveButton.svelte';
   import { type UpdateEvent } from '$lib/utils/RestaurantInfo.helpers';
+  import { iframeRefreshTrigger } from '$lib/stores/iframe-refresh';
 
   const isRestaurantSelectorMinimized = writable(false);
 
@@ -336,13 +337,13 @@
               <div class="relative w-full h-full">
                 {#if $currentRestaurant?.slug}
                   <iframe
-                    src={`https://${$currentRestaurant.slug}.reco.restaurant`}
+                    src={`https://${$currentRestaurant.slug}.reco.restaurant?v=${$iframeRefreshTrigger}`}
                     title="Menu Preview"
-                    class="w-full h-full rounded-[38px]"
+                    class="w-full h-full rounded-[40px]"
                     loading="lazy"
                   ></iframe>
                 {:else}
-                  <div class="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-[38px]">
+                  <div class="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-[40px]">
                     <p class="text-gray-500">{t('noRestaurantSelected')}</p>
                   </div>
                 {/if}
