@@ -398,4 +398,12 @@ export const translations: Translation = {
     en: 'https://instagram.com/yourrestaurant',
     es: 'https://instagram.com/turestaurante',
   },
+  qrCodeFor: {
+    en: 'QR code for {url}',
+    es: 'Código QR para {url}'
+  },
+  qrCodeError: {
+    en: 'Error generating QR code',
+    es: 'Error al generar el código QR'
+  }
 }; 
