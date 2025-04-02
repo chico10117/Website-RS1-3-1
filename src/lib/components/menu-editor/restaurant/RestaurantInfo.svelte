@@ -46,6 +46,20 @@
    ***************************/
   let isCreatingRestaurant = false;
 
+  // Reset state when adding a new restaurant
+  $: if (selectedRestaurant === null) {
+    console.log('Resetting RestaurantInfo state - new restaurant');
+    restaurantName = '';
+    menuLogo = null;
+    customPrompt = null;
+    phoneNumber = null;
+    color = '#85A3FA';
+    currency = '€';
+    reservas = null;
+    redes_sociales = null;
+    isCreatingRestaurant = false;
+  }
+
   // Svelte event dispatcher
   const dispatch = createEventDispatcher<{
     update: UpdateEvent;
@@ -58,7 +72,22 @@
 
   // Called on <select> for restaurant
   function onRestaurantSelect(event: Event) {
-    handleRestaurantSelect(event, (evt, val) => dispatch(evt, val));
+    handleRestaurantSelect(event, (evt, val) => {
+      // Reset state before dispatching select event
+      if (val === 'new') {
+        console.log('Resetting state for new restaurant');
+        restaurantName = '';
+        menuLogo = null;
+        customPrompt = null;
+        phoneNumber = null;
+        color = '#85A3FA';
+        currency = '€';
+        reservas = null;
+        redes_sociales = null;
+        isCreatingRestaurant = false;
+      }
+      dispatch(evt, val);
+    });
   }
 
   // Called on currency <input> change
@@ -115,26 +144,24 @@
 </script>
 
 <div class="space-y-4">
-  {#if !selectedRestaurant}
-    <!-- Menu Uploader -->
-    <div class="space-y-2 mb-12">
-      <label class="block text-lg font-semibold mb-3 text-gray-800">
-        {t('uploadMenu')}
-      </label>
-      <MenuUploader
-        {restaurantName}
-        {customPrompt}
-        restaurantId={selectedRestaurant || get(currentRestaurant)?.id || null}
-        on:success={async (event) => {
-          const currentState = { restaurantName, menuLogo, customPrompt, phoneNumber, currency, color, reservas, redes_sociales };
-          await handleMenuUploadSuccess(event, dispatch, currentState, t);
-        }}
-        on:error={(event) => {
-          handleMenuUploadError(event, t);
-        }}
-      />
-    </div>
-  {/if}
+  <!-- Menu Uploader -->
+  <div class="space-y-2 mb-12">
+    <label class="block text-lg font-semibold mb-3 text-gray-800">
+      {t('uploadMenu')}
+    </label>
+    <MenuUploader
+      {restaurantName}
+      {customPrompt}
+      restaurantId={selectedRestaurant || get(currentRestaurant)?.id || null}
+      on:success={async (event) => {
+        const currentState = { restaurantName, menuLogo, customPrompt, phoneNumber, currency, color, reservas, redes_sociales };
+        await handleMenuUploadSuccess(event, dispatch, currentState, t);
+      }}
+      on:error={(event) => {
+        handleMenuUploadError(event, t);
+      }}
+    />
+  </div>
 
   <!-- Restaurant Name Input -->
   <RestaurantNameInput
@@ -191,6 +218,7 @@
       bind:currency
       bind:reservas
       bind:redes_sociales
+      {t}
       on:update={(event) => dispatch('update', event.detail)}
     />
 
