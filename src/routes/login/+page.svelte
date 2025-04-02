@@ -218,7 +218,7 @@
           <iframe
             src={loadIframe ? "https://santocdmx.reco.restaurant" : ""}
             title="Demo Preview"
-            class="w-full h-full rounded-[38px]"
+            class="w-full h-full rounded-[40px]"
             on:load={handleIframeLoad}
             loading="lazy"
           ></iframe>
@@ -251,20 +251,6 @@
     border-radius: 40px;
     padding: 4px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  }
-
-  .iphone-frame::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40%;
-    height: 25px;
-    background: #1a1a1a;
-    border-bottom-left-radius: 20px;
-    border-bottom-right-radius: 20px;
-    z-index: 2;
   }
 
   /* Google button styling */

@@ -161,12 +161,12 @@
             {t('generatingPreview')}
           </div>
         {:else if $currentRestaurant?.slug}
-          <div class="flex items-center justify-between w-full mt-2">
+          <div class="flex flex-col items-start w-full mt-2">
             <a
               href={`https://${$currentRestaurant.slug}.reco.restaurant`}
               target="_blank"
               rel="noopener noreferrer"
-              class="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+              class="flex items-center gap-1 px-3 py-1 text-lg text-blue-600 hover:text-blue-700 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -188,7 +188,9 @@
               </svg>
               {$currentRestaurant.slug}.reco.restaurant
             </a>
-            <QRCode url={`https://${$currentRestaurant.slug}.reco.restaurant`} />
+            <div class="mt-2">
+              <QRCode url={`https://${$currentRestaurant.slug}.reco.restaurant`} />
+            </div>
           </div>
         {/if}
       {/if}

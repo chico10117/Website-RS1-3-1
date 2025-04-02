@@ -315,8 +315,8 @@ export const translations: Translation = {
     en: "Select a restaurant to manage its menu"
   },
   addRestaurant: {
-    es: "Agregar Restaurante",
-    en: "Add Restaurant"
+    es: "Agregar Carta",
+    en: "Add Menu"
   },
   noRestaurantsFound: {
     es: "No se encontraron restaurantes",
