@@ -161,12 +161,12 @@
             {t('generatingPreview')}
           </div>
         {:else if $currentRestaurant?.slug}
-          <div class="flex items-center gap-4">
+          <div class="flex items-center justify-between w-full mt-2">
             <a
               href={`https://${$currentRestaurant.slug}.reco.restaurant`}
               target="_blank"
               rel="noopener noreferrer"
-              class="flex items-center gap-1 px-3 py-1 mt-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+              class="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:text-blue-700 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
