@@ -48,6 +48,27 @@
     }
   }
 
+  function onColorAccept(event: CustomEvent<string>) {
+    const newColor = event.detail;
+    if (newColor) {
+      displayColor = 'custom';
+      customColorValue = newColor;
+      showCustomColorPicker = false;
+      
+      dispatch('update', {
+        id: selectedRestaurant || undefined,
+        name: restaurantName,
+        logo: menuLogo,
+        customPrompt,
+        phoneNumber,
+        color: newColor,
+        currency,
+        reservas,
+        redes_sociales,
+      });
+    }
+  }
+
   function onRadioChange(value: string) {
     if (value === 'light') {
       showCustomColorPicker = false;
@@ -65,37 +86,7 @@
       });
     } else if (value === 'custom') {
       showCustomColorPicker = true;
-      // If we have a previous custom color, use it
-      if (customColorValue && customColorValue !== '#85A3FA') {
-        dispatch('update', {
-          id: selectedRestaurant || undefined,
-          name: restaurantName,
-          logo: menuLogo,
-          customPrompt,
-          phoneNumber,
-          color: customColorValue,
-          currency,
-          reservas,
-          redes_sociales,
-        });
-      }
     }
-  }
-
-  function onColorAccept(event: CustomEvent<string>) {
-    const newColor = event.detail;
-    customColorValue = newColor;
-    dispatch('update', {
-      id: selectedRestaurant || undefined,
-      name: restaurantName,
-      logo: menuLogo,
-      customPrompt,
-      phoneNumber,
-      color: newColor,
-      currency,
-      reservas,
-      redes_sociales,
-    });
   }
 
   function onColorCancel() {
@@ -147,9 +138,19 @@
             value={option.value}
             checked={displayColor === option.value}
             on:change={() => onRadioChange(option.value)}
+            on:click={() => {
+              if (option.value === 'custom') {
+                showCustomColorPicker = true;
+              }
+            }}
             class="form-radio text-blue-600"
           />
-          <span class="text-sm text-gray-700">
+          <span class="text-sm text-gray-700" on:click={() => {
+            if (option.value === 'custom') {
+              showCustomColorPicker = true;
+            }
+            onRadioChange(option.value);
+          }}>
             {option.label}
           </span>
         </label>

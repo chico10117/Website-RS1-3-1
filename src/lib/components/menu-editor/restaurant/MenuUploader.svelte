@@ -27,10 +27,23 @@
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
+  // Reset component state when restaurantId changes to null (new restaurant)
+  $: if (restaurantId === null) {
+    console.log('Resetting MenuUploader state - new restaurant');
+    images = [];
+    loading = false;
+    progress = 0;
+    currentStep = '';
+    isDragging = false;
+  }
+
   // Validate restaurant name
   $: if (restaurantName === undefined || restaurantName === null) {
     console.error('Restaurant name is undefined or null');
   }
+
+  // Check if we have a valid restaurant name (either from manual input or from upload)
+  $: hasValidRestaurantName = restaurantName && restaurantName.trim() !== '';
 
   async function handleFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -38,6 +51,7 @@
     if (!files?.length) return;
 
     await processFiles(files);
+    // No reseteamos el input aquí para permitir subir el mismo archivo nuevamente si es necesario
   }
 
   async function handleDrop(event: DragEvent) {
@@ -127,73 +141,80 @@
   }
 
   async function generateRestaurantData() {
-  try {
+    try {
+      currentStep = t('generatingRestaurantData');
+      progress = 75;
 
-    currentStep = t('generatingRestaurantData');
-    progress = 75;
+      const payload = {
+        prompt: customPrompt,
+        images: images.map(img => ({
+          page: img.page,
+          base64: img.dataURL.split(',')[1]
+        }))
+      };
 
-    const payload = {
-      prompt: customPrompt,
-      images: images.map(img => ({
-        page: img.page,
-        base64: img.dataURL.split(',')[1]
-      }))
-    };
+      const response = await fetch('/api/process-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
 
-    const response = await fetch('/api/process-images', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      credentials: 'include'
-    });
+      if (!response.body) {
+        throw new Error('No response body');
+      }
 
-    if (!response.body) {
-      throw new Error('No response body');
-    }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = '';
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let fullResponse = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        fullResponse += chunk;
 
-      const chunk = decoder.decode(value, { stream: true });
-      fullResponse += chunk;
+        if (chunk.includes('[DONE]')) {
+          console.log("Stream finalizado. Procesando la respuesta...");
 
-      if (chunk.includes('[DONE]')) {
-        console.log("Stream finalizado. Procesando la respuesta...");
+          // Extract the JSON data after the [DONE] marker
+          const jsonData = fullResponse.split('[DONE]')[1].trim();
 
-        // Extract the JSON data after the [DONE] marker
-        const jsonData = fullResponse.split('[DONE]')[1].trim();
+          try {
+            const parsedData = JSON.parse(jsonData);
+            console.log('Parsed data:', parsedData);
+            
+            // Ensure we preserve the manual restaurant name if it exists
+            if (restaurantName && restaurantName.trim() !== '') {
+              if (!parsedData.restaurant) {
+                parsedData.restaurant = {};
+              }
+              parsedData.restaurant.name = restaurantName;
+            }
+            
+            saveRestaurantData(parsedData);
+          } catch (error) {
+            console.error("Error al procesar la respuesta del stream:", error);
+            toasts.error(t('error') + ': Error procesando la respuesta del chatbot');
+          }
 
-        try {
-          const parsedData = JSON.parse(jsonData);
-          console.log('Parsed data:', parsedData);
-          saveRestaurantData(parsedData);
-        } catch (error) {
-          console.error("Error al procesar la respuesta del stream:", error);
-          toasts.error(t('error') + ': Error procesando la respuesta del chatbot');
+          progress = 100;
+          currentStep = t('completed');
+          break;
         }
-
-        progress = 100;
-        currentStep = t('completed');
-        break;
+      }
+    } catch (error) {
+      console.error('Error en la carga del menú:', error);
+      loading = false;
+      progress = 0;
+      currentStep = '';
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+        dispatch('error', error.message);
       }
     }
-  } catch (error) {
-    console.error('Error en la carga del menú:', error);
-    loading = false;
-    progress = 0;
-    currentStep = '';
-    if (error instanceof Error) {
-      toasts.error(t('error') + ': ' + error.message);
-      dispatch('error', error.message);
-    }
   }
-}
-
 
   // ✅ Función para guardar la respuesta final y actualizar el estado del menú
   async function saveRestaurantData(result: any) {
@@ -218,6 +239,10 @@
       } else if (!result.restaurant.name) {
         console.log('Restaurant object found but no name, setting name');
         result.restaurant.name = restaurantName || placeholderName;
+      } else if (!restaurantName) {
+        // If we have a name from the upload but no manual name, use the uploaded name
+        console.log('Using uploaded restaurant name');
+        result.restaurant.name = result.restaurant.name;
       }
 
       // Ensure userEmail is present

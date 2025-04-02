@@ -264,6 +264,12 @@ export function handleRestaurantSelect(event: Event, dispatchFn: (event: 'select
       console.log('Restaurant changed, clearing previous custom color state');
       localStorage.removeItem(`customColor_${previousRestaurantId}`);
     }
+
+    // If selecting "Add Restaurant", reset the menu store state
+    if (newRestaurantId === 'new') {
+      console.log('Creating new restaurant, resetting menu store state');
+      menuStore.reset();
+    }
   }
   
   try {
@@ -505,27 +511,41 @@ export async function handleMenuUploadSuccess(
     const cRest = get(currentRestaurant);
     console.log('Current restaurant from store:', cRest);
     
+    // Get the data potentially returned from the processing API
+    const { restaurantData } = event.detail;
+    const uploadedRestaurantInfo = restaurantData?.restaurant || {};
+    const uploadedCategories = restaurantData?.categories || [];
+    const uploadedDishes = uploadedCategories.flatMap((cat: any) => cat.dishes || []);
+
+    // Preserve the current UI color if not provided by upload
+    const existingColor = uploadedRestaurantInfo.color || currentState.color || cRest?.color || '#85A3FA';
+
+    // Handle restaurant name priority:
+    // 1. Manual input (if exists)
+    // 2. Uploaded name (if exists)
+    // 3. Current store name (if exists)
+    // 4. Placeholder name
+    const finalName = currentState.restaurantName || 
+                     uploadedRestaurantInfo.name || 
+                     cRest?.name || 
+                     t('unknownRestaurant');
+
+    console.log('Restaurant name resolution:', {
+      manualName: currentState.restaurantName,
+      uploadedName: uploadedRestaurantInfo.name,
+      storeName: cRest?.name,
+      finalName
+    });
+
+    const finalLogo = uploadedRestaurantInfo.logo || currentState.menuLogo || cRest?.logo;
+    const finalPrompt = uploadedRestaurantInfo.customPrompt || currentState.customPrompt || cRest?.customPrompt;
+    const finalPhone = cleanPhoneNumber(uploadedRestaurantInfo.phoneNumber !== undefined ? uploadedRestaurantInfo.phoneNumber : currentState.phoneNumber !== undefined ? currentState.phoneNumber : cRest?.phoneNumber);
+    const finalCurrency = uploadedRestaurantInfo.currency || currentState.currency || cRest?.currency || '€';
+    const finalReservas = uploadedRestaurantInfo.reservas || currentState.reservas || cRest?.reservas;
+    const finalRedes = uploadedRestaurantInfo.redes_sociales || currentState.redes_sociales || cRest?.redes_sociales;
+
     if (cRest) {
-      // Get the data potentially returned from the processing API
-      const { restaurantData } = event.detail;
-      const uploadedRestaurantInfo = restaurantData?.restaurant || {};
-      const uploadedCategories = restaurantData?.categories || [];
-      const uploadedDishes = uploadedCategories.flatMap((cat: any) => cat.dishes || []);
-
-      // Preserve the current UI color if not provided by upload
-      const existingColor = uploadedRestaurantInfo.color || currentState.color || cRest.color || '#85A3FA';
-
-      // Merge: Prioritize uploaded data, then current component state, then store state
-      const finalName = uploadedRestaurantInfo.name || currentState.restaurantName || cRest.name || t('unknownRestaurant');
-      const finalLogo = uploadedRestaurantInfo.logo || currentState.menuLogo || cRest.logo;
-      const finalPrompt = uploadedRestaurantInfo.customPrompt || currentState.customPrompt || cRest.customPrompt;
-      const finalPhone = cleanPhoneNumber(uploadedRestaurantInfo.phoneNumber !== undefined ? uploadedRestaurantInfo.phoneNumber : currentState.phoneNumber !== undefined ? currentState.phoneNumber : cRest.phoneNumber);
-      const finalCurrency = uploadedRestaurantInfo.currency || currentState.currency || cRest.currency || '€';
-      const finalReservas = uploadedRestaurantInfo.reservas || currentState.reservas || cRest.reservas;
-      const finalRedes = uploadedRestaurantInfo.redes_sociales || currentState.redes_sociales || cRest.redes_sociales;
-
-      // Update the store with the merged/updated data - FOCUS ON INFO UPDATE
-      // We assume the backend/upload API handles category/dish creation/update if needed
+      // Update existing restaurant
       menuStore.updateRestaurantInfo(
         finalName,
         finalLogo,
@@ -538,14 +558,20 @@ export async function handleMenuUploadSuccess(
       // If categories/dishes were processed and returned, update the store for them too
       if (uploadedCategories.length > 0) {
         console.log('Uploaded categories data available, update menuStore if specific methods exist:', uploadedCategories);
-      }
-
-      // Need similar handling for dishes if menuStore supports it
-      if (uploadedDishes.length > 0) {
-        // This might need a more granular update depending on menuStore capabilities
-        // e.g., menuStore.setDishes(uploadedDishes);
-        // For now, just logging
-        console.log('Uploaded dishes data available, consider updating menuStore if method exists:', uploadedDishes);
+        // Add categories to the store
+        for (const category of uploadedCategories) {
+          const categoryId = menuStore.addCategory(category.name);
+          if (category.dishes && Array.isArray(category.dishes)) {
+            for (const dish of category.dishes) {
+              menuStore.addDish(categoryId, {
+                title: dish.title || 'Untitled Dish',
+                description: dish.description || '',
+                price: dish.price?.toString() || '0',
+                imageUrl: dish.imageUrl || null
+              });
+            }
+          }
+        }
       }
 
       // Dispatch the merged UI state
@@ -563,10 +589,8 @@ export async function handleMenuUploadSuccess(
       };
       console.log('Dispatching update for existing restaurant after upload:', updateData);
       dispatchFn('update', updateData);
-
     } else {
       // For a NEW restaurant being created FROM an upload
-      const { restaurantData } = event.detail;
       console.log('Processing new restaurant data from upload:', restaurantData);
 
       if (!restaurantData || !restaurantData.restaurant) {
@@ -578,14 +602,10 @@ export async function handleMenuUploadSuccess(
       const { restaurant, categories } = restaurantData;
       console.log('Extracted categories:', categories);
 
-      // Use placeholder if no restaurant name provided in upload or component state
-      const finalName = restaurant.name || currentState.restaurantName || t('unknownRestaurant');
-      console.log('Using name for new restaurant:', finalName);
-
       // Generate a slug for the new restaurant
       const slug = await generateSlug(finalName);
 
-      // Extract details, prioritizing uploaded data then component state
+      // Extract details, prioritizing manual input then uploaded data
       const finalLogo = restaurant.logo || currentState.menuLogo;
       const finalPrompt = restaurant.customPrompt || currentState.customPrompt;
       const finalPhone = cleanPhoneNumber(restaurant.phoneNumber !== undefined ? restaurant.phoneNumber : currentState.phoneNumber);
@@ -612,8 +632,7 @@ export async function handleMenuUploadSuccess(
         throw new Error('Failed to create restaurant');
       }
 
-      // Update with the proper slug and other details (redundant? createRestaurant should handle most)
-      // Let's ensure color and currency are set correctly if createRestaurant doesn't
+      // Update with the proper slug and other details
       menuStore.updateRestaurantInfo(
         finalName,
         finalLogo,
@@ -667,7 +686,6 @@ export async function handleMenuUploadSuccess(
       };
       console.log('Dispatching update for new restaurant from upload:', updateData);
       dispatchFn('update', updateData);
-
     }
   } catch (error) {
     console.error('Error handling menu upload success:', error);
