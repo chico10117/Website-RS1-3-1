@@ -333,20 +333,22 @@
         <div>
           <div class="bg-white/30 backdrop-blur-md rounded-xl border border-white/50 shadow-lg p-4 sm:p-6">
             <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800 tracking-tight">{t('menuPreview')}</h2>
-            <div class="iphone-frame scale-[0.8] md:scale-100 -mt-16 md:mt-0">
-              <div class="relative w-full h-full">
-                {#if $currentRestaurant?.slug}
-                  <iframe
-                    src={`https://${$currentRestaurant.slug}.reco.restaurant?v=${$iframeRefreshTrigger}`}
-                    title="Menu Preview"
-                    class="w-full h-full rounded-[40px]"
-                    loading="lazy"
-                  ></iframe>
-                {:else}
-                  <div class="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-[40px]">
-                    <p class="text-gray-500">{t('noRestaurantSelected')}</p>
-                  </div>
-                {/if}
+            <div class="flex justify-center">
+              <div class="iphone-frame scale-[0.8] md:scale-100 -mt-16 md:mt-0">
+                <div class="relative w-full h-full flex justify-center">
+                  {#if $currentRestaurant?.slug}
+                    <iframe
+                      src={`https://${$currentRestaurant.slug}.reco.restaurant?v=${$iframeRefreshTrigger}`}
+                      title="Menu Preview"
+                      class="w-full h-full rounded-[40px]"
+                      loading="lazy"
+                    ></iframe>
+                  {:else}
+                    <div class="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-[40px]">
+                      <p class="text-gray-500">{t('noRestaurantSelected')}</p>
+                    </div>
+                  {/if}
+                </div>
               </div>
             </div>
           </div>
