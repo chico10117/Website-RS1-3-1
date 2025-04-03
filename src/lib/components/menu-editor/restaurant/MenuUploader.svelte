@@ -37,6 +37,16 @@
     isDragging = false;
   }
 
+  // Reset component state when restaurantId changes
+  $: if (restaurantId) {
+    console.log('Resetting MenuUploader state - changing restaurant');
+    images = [];
+    loading = false;
+    progress = 0;
+    currentStep = '';
+    isDragging = false;
+  }
+
   // Validate restaurant name
   $: if (restaurantName === undefined || restaurantName === null) {
     console.error('Restaurant name is undefined or null');
