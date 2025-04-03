@@ -188,7 +188,7 @@
               </svg>
               {$currentRestaurant.slug}.reco.restaurant
             </a>
-            <div class="mt-2">
+            <div class="mt-2 flex justify-center w-full">
               <QRCode url={`https://${$currentRestaurant.slug}.reco.restaurant`} />
             </div>
           </div>
