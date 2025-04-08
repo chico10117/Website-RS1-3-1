@@ -1,6 +1,6 @@
 // src/lib/server/database.ts - CORRECT VERSION FOR VERCEL
-import { drizzle } from 'drizzle-orm/neon-http'; // Use neon-http adapter
-import { neon } from '@neondatabase/serverless';  // Use neon serverless driver
+import { drizzle } from 'drizzle-orm/postgres-js'; // Use postgres-js adapter
+import postgres from 'postgres'; // Use postgres client library
 import * as schema from './schema';
 import { eq } from 'drizzle-orm';
 import { DATABASE_URL } from '$lib/config/env'; // Ensure this is correctly loaded
@@ -9,17 +9,25 @@ if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not defined');
 }
 
-// Use the neon serverless client
-const sql = neon(DATABASE_URL);
+// Use the postgres client
+// Options for serverless:
+// - max: 1 (recommended for Vercel Serverless Functions)
+// - idle_timeout: Optional, e.g., 5 seconds
+// - connect_timeout: Optional, e.g., 10 seconds
+const client = postgres(DATABASE_URL, {
+    max: 1, // Use a single connection for serverless environments
+    ssl: 'require' // Neon requires SSL
+});
 
-// Create the Drizzle instance with the neon-http adapter and schema
-export const db = drizzle(sql, { schema });
+// Create the Drizzle instance with the postgres-js adapter and schema
+export const db = drizzle(client, { schema });
 
-// Optional connection verification (less critical with neon driver)
+// Optional connection verification (less critical, postgres client handles connections)
 export async function connectDB() {
   try {
-    await sql`SELECT NOW()`; // Simple query to test connection
-    console.log('Connected to Neon PostgreSQL database!');
+    // Test the connection using the Drizzle instance with a plain string
+    await db.execute('SELECT NOW()');
+    console.log('Connected to Neon PostgreSQL database via postgres-js!');
     return db;
   } catch (error) {
     console.error('Error connecting to database:', error);
