@@ -1,64 +1,56 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-// import { Pool } from 'pg'; // Original import
-import pg from 'pg'; // Use default import for CommonJS module
-const { Pool } = pg; // Destructure Pool from the default import
+// src/lib/server/database.ts - CORRECT VERSION FOR VERCEL
+import { drizzle } from 'drizzle-orm/neon-http'; // Use neon-http adapter
+import { neon } from '@neondatabase/serverless';  // Use neon serverless driver
 import * as schema from './schema';
 import { eq } from 'drizzle-orm';
-import { DATABASE_URL } from '$lib/config/env';
+import { DATABASE_URL } from '$lib/config/env'; // Ensure this is correctly loaded
 
 if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not defined');
 }
 
-// Configuración de la conexión usando el Pool de node-postgres
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  // Opcional: añadir configuración SSL si es necesaria para Neon
-  // ssl: {
-  //   rejectUnauthorized: false, // O ajusta según la configuración de Neon
-  // }
-});
+// Use the neon serverless client
+const sql = neon(DATABASE_URL);
 
-// Crear la instancia de Drizzle con el schema
-export const db = drizzle(pool, { schema });
+// Create the Drizzle instance with the neon-http adapter and schema
+export const db = drizzle(sql, { schema });
 
-// Función para verificar la conexión (opcional, el pool gestiona las conexiones)
+// Optional connection verification (less critical with neon driver)
 export async function connectDB() {
   try {
-    // Verificar la conexión obteniendo un cliente del pool
-    const client = await pool.connect();
-    console.log('Connected to PostgreSQL database via Pool!');
-    // Realizar una consulta simple para asegurar que todo funciona
-    await client.query('SELECT NOW()');
-    client.release(); // Devolver el cliente al pool
-    return db; // Devolver la instancia de Drizzle
+    await sql`SELECT NOW()`; // Simple query to test connection
+    console.log('Connected to Neon PostgreSQL database!');
+    return db;
   } catch (error) {
-    console.error('Error connecting to database via Pool:', error);
+    console.error('Error connecting to database:', error);
     throw error;
   }
 }
 
-// Funciones helper para consultas relacionadas
+// --- Helper functions remain the same, but use the correct `db` instance ---
 export async function getRestaurantWithRelations(restaurantId: string) {
-  const restaurant = await db.query.restaurants.findFirst({
-    where: eq(schema.restaurants.id, restaurantId),
-    with: {
-      categories: {
+    const restaurant = await db.query.restaurants.findFirst({
+        where: eq(schema.restaurants.id, restaurantId),
         with: {
-          dishes: true
+        categories: {
+            with: {
+            dishes: {
+                orderBy: (dishes, { asc }) => [asc(dishes.createdAt)],
+            }
+            },
+            orderBy: (categories, { asc }) => [asc(categories.createdAt)],
         }
-      }
-    }
-  });
+        }
+    });
 
-  if (!restaurant) return null;
+    if (!restaurant) return null;
 
-  // Ensure categories and dishes arrays exist
-  restaurant.categories = restaurant.categories || [];
-  restaurant.categories.forEach(cat => cat.dishes = cat.dishes || []);
+    restaurant.categories = restaurant.categories || [];
+    restaurant.categories.forEach(cat => cat.dishes = cat.dishes || []);
 
-  return restaurant;
+    return restaurant; // Type casting might be needed depending on strictness
 }
+// ... other helper functions ...
 
 // Función para crear un restaurante con sus relaciones
 export async function createRestaurantWithRelations(data: {
