@@ -45,7 +45,7 @@ function mergeWithUnsavedChanges(
   dbCategories.forEach(category => {
     dbCategoriesMap.set(category.id, { 
       ...category,
-      dishes: category.dishes || [] // Ensure dishes array exists
+      dishes: category.dishes || [] 
     });
   });
   
@@ -54,61 +54,54 @@ function mergeWithUnsavedChanges(
     if (!deletedCategoryIds.has(category.id)) {
       currentCategoriesMap.set(category.id, { 
         ...category,
-        dishes: category.dishes || [] // Ensure dishes array exists
+        dishes: category.dishes || [] 
       });
     }
   });
   
   const mergedCategories: Category[] = [];
   
-  dbCategories.forEach(dbCategory => {
-    if (!deletedCategoryIds.has(dbCategory.id)) {
-      if (changedCategoryIds.has(dbCategory.id)) {
-        const currentCategory = currentCategoriesMap.get(dbCategory.id);
-        if (currentCategory) {
-          mergedCategories.push({
-            ...currentCategory,
-            dishes: currentCategory.dishes || [] // Ensure dishes array exists
-          });
-        }
+  dbCategoriesMap.forEach((dbCategory, dbCategoryId) => {
+    if (!deletedCategoryIds.has(dbCategoryId)) {
+      const currentCategory = currentCategoriesMap.get(dbCategoryId);
+      if (currentCategory && changedCategoryIds.has(dbCategoryId)) {
+        mergedCategories.push({
+           ...currentCategory,
+           dishes: (currentCategory.dishes || []).map(dish => {
+               if(changedDishIds.has(dish.id)) {
+                  const updatedDish = (currentCategory.dishes || []).find(d => d.id === dish.id);
+                  return updatedDish || dish;
+               }
+               return dish;
+           }).filter(dish => !deletedDishIds.has(dish.id))
+        });
       } else {
         const mergedCategory = { 
           ...dbCategory,
-          dishes: dbCategory.dishes || [] // Ensure dishes array exists
-        };
-        
-        if (mergedCategory.dishes && mergedCategory.dishes.length > 0) {
-          mergedCategory.dishes = mergedCategory.dishes.filter(dish => !deletedDishIds.has(dish.id));
-          
-          mergedCategory.dishes = mergedCategory.dishes.map(dish => {
+          dishes: (dbCategory.dishes || []).map(dish => {
             if (changedDishIds.has(dish.id)) {
-              const currentCategory = currentCategoriesMap.get(dbCategory.id);
-              if (currentCategory && currentCategory.dishes) {
-                const currentDish = currentCategory.dishes.find(d => d.id === dish.id);
-                if (currentDish) {
-                  return currentDish;
-                }
-              }
+              const correspondingCurrentCategory = currentCategoriesMap.get(dbCategoryId);
+              const currentDish = (correspondingCurrentCategory?.dishes || []).find(d => d.id === dish.id);
+              return currentDish || dish;
             }
             return dish;
-          });
-        }
-        
+          }).filter(dish => !deletedDishIds.has(dish.id))
+        };
         mergedCategories.push(mergedCategory);
       }
     }
   });
   
-  currentCategories.forEach(category => {
-    if (category.id.startsWith('temp_') && !dbCategoriesMap.has(category.id)) {
-      mergedCategories.push({
-        ...category,
-        dishes: category.dishes || [] // Ensure dishes array exists
+  currentCategoriesMap.forEach((category, categoryId) => {
+    if (categoryId.startsWith('temp_')) {
+      mergedCategories.push({ 
+         ...category,
+         dishes: (category.dishes || []).filter(dish => !deletedDishIds.has(dish.id))
       });
     }
   });
   
-  return mergedCategories;
+  return mergedCategories.map(cat => ({ ...cat, dishes: cat.dishes || [] }));
 }
 
 const restaurantStates = new Map();
@@ -169,7 +162,10 @@ function createMenuStore() {
         menuLogo: state.menuLogo,
         customPrompt: state.customPrompt,
         phoneNumber: state.phoneNumber,
-        color: state.color, // Save color state 
+        color: state.color,
+        currency: state.currency,
+        reservas: state.reservas,
+        redes_sociales: state.redes_sociales,
         categories: [...state.categories],
         changedItems: {
           restaurant: state.changedItems.restaurant,
@@ -199,7 +195,7 @@ function createMenuStore() {
             console.log(`Fetched ${dishes.length} dishes for category ${category.name}`);
             return {
               ...category,
-              dishes
+              dishes: dishes || []
             } as Category;
           } catch (error) {
             console.error(`Error fetching dishes for category ${category.id}:`, error);
@@ -211,7 +207,9 @@ function createMenuStore() {
         })
       );
       
-      let finalCategories = categoriesWithDishes;
+      let categoriesToMerge = categoriesWithDishes.map(cat => ({ ...cat, dishes: cat.dishes || [] }));
+
+      let finalCategories: Category[] = categoriesToMerge;
       let changedItems = {
         restaurant: false,
         categories: new Set<string>(),
@@ -222,10 +220,10 @@ function createMenuStore() {
       
       if (restaurantStates.has(restaurantId)) {
         const savedState = restaurantStates.get(restaurantId);
-        console.log('Found saved state for restaurant:', restaurantId);
+        console.log('Found saved state for restaurant:', restaurantId, savedState);
         
         finalCategories = mergeWithUnsavedChanges(
-          categoriesWithDishes,
+          categoriesToMerge,
           savedState.categories || [],
           savedState.changedItems.categories,
           savedState.changedItems.dishes,
@@ -240,13 +238,24 @@ function createMenuStore() {
           deletedCategories: new Set(savedState.changedItems.deletedCategories),
           deletedDishes: new Set(savedState.changedItems.deletedDishes)
         };
+
+        if (savedState.changedItems.restaurant) {
+            restaurant.name = savedState.restaurantName ?? restaurant.name;
+            restaurant.logo = savedState.menuLogo ?? restaurant.logo;
+            restaurant.customPrompt = savedState.customPrompt ?? restaurant.customPrompt;
+            restaurant.phoneNumber = savedState.phoneNumber ?? restaurant.phoneNumber;
+            restaurant.color = savedState.color ?? restaurant.color;
+            restaurant.currency = savedState.currency ?? restaurant.currency;
+            restaurant.reservas = savedState.reservas ?? restaurant.reservas;
+            restaurant.redes_sociales = savedState.redes_sociales ?? restaurant.redes_sociales;
+        }
         
         console.log('Merged categories:', finalCategories);
       }
       
-      finalCategories = finalCategories.map(category => ({
-        ...category,
-        dishes: category.dishes || []
+      finalCategories = finalCategories.map(category => ({ 
+        ...category, 
+        dishes: (category.dishes || []).map(dish => ({...dish}))
       }));
       
       return {
@@ -262,10 +271,12 @@ function createMenuStore() {
 
   return {
     subscribe,
+    update,
     hasUnsavedChanges,
     
     reset() {
       set(initialState);
+      restaurantStates.clear();
     },
 
     resetChanges() {
@@ -280,17 +291,22 @@ function createMenuStore() {
         },
         lastSaveTime: new Date()
       }));
+      if (get({ subscribe }).selectedRestaurant) {
+          restaurantStates.delete(get({ subscribe }).selectedRestaurant);
+      }
     },
 
     async loadRestaurants() {
       try {
         console.log('Loading restaurants from menuStore...');
+        update(s => ({ ...s, isLoading: true }));
         const restaurants = await restaurantService.fetchRestaurants();
         console.log('Loaded restaurants:', restaurants);
-        update(state => ({ ...state, restaurants }));
+        update(state => ({ ...state, restaurants, isLoading: false }));
         return restaurants;
       } catch (error) {
         console.error('Error loading restaurants:', error);
+        update(s => ({ ...s, isLoading: false }));
         throw error;
       }
     },
@@ -303,18 +319,20 @@ function createMenuStore() {
         throw new Error('No restaurant ID provided');
       }
       
+      const currentState = get({ subscribe });
+      
+      if (currentState.selectedRestaurant === restaurantId) {
+        console.log('Already on this restaurant, no need to reload');
+        return currentState.restaurants.find(r => r.id === restaurantId) || null;
+      }
+        
+      if (currentState.selectedRestaurant) {
+          saveCurrentState(); 
+      }
+      
+      update(s => ({ ...s, isLoading: true }));
+      
       try {
-        const currentState = get({ subscribe });
-        
-        if (currentState.selectedRestaurant === restaurantId) {
-          console.log('Already on this restaurant, no need to reload');
-          return currentState.restaurants.find(r => r.id === restaurantId);
-        }
-        
-        update(s => ({ ...s, isLoading: true }));
-        
-        saveCurrentState();
-        
         const { restaurant, categories, changedItems } = await loadAndMergeData(restaurantId);
         
         let colorValue = restaurant.color || '#85A3FA';
@@ -334,7 +352,7 @@ function createMenuStore() {
             currency: restaurant.currency || '€',
             reservas: restaurant.reservas || null,
             redes_sociales: restaurant.redes_sociales || null,
-            categories: categories,
+            categories: categories.map(cat => ({ ...cat, dishes: cat.dishes || [] })),
             isLoading: false,
             changedItems: changedItems
           };
@@ -351,6 +369,11 @@ function createMenuStore() {
     createRestaurant(name: string, logo: string | null = null, customPrompt: string | null = null, phoneNumber: number | null = null, reservas: string | null = null, redes_sociales: string | null = null, currency: string = '€') {
       const tempId = createTempId();
       
+      const currentState = get({ subscribe });
+      if (currentState.selectedRestaurant) {
+          saveCurrentState();
+      }
+
       update(state => {
         let currentColor = state.color || '#85A3FA'; 
         
@@ -361,17 +384,18 @@ function createMenuStore() {
         const newRestaurant: Restaurant = {
           id: tempId,
           name,
-          slug: '', // Will be set by the server
+          slug: '',
           logo,
           customPrompt,
           phoneNumber,
-          userId: '', // Will be set by the server
-          currency: currency, // Use passed currency
-          color: currentColor, // Use the current color value
+          userId: '',
+          currency: currency,
+          color: currentColor,
           createdAt: new Date(),
           updatedAt: new Date(),
           reservas,
           redes_sociales,
+          categories: [],
         };
         
         return {
@@ -382,49 +406,45 @@ function createMenuStore() {
           menuLogo: logo,
           customPrompt,
           phoneNumber,
-          currency: currency, // Update store state currency
-          color: currentColor, // Keep the current color value
-          changedItems: {
-            ...state.changedItems,
-            restaurant: true
-          },
+          categories: [],
+          currency: currency,
+          color: currentColor,
           reservas,
           redes_sociales,
+          changedItems: {
+            restaurant: true,
+            categories: new Set<string>(),
+            dishes: new Set<string>(),
+            deletedCategories: new Set<string>(),
+            deletedDishes: new Set<string>()
+          },
+          isLoading: false,
+          lastSaveTime: null
         };
       });
     },
 
     updateRestaurantInfo(name: string, logo: string | null, customPrompt: string | null = null, slug: string | null = null, phoneNumber: number | null = null, reservas?: string | null, redes_sociales?: string | null, color: string | null = null, currency?: string | null) {
       let validatedColor = color;
-      if (validatedColor && typeof validatedColor === 'string' && !validatedColor.startsWith('#')) {
-        console.warn('CRITICAL: Color value must start with #, got:', validatedColor);
-        validatedColor = '#' + validatedColor;
+      if (validatedColor && typeof validatedColor === 'string') {
+        if (!validatedColor.startsWith('#') && validatedColor !== 'light' && validatedColor !== '1') {
+           console.warn('Invalid color format provided to updateRestaurantInfo:', validatedColor);
+           validatedColor = null;
+        }
       }
 
-      console.log('updateRestaurantInfo called with:', {
-        name,
-        logo,
-        customPrompt,
-        slug,
-        phoneNumber,
-        reservas,
-        redes_sociales,
-        color: validatedColor,
-        currency, // Log currency
-        isUrlUpdate: {
-          reservasProvided: reservas !== undefined,
-          redes_socialesProvided: redes_sociales !== undefined
-        }
-      });
+      console.log('updateRestaurantInfo called with:', { name, logo, customPrompt, slug, phoneNumber, reservas, redes_sociales, color: validatedColor, currency });
 
       update(state => {
+        if (!state.selectedRestaurant) return state;
+
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
         const currentRestaurant = currentRestaurantIndex >= 0 ? state.restaurants[currentRestaurantIndex] : null;
         
         const updatedRestaurants = [...state.restaurants];
         
-        // Determine the currency to use: passed value > current restaurant value > state value > default '€'
         const finalCurrency = currency ?? currentRestaurant?.currency ?? state.currency ?? '€';
+        const finalColor = validatedColor ?? currentRestaurant?.color ?? state.color ?? '#85A3FA';
 
         if (currentRestaurantIndex >= 0 && currentRestaurant) {
           updatedRestaurants[currentRestaurantIndex] = {
@@ -432,12 +452,12 @@ function createMenuStore() {
             name: name !== undefined ? name : currentRestaurant.name,
             logo: logo !== undefined ? logo : currentRestaurant.logo,
             customPrompt: customPrompt !== undefined ? customPrompt : currentRestaurant.customPrompt,
-            slug: (slug !== undefined ? slug : currentRestaurant.slug) || '', // Ensure non-null string
+            slug: (slug !== null ? slug : currentRestaurant.slug) || '',
             phoneNumber: phoneNumber !== undefined ? phoneNumber : currentRestaurant.phoneNumber,
             reservas: reservas !== undefined ? reservas : currentRestaurant.reservas,
             redes_sociales: redes_sociales !== undefined ? redes_sociales : currentRestaurant.redes_sociales,
-            color: validatedColor || currentRestaurant.color || '#85A3FA',
-            currency: finalCurrency, // Update currency in the restaurants array
+            color: finalColor,
+            currency: finalCurrency,
             updatedAt: new Date(),
           };
         }
@@ -448,10 +468,10 @@ function createMenuStore() {
           menuLogo: logo !== undefined ? logo : state.menuLogo,
           customPrompt: customPrompt !== undefined ? customPrompt : state.customPrompt,
           phoneNumber: phoneNumber !== undefined ? phoneNumber : state.phoneNumber,
-          color: validatedColor || state.color || '#85A3FA',
-          currency: finalCurrency, // Update top-level store currency state
-          ...(reservas !== undefined ? { reservas } : {}),
-          ...(redes_sociales !== undefined ? { redes_sociales } : {}),
+          color: finalColor,
+          currency: finalCurrency,
+          reservas: reservas !== undefined ? reservas : state.reservas,
+          redes_sociales: redes_sociales !== undefined ? redes_sociales : state.redes_sociales,
           restaurants: updatedRestaurants,
           changedItems: {
             ...state.changedItems,
@@ -463,34 +483,23 @@ function createMenuStore() {
 
     updateReservasAndSocials(reservas: string | null, redes_sociales: string | null) {
       console.trace('updateReservasAndSocials TRACE');
-      
-      console.log('updateReservasAndSocials called with:', { 
-        reservas, 
-        reservasType: typeof reservas, 
-        redes_sociales, 
-        redes_socialesType: typeof redes_sociales 
-      });
+      console.log('updateReservasAndSocials called with:', { reservas, redes_sociales });
       
       update(state => {
-        console.log('Updating store state, before:', { 
-          stateReservas: state.reservas, 
-          stateRedesSociales: state.redes_sociales 
-        });
+        if (!state.selectedRestaurant) return state;
+        console.log('Updating store state (reservas/socials), before:', { stateReservas: state.reservas, stateRedesSociales: state.redes_sociales });
         
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
-        
         const updatedRestaurants = [...state.restaurants];
         
         if (currentRestaurantIndex >= 0) {
           updatedRestaurants[currentRestaurantIndex] = {
             ...updatedRestaurants[currentRestaurantIndex],
-            reservas,
-            redes_sociales,
+            reservas: reservas,
+            redes_sociales: redes_sociales,
             updatedAt: new Date(),
           };
         }
-        
-        console.log('Updating store state with:', { reservas, redes_sociales });
         
         const result = {
           ...state,
@@ -502,19 +511,14 @@ function createMenuStore() {
             restaurant: true
           }
         };
-        
-        console.log('State after update:', { 
-          resultReservas: result.reservas, 
-          resultRedesSociales: result.redes_sociales,
-          changedItems: result.changedItems 
-        });
-        
+        console.log('State after update (reservas/socials):', { resultReservas: result.reservas, resultRedesSociales: result.redes_sociales });
         return result;
       });
     },
 
     updateLocalRestaurantName(name: string) {
       update(state => {
+        if (!state.selectedRestaurant) return state;
         return {
           ...state,
           restaurantName: name,
@@ -530,13 +534,23 @@ function createMenuStore() {
       const tempId = createTempId();
       
       update(state => {
+        if (!state.selectedRestaurant) return state;
+
         const newCategory: Category = {
           id: tempId,
-          name,
-          restaurantId: state.selectedRestaurant || '',
-          dishes: []
+          name: name.trim(),
+          restaurantId: state.selectedRestaurant,
+          dishes: [],
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
         
+        const nameExists = state.categories.some(cat => cat.name.toLowerCase() === newCategory.name.toLowerCase());
+        if (nameExists) {
+            console.warn(`Category with name "${newCategory.name}" already exists.`);
+            return state; 
+        }
+
         return {
           ...state,
           categories: [...state.categories, newCategory],
@@ -547,21 +561,43 @@ function createMenuStore() {
         };
       });
 
-      return tempId; // Return the temporary ID
+      return tempId;
     },
     
     updateCategory(categoryId: string, name: string) {
+       const trimmedName = name.trim();
+       if (!trimmedName) {
+           console.warn('Category name cannot be empty.');
+           return;
+       }
+
       update(state => {
+        if (!state.selectedRestaurant) return state;
+
+        const nameConflict = state.categories.some(cat => 
+            cat.id !== categoryId && 
+            cat.name.toLowerCase() === trimmedName.toLowerCase()
+        );
+
+        if (nameConflict) {
+            console.warn(`Another category with the name "${trimmedName}" already exists. Cannot update.`);
+            return state;
+        }
+
         const updatedCategories = state.categories.map(category => 
-          category.id === categoryId ? { ...category, name } : category
+          category.id === categoryId ? { ...category, name: trimmedName, updatedAt: new Date() } : category
         );
         
+        const deletedCategories = new Set(state.changedItems.deletedCategories);
+        deletedCategories.delete(categoryId);
+
         return {
           ...state,
           categories: updatedCategories,
           changedItems: {
             ...state.changedItems,
-            categories: new Set([...state.changedItems.categories, categoryId])
+            categories: new Set([...state.changedItems.categories, categoryId]),
+            deletedCategories
           }
         };
       });
@@ -569,117 +605,41 @@ function createMenuStore() {
     
     deleteCategory(categoryId: string) {
       update(state => {
+        if (!state.selectedRestaurant) return state;
+
+        const categoryToDelete = state.categories.find(cat => cat.id === categoryId);
+        if (!categoryToDelete) return state;
+
         const updatedCategories = state.categories.filter(category => 
           category.id !== categoryId
         );
         
         const deletedCategories = new Set(state.changedItems.deletedCategories);
-        deletedCategories.add(categoryId);
+        if (!categoryId.startsWith('temp_')) {
+             deletedCategories.add(categoryId);
+        }
         
         const changedCategories = new Set(state.changedItems.categories);
         changedCategories.delete(categoryId);
         
+        const deletedDishes = new Set(state.changedItems.deletedDishes);
+        const changedDishes = new Set(state.changedItems.dishes);
+        if (categoryToDelete.dishes) {
+            categoryToDelete.dishes.forEach(dish => {
+                if (!dish.id.startsWith('temp_')) {
+                    deletedDishes.add(dish.id);
+                }
+                changedDishes.delete(dish.id);
+            });
+        }
+
         return {
           ...state,
           categories: updatedCategories,
           changedItems: {
             ...state.changedItems,
             categories: changedCategories,
-            deletedCategories
-          }
-        };
-      });
-    },
-
-    addDish(categoryId: string, dishData: { title: string, price: string, description: string, imageUrl: string | null }) {
-      const tempId = createTempId();
-      
-      update(state => {
-        const newDish: Dish = {
-          id: tempId,
-          ...dishData,
-          categoryId
-        };
-        
-        const updatedCategories = state.categories.map(category => {
-          if (category.id === categoryId) {
-            return {
-              ...category,
-              dishes: [...(category.dishes || []), newDish]
-            };
-          }
-          return category;
-        });
-        
-        return {
-          ...state,
-          categories: updatedCategories,
-          changedItems: {
-            ...state.changedItems,
-            dishes: new Set([...state.changedItems.dishes, tempId])
-          }
-        };
-      });
-    },
-    
-    updateDish(dishId: string, dishData: { title?: string, price?: string, description?: string, imageUrl?: string | null }) {
-      update(state => {
-        const updatedCategories = state.categories.map(category => {
-          if (!category.dishes) return { ...category, dishes: [] };
-          
-          const dishIndex = category.dishes.findIndex(dish => dish.id === dishId);
-          if (dishIndex === -1) return category;
-          
-          const updatedDishes = [...category.dishes];
-          updatedDishes[dishIndex] = {
-            ...updatedDishes[dishIndex],
-            ...dishData
-          };
-          
-          return {
-            ...category,
-            dishes: updatedDishes
-          };
-        });
-        
-        return {
-          ...state,
-          categories: updatedCategories,
-          changedItems: {
-            ...state.changedItems,
-            dishes: new Set([...state.changedItems.dishes, dishId])
-          }
-        };
-      });
-    },
-    
-    deleteDish(dishId: string) {
-      update(state => {
-        const updatedCategories = state.categories.map(category => {
-          if (!category.dishes) return { ...category, dishes: [] };
-          
-          const dishIndex = category.dishes.findIndex(dish => dish.id === dishId);
-          if (dishIndex === -1) return category;
-          
-          const updatedDishes = category.dishes.filter(dish => dish.id !== dishId);
-          
-          return {
-            ...category,
-            dishes: updatedDishes
-          };
-        });
-        
-        const deletedDishes = new Set(state.changedItems.deletedDishes);
-        deletedDishes.add(dishId);
-        
-        const changedDishes = new Set(state.changedItems.dishes);
-        changedDishes.delete(dishId);
-        
-        return {
-          ...state,
-          categories: updatedCategories,
-          changedItems: {
-            ...state.changedItems,
+            deletedCategories,
             dishes: changedDishes,
             deletedDishes
           }
@@ -687,93 +647,145 @@ function createMenuStore() {
       });
     },
 
-    async saveChanges() {
-      const state = get({ subscribe });
-      
-      try {
-        update(s => ({ ...s, isSaving: true }));
-        
-        const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
-        console.log('Current restaurant in store:', currentRestaurantObj);
-        
-        const colorValue = state.color === 'light' || state.color === '1'
-          ? '#85A3FA'
-          : state.color;
-        
-        const reservas = state.reservas !== undefined ? state.reservas : currentRestaurantObj?.reservas;
-        const redes_sociales = state.redes_sociales !== undefined ? state.redes_sociales : currentRestaurantObj?.redes_sociales;
-        
-        console.log('Restaurant data for save:', {
-          name: state.restaurantName,
-          logo: state.menuLogo,
-          customPrompt: state.customPrompt,
-          phoneNumber: state.phoneNumber,
-          currency: state.currency || '€',
-          color: colorValue,
-          reservas,
-          redes_sociales
-        });
-        
-        const result = await menuService.saveMenuChanges(
-          {
-            name: state.restaurantName,
-            logo: state.menuLogo,
-            customPrompt: state.customPrompt,
-            phoneNumber: state.phoneNumber,
-            currency: state.currency || '€',
-            color: colorValue,
-            reservas,
-            redes_sociales,
-          },
-          state.selectedRestaurant
-        );
-        
-        update(s => {
-          const restaurantIndex = s.restaurants.findIndex(r => r.id === result.restaurant.id);
-          const restaurants = [...s.restaurants];
-          
-          if (restaurantIndex >= 0) {
-            restaurants[restaurantIndex] = {
-              ...result.restaurant,
-              reservas: result.restaurant.reservas ?? restaurants[restaurantIndex].reservas,
-              redes_sociales: result.restaurant.redes_sociales ?? restaurants[restaurantIndex].redes_sociales
-            };
-          } else {
-            restaurants.push(result.restaurant);
-          }
-          
-          return {
-            ...s,
-            restaurants,
-            selectedRestaurant: result.restaurant.id,
-            restaurantName: result.restaurant.name,
-            menuLogo: result.restaurant.logo,
-            customPrompt: result.restaurant.customPrompt,
-            phoneNumber: result.restaurant.phoneNumber,
-            categories: result.categories,
-            isSaving: false,
-            lastSaveTime: new Date(),
-            changedItems: {
-              restaurant: false,
-              categories: new Set<string>(),
-              dishes: new Set<string>(),
-              deletedCategories: new Set<string>(),
-              deletedDishes: new Set<string>()
-            },
-            reservas: result.restaurant.reservas ?? s.reservas,
-            redes_sociales: result.restaurant.redes_sociales ?? s.redes_sociales,
-            color: result.restaurant.color || '#85A3FA',
-            currency: result.restaurant.currency || '€'
-          };
-        });
-        
-        return result;
-      } catch (error) {
-        console.error('Error saving changes:', error);
-        update(s => ({ ...s, isSaving: false }));
-        throw error;
+    addDish(categoryId: string, dishData: { title: string, price: string, description: string | null, imageUrl: string | null }) {
+      const tempId = createTempId();
+      const trimmedTitle = dishData.title.trim();
+      if (!trimmedTitle) {
+          console.warn('Dish title cannot be empty.');
+          return;
       }
-    }
+
+      update(state => {
+        if (!state.selectedRestaurant) return state;
+        const categoryIndex = state.categories.findIndex(cat => cat.id === categoryId);
+        if (categoryIndex === -1) return state;
+
+        const newDish: Dish = {
+          id: tempId,
+          title: trimmedTitle,
+          price: dishData.price,
+          description: dishData.description?.trim() ?? null,
+          imageUrl: dishData.imageUrl,
+          categoryId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        const updatedCategories = [...state.categories];
+        const targetCategory = { ...updatedCategories[categoryIndex] };
+        targetCategory.dishes = [...(targetCategory.dishes || []), newDish];
+        updatedCategories[categoryIndex] = targetCategory;
+        
+        const deletedCategories = new Set(state.changedItems.deletedCategories);
+        deletedCategories.delete(categoryId);
+        const changedCategories = new Set([...state.changedItems.categories, categoryId]);
+
+        return {
+          ...state,
+          categories: updatedCategories,
+          changedItems: {
+            ...state.changedItems,
+            categories: changedCategories,
+            deletedCategories,
+            dishes: new Set([...state.changedItems.dishes, tempId])
+          }
+        };
+      });
+    },
+    
+    updateDish(dishId: string, dishData: { title?: string, price?: string, description?: string | null, imageUrl?: string | null }) {
+      const updatePayload: Partial<Dish> = {};
+      if (dishData.title !== undefined) updatePayload.title = dishData.title.trim();
+      if (dishData.price !== undefined) updatePayload.price = dishData.price;
+      if (dishData.description !== undefined) updatePayload.description = dishData.description?.trim() ?? null;
+      if (dishData.imageUrl !== undefined) updatePayload.imageUrl = dishData.imageUrl;
+
+      if (updatePayload.title === '') return;
+      if (Object.keys(updatePayload).length === 0) return;
+
+      updatePayload.updatedAt = new Date();
+
+      update(state => {
+        if (!state.selectedRestaurant) return state;
+        let categoryIdContainingDish: string | null = null;
+
+        const updatedCategories = state.categories.map(category => {
+          const currentDishes = category.dishes || [];
+          const dishIndex = currentDishes.findIndex(dish => dish.id === dishId);
+          if (dishIndex === -1) return category;
+          
+          categoryIdContainingDish = category.id;
+          const updatedDishes = [...currentDishes];
+          updatedDishes[dishIndex] = {
+            ...updatedDishes[dishIndex],
+            ...updatePayload
+          };
+          
+          return { ...category, dishes: updatedDishes };
+        });
+        
+        if (!categoryIdContainingDish) return state;
+
+        const deletedDishes = new Set(state.changedItems.deletedDishes);
+        deletedDishes.delete(dishId);
+        const deletedCategories = new Set(state.changedItems.deletedCategories);
+        deletedCategories.delete(categoryIdContainingDish);
+        const changedCategories = new Set([...state.changedItems.categories, categoryIdContainingDish]);
+
+        return {
+          ...state,
+          categories: updatedCategories,
+          changedItems: {
+            ...state.changedItems,
+            categories: changedCategories,
+            deletedCategories,
+            dishes: new Set([...state.changedItems.dishes, dishId]),
+            deletedDishes
+          }
+        };
+      });
+    },
+    
+    deleteDish(dishId: string) {
+      update(state => {
+        if (!state.selectedRestaurant) return state;
+        let categoryIdContainingDish: string | null = null;
+
+        const updatedCategories = state.categories.map(category => {
+          const currentDishes = category.dishes || [];
+          const updatedDishes = currentDishes.filter(dish => dish.id !== dishId);
+
+          if (updatedDishes.length < currentDishes.length) {
+              categoryIdContainingDish = category.id;
+              return { ...category, dishes: updatedDishes };
+          }
+          return category;
+        });
+        
+        if (!categoryIdContainingDish) return state;
+
+        const deletedDishes = new Set(state.changedItems.deletedDishes);
+        if (!dishId.startsWith('temp_')) {
+            deletedDishes.add(dishId);
+        }
+        
+        const changedDishes = new Set(state.changedItems.dishes);
+        changedDishes.delete(dishId);
+        
+        const changedCategories = new Set([...state.changedItems.categories, categoryIdContainingDish]);
+
+        return {
+          ...state,
+          categories: updatedCategories,
+          changedItems: {
+            ...state.changedItems,
+            categories: changedCategories,
+            dishes: changedDishes,
+            deletedDishes
+          }
+        };
+      });
+    },
   };
 }
 
