@@ -14,12 +14,18 @@ The Menu Editor is a comprehensive web application built with SvelteKit (using S
 - Slug generation for unique restaurant access (*needs refinement*).
 - Ability to upload menu files (*needs refinement*).
 
+## Recent Changes (Database Driver Switch - [Date, e.g., YYYY-MM-DD])
+
+*   **Switched Database Driver:** Changed the Drizzle ORM driver from `drizzle-orm/neon-http` to `drizzle-orm/node-postgres`.
+*   **Reason:** The `neon-http` driver does not support database transactions (`db.transaction`), which caused errors in the `/api/menu/save` endpoint as it relies on transactions for atomic updates.
+*   **Implementation:** Installed `pg` dependency and updated `src/lib/server/database.ts` to use `pg.Pool` and the `node-postgres` Drizzle adapter.
+*   **Outcome:** Database transactions are now supported, resolving the 500 error during menu saving and ensuring data integrity for multi-step database operations.
 
 ## Tech Stack
 - **Framework:** SvelteKit (with Svelte 5 Runes)
 - **Language:** TypeScript
 - **Database:** Neon.tech PostgreSQL
-- **ORM:** Drizzle ORM
+- **ORM:** Drizzle ORM (using `node-postgres` driver with `pg`)
 - **Styling:** Tailwind CSS
 - **UI Components:** Shadcn UI
 - **Authentication:** Auth.js / SvelteKitAuth (using Google OAuth2 provider)
@@ -197,10 +203,10 @@ The application leverages Svelte 5 Runes for reactive state management, primaril
 - **Component State:** Local component state is managed using `$state` within `.svelte` files or associated `.svelte.ts` logic files/classes where necessary for complex component logic.
 
 #### 2. Services Layer / Database Interaction
-- Located in `src/lib/services/` and `src/lib/db/`.
-- **Drizzle ORM:** Defines the database schema (`src/lib/db/schema.ts`) mirroring PostgreSQL tables (users, restaurants, categories, dishes).
-- **Drizzle Client:** Configured to connect to the Neon.tech PostgreSQL database.
-- **Service Files:** Encapsulate database query logic using Drizzle for CRUD operations on restaurants, categories, and dishes. These services are typically called from SvelteKit API routes or server `load` functions.
+- Located in `src/lib/services/` and `src/lib/server/`.
+- **Drizzle ORM:** Defines the database schema (`src/lib/server/schema.ts`) mirroring PostgreSQL tables.
+- **Drizzle Client:** Configured in `src/lib/server/database.ts` to connect to the Neon.tech PostgreSQL database using `pg.Pool` and the `drizzle-orm/node-postgres` adapter. This enables full transaction support.
+- **Service Files:** Encapsulate database query logic using Drizzle for CRUD operations. Called from API routes or server `load` functions.
 
 #### 3. Component Architecture
 - Follows Svelte best practices with modular components.
@@ -232,7 +238,7 @@ The application follows a typical SvelteKit data flow pattern, leveraging server
 4.  **Data Fetching (Server-Side):**
     *   The `load` function typically retrieves the user's session data (including user ID).
     *   It calls relevant functions from the **Service Layer** (`src/lib/services/` - e.g., `restaurant.service.ts`).
-    *   These service functions use the **Drizzle Client** (`src/lib/db/index.ts`) to query the **Neon.tech PostgreSQL Database** for the user's restaurants.
+    *   These service functions use the **Drizzle Client** (`src/lib/server/database.ts`) to query the **Neon.tech PostgreSQL Database** for the user's restaurants.
 5.  **Data Return:** The `load` function returns the fetched data (e.g., list of restaurants) to the SvelteKit framework.
 6.  **Page Rendering (Server/Client):**
     *   SvelteKit renders the page component (e.g., `src/routes/menu/+page.svelte`).
@@ -266,7 +272,7 @@ The application follows a typical SvelteKit data flow pattern, leveraging server
     *   The API route handler calls the appropriate **Service Layer** functions (`restaurant.service.ts`, `category.service.ts`, `dish.service.ts`).
 11. **Database Interaction:**
     *   Service functions use the **Drizzle Client** to execute `UPDATE`, `INSERT`, or `DELETE` SQL commands against the **Neon.tech Database**.
-    *   Transactions might be used if multiple related updates need to occur atomically.
+    *   Transactions (`db.transaction`) are used in operations like saving menu changes (`/api/menu/save`) to ensure atomicity.
 12. **API Response:** The API route sends a response back to the client, typically indicating success or failure (with error details if applicable).
 13. **Client-Side Response Handling:**
     *   The `fetch` call on the client receives the response.
@@ -322,4 +328,6 @@ The database schema is defined using Drizzle ORM for PostgreSQL.
 *   `updatedAt`: `timestamp` (Default: Now)
 
 ## Deployment
-In vercel
+Deployed on Vercel.
+
+**Important Note on Database Driver:** The switch to `node-postgres` assumes deployment to environments supporting standard TCP database connections (like Vercel Serverless Functions, the default). Deployment to Vercel *Edge* Functions would require reverting to the `neon-http` driver (losing transaction support) or implementing alternative strategies for atomic operations.

@@ -1,204 +1,219 @@
+// src/routes/api/seed/+server.ts
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { db } from '$lib/server/database'; // Use the centralized db instance
 import * as schema from '$lib/server/schema';
-import { eq, and } from 'drizzle-orm';
-import { generateSlug } from '$lib/utils/slug';
-import { join } from 'path';
+import { eq, and, inArray } from 'drizzle-orm';
+import { generateSlug } from '$lib/utils/slug'; // Keep for now, ideally move later
+
+// Define types for seed data structure
+interface SeedDish {
+  title: string;
+  description?: string | null;
+  price: number | string; // Can be number or string
+  imageUrl?: string | null;
+  // Add other potential fields like allergens, portions if needed
+}
+
+interface SeedCategory {
+  name: string;
+  dishes?: SeedDish[];
+}
+
+interface SeedRestaurant {
+  name: string;
+  logo?: string | null;
+  customPrompt?: string | null;
+  currency?: string; // Optional currency
+  // Add other restaurant fields if present in seed data
+}
+
+interface SeedData {
+  restaurant: SeedRestaurant;
+  categories: SeedCategory[];
+  userEmail?: string; // Optional user email for association
+}
 
 export async function POST({ request, cookies, fetch }: RequestEvent) {
   try {
-    console.log('Starting seed process...');
-    
-    // Get the auth token
+    console.log('Starting seed process (Optimized)...');
+
+    // --- Authentication & User Fetch ---
     const token = cookies.get('auth_token');
     if (!token) {
       console.error('No auth token found');
       return json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Decode the JWT token to get user info
     const [, payloadBase64] = token.split('.');
     const payload = JSON.parse(atob(payloadBase64));
-    console.log('User from token:', { email: payload.email });
-
-    // Initialize database connection
-    if (!process.env.DATABASE_URL) {
-      console.error('DATABASE_URL not found in environment');
-      throw new Error('DATABASE_URL environment variable is required');
-    }
-
-    const sql = neon(process.env.DATABASE_URL);
-    const db = drizzle(sql, { schema });
-    console.log('Database connection initialized');
-
-    // Get user from database
-    const [user] = await db.select()
-      .from(schema.users)
-      .where(eq(schema.users.email, payload.email));
-
+    const [user] = await db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.email, payload.email));
     if (!user) {
       console.error('User not found in database:', { email: payload.email });
       return json({ success: false, error: 'User not found' }, { status: 404 });
     }
-    console.log('User found:', { id: user.id, email: user.email });
+    const userId = user.id;
+    console.log('User authenticated:', { userId, email: payload.email });
 
-    // Get request data
-    const { fileName, restaurantName, customPrompt, restaurantId } = await request.json();
-    console.log('Request data:', { fileName, restaurantName, hasCustomPrompt: !!customPrompt, restaurantId });
+    // --- Request Data & Validation ---
+    const { fileName, restaurantName, customPrompt, restaurantId: existingRestaurantId } = await request.json();
+    console.log('Request data:', { fileName, restaurantName, hasCustomPrompt: !!customPrompt, existingRestaurantId });
 
     if (!fileName || !restaurantName) {
-      console.error('Missing required fields:', { fileName: !!fileName, restaurantName: !!restaurantName });
-      return json({ 
-        success: false, 
-        error: 'File name and restaurant name are required' 
-      }, { status: 400 });
+      return json({ success: false, error: 'File name and restaurant name are required' }, { status: 400 });
     }
 
-    // Import the restaurant data file
-    console.log('Attempting to import restaurant data from:', fileName);
-    let seedData;
+    // --- Import Seed Data ---
+    let importedSeedData: SeedData;
     try {
-      const { seedData: importedData } = await import(/* @vite-ignore */ `/static/data/restaurants/${fileName}`);
-      seedData = importedData;
-      console.log('Restaurant data imported successfully');
-      
-      if (!seedData) {
-        console.error('No seed data found in imported file');
-        return json({ 
-          success: false, 
-          error: 'No seed data found in file' 
-        }, { status: 400 });
+      // Adjust the import path if necessary, ensure it resolves correctly relative to the built output
+      const modulePath = `/src/lib/data/restaurants/${fileName}`; // Path relative to project root
+      const { seedData: dataFromFile } = await import(/* @vite-ignore */ modulePath);
+      importedSeedData = dataFromFile as SeedData;
+
+      if (!importedSeedData || !importedSeedData.restaurant || !importedSeedData.categories) {
+        throw new Error('Invalid seed data structure in file.');
       }
-      console.log('Seed data structure:', {
-        hasRestaurant: !!seedData.restaurant,
-        categoriesCount: seedData.categories?.length
-      });
+      console.log('Seed data imported successfully.');
     } catch (importError) {
       console.error('Error importing restaurant data:', importError);
-      return json({ 
-        success: false, 
-        error: 'Failed to import restaurant data file',
-        details: importError instanceof Error ? importError.message : 'Unknown import error'
-      }, { status: 500 });
+      return json({ success: false, error: 'Failed to import seed data file' }, { status: 500 });
     }
 
-    let restaurant;
+    // --- Database Transaction ---
+    const result = await db.transaction(async (tx) => {
+      let restaurant: typeof schema.restaurants.$inferSelect;
+      const restaurantSeedInfo = importedSeedData.restaurant;
 
-    // Check if we're updating an existing restaurant
-    if (restaurantId) {
-      // Verify the restaurant exists and belongs to the user
-      const [existingRestaurant] = await db.select()
-        .from(schema.restaurants)
-        .where(
-          and(
-            eq(schema.restaurants.id, restaurantId),
-            eq(schema.restaurants.userId, user.id)
-          )
-        );
+      // --- Handle Restaurant (Update or Create) ---
+      if (existingRestaurantId) {
+        // --- Update Existing Restaurant ---
+        console.log('Updating existing restaurant ID:', existingRestaurantId);
+        const [targetRestaurant] = await tx.select({ id: schema.restaurants.id })
+          .from(schema.restaurants)
+          .where(and(
+            eq(schema.restaurants.id, existingRestaurantId),
+            eq(schema.restaurants.userId, userId) // Verify ownership
+          ));
 
-      if (!existingRestaurant) {
-        console.error('Restaurant not found or does not belong to user:', { restaurantId });
-        return json({ 
-          success: false, 
-          error: 'Restaurant not found or unauthorized' 
-        }, { status: 404 });
-      }
+        if (!targetRestaurant) {
+          throw new Error('Restaurant not found or unauthorized');
+        }
 
-      // Delete existing categories and dishes
-      const existingCategories = await db.select()
-        .from(schema.categories)
-        .where(eq(schema.categories.restaurantId, restaurantId));
+        // --- Delete Existing Categories & Dishes ---
+        console.log('Deleting existing categories and dishes for restaurant:', existingRestaurantId);
+        const existingCategories = await tx.select({ id: schema.categories.id })
+          .from(schema.categories)
+          .where(eq(schema.categories.restaurantId, existingRestaurantId));
 
-      for (const category of existingCategories) {
-        // Delete dishes in category
-        await db.delete(schema.dishes)
-          .where(eq(schema.dishes.categoryId, category.id));
-      }
+        if (existingCategories.length > 0) {
+          const categoryIds = existingCategories.map(c => c.id);
+          await tx.delete(schema.dishes).where(inArray(schema.dishes.categoryId, categoryIds));
+          await tx.delete(schema.categories).where(eq(schema.categories.restaurantId, existingRestaurantId));
+          console.log(`Deleted ${existingCategories.length} categories and their dishes.`);
+        }
 
-      // Delete categories
-      await db.delete(schema.categories)
-        .where(eq(schema.categories.restaurantId, restaurantId));
+        // --- Update Restaurant Details ---
+        const [updatedRestaurant] = await tx.update(schema.restaurants)
+          .set({
+            name: restaurantName, // Use name from request
+            customPrompt: customPrompt || restaurantSeedInfo.customPrompt || null,
+            logo: restaurantSeedInfo.logo || null, // Use logo from seed data if not provided
+            currency: restaurantSeedInfo.currency || '€', // Default currency
+            updatedAt: new Date(),
+            // Add other fields to update if necessary (e.g., color, phone)
+          })
+          .where(eq(schema.restaurants.id, existingRestaurantId))
+          .returning();
+        restaurant = updatedRestaurant;
+        console.log('Restaurant details updated.');
 
-      // Update existing restaurant
-      [restaurant] = await db.update(schema.restaurants)
-        .set({
-          name: restaurantName,
-          customPrompt: customPrompt || seedData.restaurant.customPrompt || null,
-          updatedAt: new Date()
-        })
-        .where(eq(schema.restaurants.id, restaurantId))
-        .returning();
+      } else {
+        // --- Create New Restaurant ---
+        // Ideally, slug generation should be inside transaction (Phase 4)
+        const slug = await generateSlug(restaurantName, fetch); // Using external fetch for now
+        console.log('Generated slug for new restaurant:', slug);
 
-      console.log('Updated existing restaurant:', restaurant);
-    } else {
-      // Generate slug for new restaurant
-      const slug = await generateSlug(restaurantName, fetch);
-      console.log('Generated slug:', slug);
-
-      // Create new restaurant
-      [restaurant] = await db.insert(schema.restaurants)
-        .values({
-          name: restaurantName,
-          slug,
-          userId: user.id,
-          logo: seedData.restaurant.logo || null,
-          customPrompt: customPrompt || seedData.restaurant.customPrompt || null
-        })
-        .returning();
-      console.log('Created new restaurant:', restaurant);
-    }
-
-    // Create categories and dishes
-    console.log('Creating categories and dishes...');
-    try {
-      for (const categoryData of seedData.categories) {
-        console.log('Creating category:', categoryData.name);
-        const [category] = await db.insert(schema.categories)
+        const [insertedRestaurant] = await tx.insert(schema.restaurants)
           .values({
-            name: categoryData.name,
-            restaurantId: restaurant.id
+            name: restaurantName,
+            slug: slug,
+            userId: userId,
+            logo: restaurantSeedInfo.logo || null,
+            customPrompt: customPrompt || restaurantSeedInfo.customPrompt || null,
+            currency: restaurantSeedInfo.currency || '€', // Default currency
+            // Add other fields if needed (color, phone default to schema defaults)
           })
           .returning();
-
-        if (categoryData.dishes) {
-          console.log(`Creating ${categoryData.dishes.length} dishes for category:`, category.name);
-          for (const dishData of categoryData.dishes) {
-            await db.insert(schema.dishes)
-              .values({
-                ...dishData,
-                categoryId: category.id,
-                imageUrl: dishData.imageUrl || null
-              })
-              .returning();
-          }
-        }
+        restaurant = insertedRestaurant;
+        console.log('New restaurant created:', restaurant.id);
       }
-      console.log('All categories and dishes created successfully');
-    } catch (dbError) {
-      console.error('Error creating categories or dishes:', dbError);
-      throw dbError;
-    }
 
-    console.log('Seed process completed successfully');
-    return json({ 
-      success: true, 
+      const finalRestaurantId = restaurant.id;
+
+      // --- Seed Categories & Dishes ---
+      const categoriesToInsert = importedSeedData.categories.map(cat => ({
+        name: cat.name,
+        restaurantId: finalRestaurantId,
+      }));
+
+      if (categoriesToInsert.length === 0) {
+        console.log('No categories found in seed data.');
+        return restaurant; // Return restaurant data even if no categories
+      }
+
+      console.log(`Preparing to insert ${categoriesToInsert.length} categories.`);
+      const insertedCategories = await tx.insert(schema.categories)
+        .values(categoriesToInsert)
+        .returning({ id: schema.categories.id, name: schema.categories.name });
+      console.log(`${insertedCategories.length} categories inserted.`);
+
+      // Map category names to their newly inserted IDs
+      const categoryNameToIdMap = new Map(insertedCategories.map(c => [c.name, c.id]));
+
+      // Prepare dishes for bulk insert
+      const dishesToInsert: (typeof schema.dishes.$inferInsert)[] = [];
+      importedSeedData.categories.forEach(seedCat => {
+        const categoryId = categoryNameToIdMap.get(seedCat.name);
+        if (categoryId && seedCat.dishes) {
+          seedCat.dishes.forEach(seedDish => {
+            dishesToInsert.push({
+              title: seedDish.title,
+              description: seedDish.description || null,
+              price: String(seedDish.price), // Ensure price is string for decimal
+              imageUrl: seedDish.imageUrl || null,
+              categoryId: categoryId,
+            });
+          });
+        }
+      });
+
+      if (dishesToInsert.length > 0) {
+        console.log(`Preparing to insert ${dishesToInsert.length} dishes.`);
+        await tx.insert(schema.dishes).values(dishesToInsert);
+        console.log(`${dishesToInsert.length} dishes inserted.`);
+      } else {
+        console.log('No dishes found in seed data.');
+      }
+
+      return restaurant; // Return the saved/updated restaurant data
+    }); // --- End Transaction ---
+
+    console.log('Seed process completed successfully.');
+    return json({
+      success: true,
       data: {
-        restaurant,
+        restaurant: result, // The final restaurant data from the transaction
         message: 'Restaurant data seeded successfully'
       }
     });
+
   } catch (error) {
-    console.error('Error in seed endpoint:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    return json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to seed restaurant data',
+    console.error('Error in seed endpoint:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to seed restaurant data';
+    return json({
+      success: false,
+      error: errorMessage,
       details: error instanceof Error ? error.stack : undefined
-    }, { status: 500 });
+    }, { status: error instanceof Error && error.message.includes('unauthorized') ? 403 : 500 });
   }
-} 
+}

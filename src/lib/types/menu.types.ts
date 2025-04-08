@@ -20,13 +20,17 @@ export interface Category {
   name: string;
   restaurantId: string;
   dishes?: Dish[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Dish {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   price: string;
   imageUrl: string | null;
   categoryId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 } 
