@@ -14,9 +14,6 @@ importers:
       '@sveltejs/kit':
         specifier: ^2.0.0
         version: 2.7.3(@sveltejs/vite-plugin-svelte@3.1.2(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14)))(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14))
-      '@types/pg':
-        specifier: ^8.11.10
-        version: 8.11.10
       '@vercel/blob':
         specifier: ^0.27.0
         version: 0.27.0
@@ -36,7 +33,7 @@ importers:
         specifier: ^0.454.0
         version: 0.454.0(svelte@4.2.19)
       node-fetch:
-        specifier: '2'
+        specifier: ^2.7.0
         version: 2.7.0
       openai:
         specifier: ^4.82.0
@@ -93,6 +90,9 @@ importers:
       '@types/node-fetch':
         specifier: ^2.6.12
         version: 2.6.12
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.11.10
       '@types/qrcode':
         specifier: ^1.5.5
         version: 1.5.5
