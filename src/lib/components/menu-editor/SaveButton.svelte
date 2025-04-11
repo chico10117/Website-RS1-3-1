@@ -240,7 +240,8 @@
       }
 
        const restId = finalState.id;
-       if (restId && typeof socket !== 'undefined' && socket.connected){
+       // Only call socket for image generation when creating a new restaurant
+       if (isNewRestaurant && restId && typeof socket !== 'undefined' && socket.connected){
          socket.emit('request-images', restId);
        }
 
