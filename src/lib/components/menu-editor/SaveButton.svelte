@@ -6,16 +6,13 @@
   import * as menuService from '$lib/services/menu.service';
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { generateSlug } from '$lib/utils/slug';
-  import { io } from 'socket.io-client';
-  import {onMount} from "svelte";
+  import { onMount } from "svelte";
   import { triggerIframeRefresh } from '$lib/stores/iframe-refresh';
   import { getContext } from 'svelte';
   import { get } from 'svelte/store';
   import type { Writable } from 'svelte/store';
   import type { Restaurant } from '$lib/types/menu.types';
-  //console.log("SERVER IO",process.env.SMART_SERVER_HOST )
-  // Initialize the socket connection with user id as namespace
-  const socket = io(process.env.SMART_SERVER_HOST || 'https://reco.ucontext.live');
+  import { socketClient } from '$lib/socket';
 
   // Type for translation function
   type TFunction = (key: string, fallback?: string) => string;
@@ -69,24 +66,12 @@
     return null;
   }
 
-  onMount(()=> {
-
-    socket.on('connect', () => {
+  onMount(() => {
+    socketClient.socket.on('connect', () => {
       console.log('Connected to server', $menuStore);
-    })
-    socket.emit('check', 'Hello from the client');
-
-    socket.on('images-generating', () => {
-      console.log('Procesando imagenes');
     });
-    socket.on('image-generated', () => {
-      console.log('Imagen Generada');
-    });
-    socket.on('queue-finished', () => {
-      console.log('Queue finished');
-      toasts.success(t('completedProcessingImages', 'Images created'));
-    });
-  })
+    socketClient.socket.emit('check', 'Hello from the client');
+  });
 
   // Make translations reactive with fallbacks
   $: currentLanguage = $language || 'en';
@@ -241,8 +226,8 @@
 
        const restId = finalState.id;
        // Only call socket for image generation when creating a new restaurant
-       if (isNewRestaurant && restId && typeof socket !== 'undefined' && socket.connected){
-         socket.emit('request-images', restId);
+       if (isNewRestaurant && restId) {
+         socketClient.requestImages(restId);
        }
 
       // Use fallback text if t doesn't work

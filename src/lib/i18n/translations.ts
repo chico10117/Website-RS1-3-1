@@ -6,6 +6,14 @@ interface Translation {
 }
 
 export const translations: Translation = {
+  generatingImage: {
+    es: "Generando imagen...",
+    en: "Generating image..."
+  },
+  generateImage: {
+    es: "Generar Imagen",
+    en: "Generate Image"
+  },
   appTitle: {
     es: "Creador de Carta",
     en: "Menu Builder"

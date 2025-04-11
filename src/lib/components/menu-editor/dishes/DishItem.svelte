@@ -6,6 +6,7 @@
   import { menuStore } from '$lib/stores/menu-store';
   import { toasts } from '$lib/stores/toast';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { socketClient } from '$lib/socket';
 
   export let dish: Dish;
   export let isEditing: boolean;
@@ -149,6 +150,23 @@
       }
     }
   }
+
+  async function handleGenerateImage() {
+    try {
+      if (!dish.id || !$currentRestaurant?.id) return;
+      
+      // Emit the generate-dish-image event through socket.io
+      socketClient.generateDishImage(dish.id, $currentRestaurant.id);
+
+      // Show loading toast
+      toasts.info(t('generatingImage') || 'Generating image...');
+    } catch (error) {
+      console.error('Error generating image:', error);
+      if (error instanceof Error) {
+        toasts.error(t('error') + ': ' + error.message);
+      }
+    }
+  }
 </script>
 
 <div class="space-y-2">
@@ -277,6 +295,15 @@
           >
             {t('save')}
           </button>
+          {#if dish.id}
+            <button
+              type="button"
+              class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-blue-600 font-medium"
+              on:click={handleGenerateImage}
+            >
+              {t('generateImage') || 'Generate Image'}
+            </button>
+          {/if}
         </div>
       </div>
     </div>
