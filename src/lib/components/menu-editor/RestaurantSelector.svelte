@@ -219,7 +219,7 @@
               <img 
                 src={restaurant.logo} 
                 alt={restaurant.name} 
-                class="w-16 h-16 rounded-lg object-cover mb-2"
+                class="w-16 h-16 rounded-lg object-contain mb-2"
               />
             {:else}
               <div class="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center mb-2">

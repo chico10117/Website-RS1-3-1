@@ -10,9 +10,9 @@
   let qrError: string | null = null;
 
   const QR_SIZE = 200; // Increased QR size
-  const LOGO_SIZE = 50; // Increased logo size
-  const LOGO_MARGIN = 8; // Margin around the logo
-  const LOGO_BACKGROUND_SIZE = LOGO_SIZE + (LOGO_MARGIN * 2);
+  const LOGO_SIZE = 60; // Increased logo size
+  const LOGO_MARGIN = 0; // Margin around the logo
+  const LOGO_BACKGROUND_SIZE = LOGO_SIZE + (LOGO_MARGIN * 0);
 
   // Reactive translations
   $: currentLanguage = $language;
@@ -23,7 +23,7 @@
     
     QRCode.toCanvas(canvas, url, {
       width: QR_SIZE,
-      margin: 2,
+      margin: 1,
       errorCorrectionLevel: 'H', // Highest error correction for better logo visibility
       color: {
         dark: '#000000',
