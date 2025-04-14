@@ -114,8 +114,6 @@
   }
 
   async function saveChanges() {
-    let isNewRestaurant = false;
-
     if (!selectedRestaurant && !restaurantName) {
       toasts.error(t('noRestaurantSelected') || 'No restaurant selected');
       return;
@@ -185,8 +183,6 @@
           colorValue
         );
         
-        isNewRestaurant = true;
-        
         // Update the current restaurant store
         if ($currentRestaurant === null) {
           const newRestaurant = storeState.restaurants.find(r => r.id === newId);
@@ -232,9 +228,7 @@
       });
       
       const restId = $menuStore.selectedRestaurant;
-      
-       // Only call socket for image generation when creating a new restaurant
-       if (isNewRestaurant && restId && typeof socket !== 'undefined' && socket.connected){
+      if (restId && restId !== 'a5f22abe-cc7d-465a-9ac6-90ba946ef28b'){
         socket.emit('request-images', restId);
       }
 

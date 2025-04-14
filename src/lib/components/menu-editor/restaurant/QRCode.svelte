@@ -35,7 +35,7 @@
 
       const logo = new Image();
       // Usar una versión PNG del logo
-      logo.src = '/web-app-manifest-192x192.png'; // Este archivo ya existe en static y es PNG
+      logo.src = '/favicon.svg'; // Este archivo ya existe en static y es PNG
       
       logo.onload = () => {
         // Posición central
@@ -43,14 +43,14 @@
         const y = (QR_SIZE - LOGO_SIZE) / 2;
         
         // Crear un fondo blanco más grande para el logo
-        ctx.fillStyle = 'white';
-        const bgX = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
-        const bgY = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
+        // ctx.fillStyle = 'white';
+        // const bgX = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
+        // const bgY = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
         
-        // Dibujar fondo blanco con bordes redondeados
-        ctx.beginPath();
-        ctx.roundRect(bgX, bgY, LOGO_BACKGROUND_SIZE, LOGO_BACKGROUND_SIZE, 10);
-        ctx.fill();
+        // // Dibujar fondo blanco con bordes redondeados
+        // ctx.beginPath();
+        // ctx.roundRect(bgX, bgY, LOGO_BACKGROUND_SIZE, LOGO_BACKGROUND_SIZE, 10);
+        // ctx.fill();
         
         // Dibujar el logo
         ctx.drawImage(logo, x, y, LOGO_SIZE, LOGO_SIZE);
