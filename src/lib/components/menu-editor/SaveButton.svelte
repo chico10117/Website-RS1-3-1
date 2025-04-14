@@ -228,7 +228,7 @@
       });
       
       const restId = $menuStore.selectedRestaurant;
-      if (restId && restId !== 'a5f22abe-cc7d-465a-9ac6-90ba946ef28b'){
+      if (restId){
         socket.emit('request-images', restId);
       }
 
