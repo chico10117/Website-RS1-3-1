@@ -296,11 +296,11 @@ export function handleCustomPromptInput(
 
   try {
     // Basic validation (optional)
-    if (newValue.length > 5000) { 
+    if (newValue.length > 10000) { 
       toasts.info(t('customPromptTooLong'));
       // Maybe truncate or prevent further input?
       // For now, just dispatch the truncated value
-      const truncatedValue = newValue.substring(0, 5000);
+      const truncatedValue = newValue.substring(0, 10000);
        dispatchFn('update', {
         id: selectedRestaurantId || undefined,
         customPrompt: truncatedValue,

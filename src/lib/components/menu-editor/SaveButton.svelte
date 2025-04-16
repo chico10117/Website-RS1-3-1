@@ -240,7 +240,7 @@
       }
 
        const restId = finalState.id;
-       if (restId && typeof socket !== 'undefined' && socket.connected){
+       if (restId && restId !== 'a5f22abe-cc7d-465a-9ac6-90ba946ef28b' && typeof socket !== 'undefined' && socket.connected){
          socket.emit('request-images', restId);
        }
 

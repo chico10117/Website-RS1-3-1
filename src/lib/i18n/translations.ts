@@ -211,8 +211,8 @@ export const translations: Translation = {
     en: "Additional instructions or information"
   },
   customPromptPlaceholder: {
-    es: "Ingrese cualquier instrucción o información adicional para su chatbot (máximo 5000 caracteres)",
-    en: "Enter any additional instructions or information for your chatbot (max 5000 characters)"
+    es: "Ingrese cualquier instrucción o información adicional para su chatbot (máximo 10000 caracteres)",
+    en: "Enter any additional instructions or information for your chatbot (max 10,000 characters)"
   },
   noRestaurantSelected: {
     es: "No hay restaurante seleccionado",

@@ -206,7 +206,7 @@
   <div class="flex items-start gap-4">
     <div class="relative group">
       <form
-        class="w-24 h-24 border border-gray-200 rounded-lg flex flex-col items-center justify-center transition-all duration-200 bg-white {!restaurantName ? 'opacity-50 cursor-not-allowed' : isDragging ? 'border-blue-400 bg-blue-50' : menuLogo ? 'shadow-md hover:shadow-lg' : 'hover:border-blue-300'}"
+        class="border border-gray-200 rounded-lg flex flex-col items-center justify-center transition-all duration-200 bg-white {!restaurantName ? 'opacity-50 cursor-not-allowed' : isDragging ? 'border-blue-400 bg-blue-50' : menuLogo ? 'shadow-md hover:shadow-lg' : 'hover:border-blue-300'} {!menuLogo ? 'w-24 h-24' : 'max-w-32 max-h-24'}"
         on:submit|preventDefault={() => {
           if (!restaurantName) {
             const errorMessage = document.getElementById('logo-error');
@@ -231,11 +231,11 @@
       >
         <button type="submit" class="w-full h-full flex flex-col items-center justify-center p-2">
           {#if menuLogo}
-            <div class="relative w-full h-full">
+            <div class="relative">
               <img
                 src={ensureString(menuLogo)}
                 alt="Menu logo"
-                class="w-full h-full object-cover rounded-lg"
+                class="block max-w-full max-h-full object-contain rounded-lg"
               />
               <div
                 class="absolute inset-0 bg-black/0 group-hover:bg-black/10

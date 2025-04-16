@@ -58,7 +58,7 @@
              duration-200 ease-in-out bg-white/80 backdrop-blur-sm resize-none"
     ></textarea>
     <div class="absolute bottom-2 right-2 text-sm text-gray-500">
-      {ensureString(customPrompt).length}/5000
+      {ensureString(customPrompt).length}/10000
     </div>
   </div>
 </div> 

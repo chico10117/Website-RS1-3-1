@@ -8,11 +8,12 @@
   let canvas: HTMLCanvasElement;
   let container: HTMLDivElement;
   let qrError: string | null = null;
+  let displaySize: number;
+  let pixelRatio: number = 1;
 
-  const QR_SIZE = 200; // Increased QR size
-  const LOGO_SIZE = 50; // Increased logo size
-  const LOGO_MARGIN = 8; // Margin around the logo
-  const LOGO_BACKGROUND_SIZE = LOGO_SIZE + (LOGO_MARGIN * 2);
+  const QR_SIZE = 200; // Logical size
+  const LOGO_SIZE = 50; // Used for CSS styling of the overlay
+  const LOGO_MARGIN = 0; /// Used for CSS styling of the overlay
 
   // Reactive translations
   $: currentLanguage = $language;
@@ -21,9 +22,22 @@
   onMount(() => {
     if (!url) return;
     
+    // Adjust for device pixel ratio for sharpness on high-DPI screens
+    pixelRatio = window.devicePixelRatio || 1;
+    displaySize = QR_SIZE;
+    const scaledSize = displaySize * pixelRatio;
+
+    // Set canvas buffer size
+    canvas.width = scaledSize;
+    canvas.height = scaledSize;
+
+    // Set display size via CSS
+    canvas.style.width = `${displaySize}px`;
+    canvas.style.height = `${displaySize}px`;
+
     QRCode.toCanvas(canvas, url, {
-      width: QR_SIZE,
-      margin: 2,
+      width: scaledSize,
+      margin: 0,
       errorCorrectionLevel: 'H', // Highest error correction for better logo visibility
       color: {
         dark: '#000000',
@@ -33,28 +47,11 @@
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const logo = new Image();
-      // Usar una versión PNG del logo
-      logo.src = '/web-app-manifest-192x192.png'; // Este archivo ya existe en static y es PNG
-      
-      logo.onload = () => {
-        // Posición central
-        const x = (QR_SIZE - LOGO_SIZE) / 2;
-        const y = (QR_SIZE - LOGO_SIZE) / 2;
-        
-        // Crear un fondo blanco más grande para el logo
-        ctx.fillStyle = 'white';
-        const bgX = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
-        const bgY = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
-        
-        // Dibujar fondo blanco con bordes redondeados
-        ctx.beginPath();
-        ctx.roundRect(bgX, bgY, LOGO_BACKGROUND_SIZE, LOGO_BACKGROUND_SIZE, 10);
-        ctx.fill();
-        
-        // Dibujar el logo
-        ctx.drawImage(logo, x, y, LOGO_SIZE, LOGO_SIZE);
-      };
+      // Scale the context (only needed if pixelRatio > 1)
+      if (pixelRatio !== 1) {
+        ctx.scale(pixelRatio, pixelRatio);
+      }
+      // Logo drawing removed, handled by CSS overlay now
     }).catch((err: Error) => {
       console.error('Error generating QR code:', err);
       qrError = err.message;
@@ -62,13 +59,20 @@
   });
 </script>
 
-<div class="qr-code-container">
+<div 
+  class="qr-code-container"
+  style="--logo-size: {LOGO_SIZE}px; --logo-margin: {LOGO_MARGIN}px;"
+>
   <canvas
     bind:this={canvas}
     class="qr-code"
-    width={QR_SIZE}
-    height={QR_SIZE}
     aria-label={t('qrCodeFor').replace('{url}', url)}
+  />
+  <!-- Logo Overlay -->
+  <img 
+    src="/favicon_simplified_4QR.svg" 
+    alt="Logo Overlay"
+    class="qr-logo-overlay"
   />
   {#if qrError}
     <p class="text-red-500 text-sm">{t('qrCodeError')}: {qrError}</p>
@@ -80,6 +84,7 @@
     display: inline-flex;
     flex-direction: column;
     align-items: flex-end;
+    position: relative; /* Positioning context for the overlay */
   }
   
   .qr-code {
@@ -88,5 +93,25 @@
     padding: 0.5rem;
     background: white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .qr-logo-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    /* Size controlled by CSS variables */
+    width: var(--logo-size);
+    height: var(--logo-size);
+    
+    /* Background and margin via padding */
+    padding: var(--logo-margin);
+    background-color: white;
+    border-radius: 4px; /* Match previous roundRect radius */
+    box-sizing: border-box; /* Include padding in width/height */
+
+    /* Optional: prevent interaction if needed */
+    pointer-events: none; 
   }
 </style> 
