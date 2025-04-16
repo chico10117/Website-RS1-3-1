@@ -12,9 +12,8 @@
   let pixelRatio: number = 1;
 
   const QR_SIZE = 120; // Logical size
-  const LOGO_SIZE = 20;
-  const LOGO_MARGIN = 2; // Margin around the logo
-  // LOGO_BACKGROUND_SIZE will be calculated dynamically
+  const LOGO_SIZE = 50; // Used for CSS styling of the overlay
+  const LOGO_MARGIN = 0; /// Used for CSS styling of the overlay
 
   // Reactive translations
   $: currentLanguage = $language;
@@ -48,43 +47,11 @@
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Scale the context to draw according to logical size
-      ctx.scale(pixelRatio, pixelRatio);
-
-      // Disable image smoothing for potentially sharper rendering
-      ctx.imageSmoothingEnabled = false;
-
-      const logo = new Image();
-      logo.src = '/QRlogo2.png'; // Use the PNG logo
-      
-      logo.onload = () => {
-        const logoNatWidth = logo.naturalWidth;
-        const logoNatHeight = logo.naturalHeight;
-
-        // Calculate scaling factor to fit logo within LOGO_SIZE box
-        const scale = Math.min(LOGO_SIZE / logoNatWidth, LOGO_SIZE / logoNatHeight);
-        const drawnWidth = Math.floor(logoNatWidth * scale);
-        const drawnHeight = Math.floor(logoNatHeight * scale);
-
-        // Calculate centered position for the logo
-        const x = Math.floor((displaySize - drawnWidth) / 2);
-        const y = Math.floor((displaySize - drawnHeight) / 2);
-        
-        // Calculate background dimensions and position
-        const bgWidth = drawnWidth + LOGO_MARGIN * 2;
-        const bgHeight = drawnHeight + LOGO_MARGIN * 2;
-        const bgX = Math.floor((displaySize - bgWidth) / 2);
-        const bgY = Math.floor((displaySize - bgHeight) / 2);
-
-        ctx.fillStyle = 'white';
-        // Draw rounded white background based on logo aspect ratio + margin
-        ctx.beginPath();
-        ctx.roundRect(bgX, bgY, bgWidth, bgHeight, 4); // Use radius 4
-        ctx.fill();
-        
-        // Draw the logo with its correct aspect ratio
-        ctx.drawImage(logo, x, y, drawnWidth, drawnHeight);
-      };
+      // Scale the context (only needed if pixelRatio > 1)
+      if (pixelRatio !== 1) {
+        ctx.scale(pixelRatio, pixelRatio);
+      }
+      // Logo drawing removed, handled by CSS overlay now
     }).catch((err: Error) => {
       console.error('Error generating QR code:', err);
       qrError = err.message;
@@ -92,11 +59,20 @@
   });
 </script>
 
-<div class="qr-code-container">
+<div 
+  class="qr-code-container"
+  style="--logo-size: {LOGO_SIZE}px; --logo-margin: {LOGO_MARGIN}px;"
+>
   <canvas
     bind:this={canvas}
     class="qr-code"
     aria-label={t('qrCodeFor').replace('{url}', url)}
+  />
+  <!-- Logo Overlay -->
+  <img 
+    src="/favicon_simplified_4QR.svg" 
+    alt="Logo Overlay"
+    class="qr-logo-overlay"
   />
   {#if qrError}
     <p class="text-red-500 text-sm">{t('qrCodeError')}: {qrError}</p>
@@ -108,6 +84,7 @@
     display: inline-flex;
     flex-direction: column;
     align-items: flex-end;
+    position: relative; /* Positioning context for the overlay */
   }
   
   .qr-code {
@@ -116,5 +93,25 @@
     padding: 0.5rem;
     background: white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .qr-logo-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    /* Size controlled by CSS variables */
+    width: var(--logo-size);
+    height: var(--logo-size);
+    
+    /* Background and margin via padding */
+    padding: var(--logo-margin);
+    background-color: white;
+    border-radius: 4px; /* Match previous roundRect radius */
+    box-sizing: border-box; /* Include padding in width/height */
+
+    /* Optional: prevent interaction if needed */
+    pointer-events: none; 
   }
 </style> 
