@@ -11,7 +11,7 @@
   let displaySize: number;
   let pixelRatio: number = 1;
 
-  const QR_SIZE = 120; // Logical size
+  const QR_SIZE = 200; // Logical size
   const LOGO_SIZE = 50; // Used for CSS styling of the overlay
   const LOGO_MARGIN = 0; /// Used for CSS styling of the overlay
 
