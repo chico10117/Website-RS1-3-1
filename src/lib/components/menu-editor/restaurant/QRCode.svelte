@@ -11,9 +11,9 @@
   let displaySize: number;
   let pixelRatio: number = 1;
 
-  const QR_SIZE = 150; // Logical size
-  const LOGO_SIZE = 35;
-  const LOGO_MARGIN = 4; // Margin around the logo
+  const QR_SIZE = 120; // Logical size
+  const LOGO_SIZE = 20;
+  const LOGO_MARGIN = 2; // Margin around the logo
   // LOGO_BACKGROUND_SIZE will be calculated dynamically
 
   // Reactive translations
