@@ -77,8 +77,10 @@
         const bgY = Math.floor((displaySize - bgHeight) / 2);
 
         ctx.fillStyle = 'white';
-        // Draw square white background based on logo aspect ratio + margin
-        ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+        // Draw rounded white background based on logo aspect ratio + margin
+        ctx.beginPath();
+        ctx.roundRect(bgX, bgY, bgWidth, bgHeight, 4); // Use radius 4
+        ctx.fill();
         
         // Draw the logo with its correct aspect ratio
         ctx.drawImage(logo, x, y, drawnWidth, drawnHeight);
