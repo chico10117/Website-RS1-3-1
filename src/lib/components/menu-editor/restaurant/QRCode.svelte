@@ -8,11 +8,13 @@
   let canvas: HTMLCanvasElement;
   let container: HTMLDivElement;
   let qrError: string | null = null;
+  let displaySize: number;
+  let pixelRatio: number = 1;
 
-  const QR_SIZE = 200; // Increased QR size
-  const LOGO_SIZE = 60; // Increased logo size
-  const LOGO_MARGIN = 0; // Margin around the logo
-  const LOGO_BACKGROUND_SIZE = LOGO_SIZE + (LOGO_MARGIN * 0);
+  const QR_SIZE = 150; // Logical size
+  const LOGO_SIZE = 35;
+  const LOGO_MARGIN = 4; // Margin around the logo
+  // LOGO_BACKGROUND_SIZE will be calculated dynamically
 
   // Reactive translations
   $: currentLanguage = $language;
@@ -21,9 +23,22 @@
   onMount(() => {
     if (!url) return;
     
+    // Adjust for device pixel ratio for sharpness on high-DPI screens
+    pixelRatio = window.devicePixelRatio || 1;
+    displaySize = QR_SIZE;
+    const scaledSize = displaySize * pixelRatio;
+
+    // Set canvas buffer size
+    canvas.width = scaledSize;
+    canvas.height = scaledSize;
+
+    // Set display size via CSS
+    canvas.style.width = `${displaySize}px`;
+    canvas.style.height = `${displaySize}px`;
+
     QRCode.toCanvas(canvas, url, {
-      width: QR_SIZE,
-      margin: 1,
+      width: scaledSize,
+      margin: 0,
       errorCorrectionLevel: 'H', // Highest error correction for better logo visibility
       color: {
         dark: '#000000',
@@ -33,28 +48,40 @@
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      // Scale the context to draw according to logical size
+      ctx.scale(pixelRatio, pixelRatio);
+
+      // Disable image smoothing for potentially sharper rendering
+      ctx.imageSmoothingEnabled = false;
+
       const logo = new Image();
-      // Set desired render size for the SVG before loading
-      logo.width = LOGO_SIZE;
-      logo.height = LOGO_SIZE;
-      logo.src = '/favicon.svg'; // Este archivo ya existe en static y es PNG
+      logo.src = '/QRlogo2.png'; // Use the PNG logo
       
       logo.onload = () => {
-        // Posición central
-        const x = (QR_SIZE - LOGO_SIZE) / 2;
-        const y = (QR_SIZE - LOGO_SIZE) / 2;
+        const logoNatWidth = logo.naturalWidth;
+        const logoNatHeight = logo.naturalHeight;
+
+        // Calculate scaling factor to fit logo within LOGO_SIZE box
+        const scale = Math.min(LOGO_SIZE / logoNatWidth, LOGO_SIZE / logoNatHeight);
+        const drawnWidth = Math.floor(logoNatWidth * scale);
+        const drawnHeight = Math.floor(logoNatHeight * scale);
+
+        // Calculate centered position for the logo
+        const x = Math.floor((displaySize - drawnWidth) / 2);
+        const y = Math.floor((displaySize - drawnHeight) / 2);
         
+        // Calculate background dimensions and position
+        const bgWidth = drawnWidth + LOGO_MARGIN * 2;
+        const bgHeight = drawnHeight + LOGO_MARGIN * 2;
+        const bgX = Math.floor((displaySize - bgWidth) / 2);
+        const bgY = Math.floor((displaySize - bgHeight) / 2);
+
         ctx.fillStyle = 'white';
-        const bgX = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
-        const bgY = (QR_SIZE - LOGO_BACKGROUND_SIZE) / 2;
+        // Draw square white background based on logo aspect ratio + margin
+        ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
         
-        // Dibujar fondo blanco con bordes redondeados
-        ctx.beginPath();
-        ctx.roundRect(bgX, bgY, LOGO_BACKGROUND_SIZE, LOGO_BACKGROUND_SIZE, 10);
-        ctx.fill();
-        
-        // Dibujar el logo
-        ctx.drawImage(logo, x, y, LOGO_SIZE, LOGO_SIZE);
+        // Draw the logo with its correct aspect ratio
+        ctx.drawImage(logo, x, y, drawnWidth, drawnHeight);
       };
     }).catch((err: Error) => {
       console.error('Error generating QR code:', err);
@@ -67,8 +94,6 @@
   <canvas
     bind:this={canvas}
     class="qr-code"
-    width={QR_SIZE}
-    height={QR_SIZE}
     aria-label={t('qrCodeFor').replace('{url}', url)}
   />
   {#if qrError}
