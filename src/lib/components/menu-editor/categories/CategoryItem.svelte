@@ -34,11 +34,17 @@
   function startEditing() {
     isEditing = true;
     editingName = category.name;
+    // Expand the category if it's not already selected
+    if (!isSelected) {
+      dispatch('toggle');
+    }
   }
 
   function cancelEditing() {
     isEditing = false;
     editingName = '';
+    // Note: We are not collapsing on cancel, as per the thought process.
+    // If the user expanded it manually before editing, collapsing might be unexpected.
   }
 
   async function updateCategoryName() {
@@ -62,6 +68,10 @@
       });
       
       isEditing = false;
+      // Collapse the category after successful update if it was selected
+      if (isSelected) {
+        dispatch('toggle');
+      }
     } catch (error) {
       console.error('Error updating category:', error);
       if (error instanceof Error) {
@@ -117,11 +127,37 @@
 <div class="flex flex-col p-2">
   <!-- Category Header -->
   <div 
-    class="flex items-center justify-between bg-white/30 backdrop-blur-sm p-2 rounded cursor-pointer hover:bg-white/40 transition-colors"
-    on:click={() => dispatch('toggle')}
+    class="flex items-center justify-between bg-white/30 backdrop-blur-sm p-2 rounded hover:bg-white/40 transition-colors"
   >
+    <!-- Drag Handle (draggable by default via parent) -->
+    <div class="category-drag-handle mr-2 cursor-grab text-gray-500 hover:text-gray-700 p-1">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </div>
+
+    <!-- Toggle Button (prevent drag) -->
+    <button 
+      class="mr-2 p-1 rounded-full bg-gray-300 text-gray-700 hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center justify-center h-6 w-6"
+      on:click|stopPropagation={() => dispatch('toggle')}
+      draggable="false"
+    >
+      {#if isSelected}
+        <!-- Minus icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+        </svg>
+      {:else}
+        <!-- Plus icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      {/if}
+    </button>
+
     {#if isEditing}
-      <div class="flex-1 flex items-center space-x-2">
+      <!-- Editing View (prevent drag) -->
+      <div class="flex-1 flex items-center space-x-2" draggable="false">
         <input
           type="text"
           class="flex-1 px-3 py-2 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/70 font-normal"
@@ -147,8 +183,9 @@
         </button>
       </div>
     {:else}
-      <div class="flex-1 font-medium text-gray-800">{category.name}</div>
-      <div class="flex space-x-1">
+      <!-- Display View (prevent drag on name and actions) -->
+      <div class="flex-1 font-medium text-gray-800" draggable="false">{category.name}</div>
+      <div class="flex space-x-1" draggable="false">
         <button 
           class="p-1 text-gray-500 hover:text-blue-500"
           on:click|stopPropagation={startEditing}

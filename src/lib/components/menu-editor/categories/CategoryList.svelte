@@ -8,8 +8,9 @@
   import AddCategory from './AddCategory.svelte';
   import { toasts } from '$lib/stores/toast';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { dndzone, type DndEvent } from 'svelte-dnd-action';
+  import { flip } from 'svelte/animate';
 
-  export let categories: Category[] = [];
   export let selectedRestaurant: string | null;
   export let restaurantName: string = '';
   export let currency: string = '€';
@@ -19,20 +20,25 @@
   }>();
 
   let selectedCategoryId: string | null = null;
+  const flipDurationMs = 300;
 
-  // Make translations reactive
+  let localCategories: Category[] = $menuStore.categories;
+  let isDragging = false;
+
+  $: if (!isDragging) {
+    if (JSON.stringify(localCategories) !== JSON.stringify($menuStore.categories)) {
+      localCategories = $menuStore.categories;
+    }
+  }
+
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
 
-  // Use the currency from currentRestaurant if available
   $: if ($currentRestaurant && $currentRestaurant.currency) {
     currency = $currentRestaurant.currency;
   }
 
-  // Keep track of categories by ID to prevent duplicates
-  $: categoryMap = new Map(categories.map(cat => [cat.id, cat]));
-  $: orderedCategories = Array.from(categoryMap.values());
-  $: categoryNameMap = new Map(orderedCategories.map(cat => [cat.name.toLowerCase(), cat.id]));
+  $: categoryNameMap = new Map(localCategories.map((cat: Category) => [cat.name.toLowerCase(), cat.id]));
 
   function isCategoryNameDuplicate(name: string, excludeId?: string): boolean {
     const existingId = categoryNameMap.get(name.toLowerCase());
@@ -41,107 +47,55 @@
 
   async function handleCategoryAdd(event: CustomEvent<Category>) {
     const category = event.detail;
-    
-    // Check for duplicate name
     if (isCategoryNameDuplicate(category.name)) {
       toasts.error(t('error') + ': ' + t('categoryNameExists'));
       return;
     }
-    
-    // Add the category to the menuStore
-    menuStore.addCategory(category.name);
-    
-    // Update the map and convert back to array
-    categoryMap.set(category.id, category);
-    categories = Array.from(categoryMap.values());
-    
-    dispatch('update', categories);
-    // Automatically select the new category
-    selectedCategoryId = category.id;
+    const newCategoryId = menuStore.addCategory(category.name);
+    selectedCategoryId = newCategoryId;
+    dispatch('update', $menuStore.categories);
   }
 
   async function handleCategoryUpdate(event: CustomEvent<{ index: number; category: Category }>) {
     const { category } = event.detail;
-    
-    // Get the existing category
-    const existingCategory = categoryMap.get(category.id);
-    
-    // Only check for duplicate names if the name is actually changing
+    const existingCategory = localCategories.find((c: Category) => c.id === category.id);
     if (existingCategory && category.name !== existingCategory.name) {
       if (isCategoryNameDuplicate(category.name, category.id)) {
         toasts.error(t('error') + ': ' + t('categoryNameExists'));
         return;
       }
     }
-    
-    // Ensure we have the restaurantId
-    if (!category.restaurantId && selectedRestaurant) {
-      category.restaurantId = selectedRestaurant;
-    }
-    
-    const updatedCategory = {
-      ...(existingCategory || {}),
-      ...category,
-      // Ensure dishes are properly handled
-      dishes: category.dishes || existingCategory?.dishes || []
-    };
-    
-    // Update the category in menuStore
-    menuStore.updateCategory(updatedCategory.id, updatedCategory.name);
-    
-    // Update the map and convert back to array
-    categoryMap.set(updatedCategory.id, updatedCategory);
-    categories = Array.from(categoryMap.values());
-    
-    dispatch('update', categories);
+    menuStore.updateCategory(category.id, category.name);
+    dispatch('update', $menuStore.categories);
   }
 
-  async function handleCategoryDelete(event: CustomEvent<number>) {
-    const index = event.detail;
-    const category = orderedCategories[index];
-    
-    // Delete the category from menuStore
-    menuStore.deleteCategory(category.id);
-    
-    // Remove from map and update array
-    categoryMap.delete(category.id);
-    categories = Array.from(categoryMap.values());
-    
-    if (selectedCategoryId === category.id) {
+  async function handleCategoryDelete(index: number) {
+    const categoryToDelete = localCategories[index];
+    if (!categoryToDelete) return;
+
+    menuStore.deleteCategory(categoryToDelete.id);
+    if (selectedCategoryId === categoryToDelete.id) {
       selectedCategoryId = null;
     }
-    dispatch('update', categories);
+    dispatch('update', $menuStore.categories);
   }
 
   function toggleCategory(index: number) {
-    const category = orderedCategories[index];
+    const category = localCategories[index];
+    if (!category) return;
     selectedCategoryId = selectedCategoryId === category.id ? null : category.id;
   }
 
-  function handleAddCategory(event: CustomEvent<string>) {
-    const categoryName = event.detail.trim();
-    const existingCategory = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
-    
-    if (existingCategory) {
-      toasts.error(t('error') + ': ' + t('categoryNameExists'));
-      return;
-    }
-
-    // ... rest of the function ...
+  function handleDndConsider(e: CustomEvent<DndEvent<Category>>) {
+    isDragging = true;
+    localCategories = e.detail.items;
   }
 
-  function handleUpdateCategory(event: CustomEvent<{ id: string; name: string }>) {
-    const { id, name } = event.detail;
-    const existingCategory = categories.find(c => 
-      c.id !== id && c.name.toLowerCase() === name.toLowerCase()
-    );
-    
-    if (existingCategory) {
-      toasts.error(t('error') + ': ' + t('categoryNameExists'));
-      return;
-    }
-
-    // ... rest of the function ...
+  function handleDndFinalize(e: CustomEvent<DndEvent<Category>>) {
+    isDragging = false;
+    localCategories = e.detail.items;
+    menuStore.reorderCategories(localCategories);
+    dispatch('update', localCategories);
   }
 </script>
 
@@ -154,18 +108,24 @@
     on:add={handleCategoryAdd}
   />
 
-  <!-- Categories List -->
-  <div class="bg-white/20 backdrop-blur-md rounded-lg border border-white/50">
-    {#each orderedCategories as category, index (category.id)}
-      <CategoryItem
-        {category}
-        {index}
-        {currency}
-        isSelected={selectedCategoryId === category.id}
-        on:update={handleCategoryUpdate}
-        on:delete={handleCategoryDelete}
-        on:toggle={() => toggleCategory(index)}
-      />
+  <div 
+    class="bg-white/20 backdrop-blur-md rounded-lg border border-white/50 overflow-hidden" 
+    use:dndzone={{ items: localCategories, flipDurationMs }}
+    on:consider={handleDndConsider}
+    on:finalize={handleDndFinalize}
+  >
+    {#each localCategories as category, index (category.id)} 
+      <div animate:flip={{duration: flipDurationMs}}>
+        <CategoryItem
+          {category}
+          {index}
+          {currency}
+          isSelected={selectedCategoryId === category.id}
+          on:update={handleCategoryUpdate} 
+          on:delete={() => handleCategoryDelete(index)} 
+          on:toggle={() => toggleCategory(index)}
+        />
+      </div>
     {/each}
   </div>
 </div> 
