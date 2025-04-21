@@ -7,7 +7,7 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene la carta de un restaurante. Extrae y organiza la información de la siguiente forma:
+const DEFAULT_PROMPT = `Por favor, devuelve tu respuesta estrictamente en formato JSON. Analiza las imagenes que te adjunto, la cuales contiene la carta de un restaurante. Extrae y organiza la información de la siguiente forma:
     
     - Identifica las categorías o secciones de la carta (por ejemplo: Entradas, Platos Principales, Postres, Bebidas). Trata de utilizar todo el contenido visible de la imagen, no dejes nada sin procesar que esté relacionado a platos de la carta
     - Para cada categoría, extrae los nombres de los platos y sus respectivos precios.
@@ -17,8 +17,8 @@ const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene 
     - Si no puedes determinar el precio, usa 0.00 como valor predeterminado.
     - Si no identificas el nombre intenta crear uno corto basado en la informacion que aparece en la tabla
     - IMPORTANTE: Para el número de teléfono, devuelve SOLO los dígitos sin espacios ni caracteres especiales (ejemplo: 34123456789)
-    Devuelve la información en formato JSON bexactamente como el texto de abajo encerrado entre <json>  y  </json>
-    Por ejemplo, el formato de salida debe ser similar a:
+    
+    Devuelve la información estrictamente en formato JSON. El formato de salida debe ser exactamente como este ejemplo:
     
     {
       "restaurant": {
@@ -64,7 +64,6 @@ const DEFAULT_PROMPT = `Analiza las imagenes que te adjunto, la cuales contiene 
         }
       ]
     }
-    </json>
     `;
 
 interface ImageData {
@@ -115,6 +114,10 @@ export async function POST({ request, locals }: RequestEvent) {
         const stream = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
+                {
+                    role: "system",
+                    content: "You are an assistant designed to extract information from images and respond strictly in JSON format."
+                },
                 {
                     role: "user",
                     content: contentList

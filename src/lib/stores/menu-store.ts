@@ -687,6 +687,52 @@ function createMenuStore() {
       });
     },
 
+    addUploadedCategoriesAndDishes(restaurantId: string, uploadedCategories: any[]) {
+      update(state => {
+        const newCategories: Category[] = [];
+        const changedCategoryIds = new Set(state.changedItems.categories);
+        const changedDishIds = new Set(state.changedItems.dishes);
+
+        uploadedCategories.forEach(uploadedCategory => {
+          const categoryTempId = createTempId();
+          const newDishes: Dish[] = [];
+
+          (uploadedCategory.dishes || []).forEach((uploadedDish: any) => {
+            const dishTempId = createTempId();
+            newDishes.push({
+              id: dishTempId,
+              title: uploadedDish.title || 'Untitled Dish',
+              description: uploadedDish.description || '',
+              price: uploadedDish.price?.toString() || '0',
+              imageUrl: uploadedDish.imageUrl || null,
+              categoryId: categoryTempId // Link to the new category temp ID
+            });
+            changedDishIds.add(dishTempId); // Mark dish as changed
+          });
+
+          newCategories.push({
+            id: categoryTempId,
+            name: uploadedCategory.name || 'Untitled Category',
+            restaurantId: restaurantId, 
+            dishes: newDishes
+          });
+          changedCategoryIds.add(categoryTempId); // Mark category as changed
+        });
+
+        console.log(`Menu Store: Added ${newCategories.length} uploaded categories and their dishes.`);
+
+        return {
+          ...state,
+          categories: [...state.categories, ...newCategories],
+          changedItems: {
+            ...state.changedItems,
+            categories: changedCategoryIds,
+            dishes: changedDishIds
+          }
+        };
+      });
+    },
+
     async saveChanges() {
       const state = get({ subscribe });
       
