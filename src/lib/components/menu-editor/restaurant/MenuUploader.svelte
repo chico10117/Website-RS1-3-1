@@ -136,8 +136,7 @@
           canvas.height = viewport.height;
           await page.render({ canvasContext: context, viewport }).promise;
 
-          // Try JPEG with 80% quality first
-          const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+          const dataURL = canvas.toDataURL('image/png');
           console.log(`Page ${pageNum} rendered. Data URL length: ${dataURL.length}`);
           images.push({ page: pageNum, dataURL });
         } catch (pageError) {
