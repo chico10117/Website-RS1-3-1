@@ -124,7 +124,7 @@
 
         try {
           const page = await pdf.getPage(pageNum);
-          const viewport = page.getViewport({ scale: 2 });
+          const viewport = page.getViewport({ scale: 1});
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           
