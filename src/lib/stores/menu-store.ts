@@ -773,6 +773,29 @@ function createMenuStore() {
         update(s => ({ ...s, isSaving: false }));
         throw error;
       }
+    },
+
+    reorderCategories(newOrderCategories: Category[]) {
+      update(state => {
+        if (!state.selectedRestaurant) return state;
+        
+        const oldOrderIds = state.categories.map(c => c.id);
+        const newOrderIds = newOrderCategories.map(c => c.id);
+        const orderChanged = JSON.stringify(oldOrderIds) !== JSON.stringify(newOrderIds);
+
+        if (orderChanged) {
+          return {
+            ...state,
+            categories: newOrderCategories,
+            changedItems: {
+              ...state.changedItems,
+              restaurant: true // Mark restaurant as changed because category order affects it
+            }
+          };
+        } else {
+          return state; // No changes if order is the same
+        }
+      });
     }
   };
 }

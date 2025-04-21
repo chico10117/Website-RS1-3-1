@@ -299,8 +299,8 @@ export const translations: Translation = {
     es: 'Personalizado'
   },
   uploadMenu: {
-    en: 'Upload Your Menu Here!',
-    es: 'Sube Tu Carta Acá!'
+    en: 'Upload Your Menu Here',
+    es: 'Sube Tu Carta Acá'
   },
   uploadMenuFiles: {
     en: 'Upload Menu Files',
