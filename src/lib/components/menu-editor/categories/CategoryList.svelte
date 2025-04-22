@@ -10,6 +10,7 @@
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { dndzone, type DndEvent } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
+  import { page } from '$app/stores';
 
   export let selectedRestaurant: string | null;
   export let restaurantName: string = '';
@@ -91,11 +92,51 @@
     localCategories = e.detail.items;
   }
 
-  function handleDndFinalize(e: CustomEvent<DndEvent<Category>>) {
+  async function handleDndFinalize(e: CustomEvent<DndEvent<Category>>) {
     isDragging = false;
-    localCategories = e.detail.items;
-    menuStore.reorderCategories(localCategories);
-    dispatch('update', localCategories);
+    const newOrderedCategories = e.detail.items;
+    const originalOrder = [...localCategories];
+    localCategories = newOrderedCategories;
+
+    menuStore.reorderCategories(newOrderedCategories);
+    dispatch('update', newOrderedCategories);
+
+    const orderedCategoryIds = newOrderedCategories.map((cat) => cat.id);
+    const restaurantId = selectedRestaurant;
+
+    if (!restaurantId) {
+      console.error('Restaurant ID is missing, cannot reorder categories.');
+      toasts.error(t('error') + ': ' + t('missingRestaurantId'));
+      localCategories = originalOrder;
+      menuStore.reorderCategories(originalOrder);
+      dispatch('update', originalOrder);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/restaurants/${restaurantId}/categories/order`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderedCategoryIds }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Category reorder successful:', result.message);
+    } catch (error) {
+      console.error('Error reordering categories:', error);
+      toasts.error(t('error') + ': ' + (error instanceof Error ? error.message : t('reorderCategoriesError')));
+      
+      localCategories = originalOrder;
+      menuStore.reorderCategories(originalOrder);
+      dispatch('update', originalOrder);
+    }
   }
 </script>
 

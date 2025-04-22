@@ -20,6 +20,7 @@ export interface Category {
   name: string;
   restaurantId: string;
   dishes?: Dish[];
+  order: number;
 }
 
 export interface Dish {

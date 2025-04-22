@@ -1,0 +1,1 @@
+/opt/homebrew/opt/postgresql@15/bin/pg_dump -Fc -v -d "postgresql://neondb_owner:rH7eRhfOGj4J@ep-jolly-sound-a2rw9fhx.eu-central-1.aws.neon.tech/neondb?sslmode=require" -f "neondb_backup_$(date +%Y%m%d_%H%M%S).bak"

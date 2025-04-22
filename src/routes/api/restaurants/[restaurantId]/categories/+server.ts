@@ -1,12 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
 import { categories } from '$lib/server/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, asc, max, gt, sql } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
 /**
  * Endpoint POST to find or create a category in a restaurant based on name.
- * @param {RequestEvent} evento - Contains request and params of the petition
+ * Also handles assigning the correct order.
+ * @param {RequestEvent} event - Contains request and params of the petition
  * @returns {Promise<Response>} JSON with the found or created category or error
  */
 export async function POST({ request, params }: RequestEvent) {
@@ -16,57 +17,64 @@ export async function POST({ request, params }: RequestEvent) {
 
     console.log('Finding or creating category with data:', { ...data, restaurantId }); // Debug log
 
-    if (!data.name) {
-      return json({ success: false, error: 'Category name is required' }, { status: 400 });
+    if (!data.name || !restaurantId || restaurantId === 'undefined') {
+      const error = !data.name ? 'Category name is required' : 'Valid restaurant ID is required';
+      return json({ success: false, error }, { status: 400 });
     }
 
-    // Validation of restaurant ID
-    if (!restaurantId || restaurantId === 'undefined') {
-      return json({ success: false, error: 'Valid restaurant ID is required' }, { status: 400 });
-    }
-
-    // 1. Try to find an existing category with the same name in this restaurant
-    const [existingCategory] = await db.select()
-      .from(categories)
-      .where(
-        and(
-          // Case-insensitive comparison might be better, depends on requirements
-          // Using lower() might require indexing for performance:
-          // eq(sql`lower(${categories.name})`, data.name.toLowerCase()),
-          eq(categories.name, data.name),
-          eq(categories.restaurantId, restaurantId)
+    // Use a transaction to ensure atomicity when finding/creating and setting order
+    const result = await db.transaction(async (tx) => {
+      // 1. Try to find an existing category with the same name in this restaurant
+      const [existingCategory] = await tx.select()
+        .from(categories)
+        .where(
+          and(
+            // eq(sql`lower(${categories.name})`, data.name.toLowerCase()), // Optional: case-insensitive
+            eq(categories.name, data.name),
+            eq(categories.restaurantId, restaurantId)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    let finalCategory: typeof categories.$inferSelect;
-    let message: string;
+      let finalCategory: typeof categories.$inferSelect;
+      let message: string;
 
-    if (existingCategory) {
-      // 2. If found, return the existing category
-      console.log('Found existing category:', existingCategory);
-      finalCategory = existingCategory;
-      message = 'Category found successfully';
-    } else {
-      // 3. If not found, insert a new category
-      console.log('No existing category found with that name, creating new one...');
-      const [newCategory] = await db.insert(categories)
-        .values({
-          name: data.name,
-          restaurantId: restaurantId
-        })
-        .returning();
+      if (existingCategory) {
+        // 2. If found, return the existing category
+        console.log('Found existing category:', existingCategory);
+        finalCategory = existingCategory;
+        message = 'Category found successfully';
+      } else {
+        // 3. If not found, calculate the next order and insert a new category
+        console.log('No existing category found with that name, creating new one...');
 
-      console.log('Created new category:', newCategory); // Debug log
-      finalCategory = newCategory;
-      message = 'Category created successfully';
-    }
+        // a. Find Max Order
+        const maxOrderResult = await tx
+          .select({ value: max(categories.order) })
+          .from(categories)
+          .where(eq(categories.restaurantId, restaurantId));
+        const currentMaxOrder = maxOrderResult[0]?.value ?? 0;
+        const nextOrder = currentMaxOrder + 1;
 
-    return json({
-      success: true,
-      data: finalCategory,
-      message: message
+        // b. Insert New Category with order
+        const [newCategory] = await tx.insert(categories)
+          .values({
+            name: data.name,
+            restaurantId: restaurantId,
+            order: nextOrder // <-- Set the order
+          })
+          .returning();
+
+        console.log('Created new category:', newCategory); // Debug log
+        finalCategory = newCategory;
+        message = 'Category created successfully';
+      }
+
+      return { success: true, data: finalCategory, message: message };
     });
+
+    return json(result);
+
   } catch (error) {
     // Detailed error handling
     console.error('Error finding or creating category:', error);
@@ -96,12 +104,13 @@ export async function GET({ params }: RequestEvent) {
       return json({ success: false, error: 'Valid restaurant ID is required' }, { status: 400 });
     }
 
-    // Consultar categorías del restaurante
+    // Consultar categorías del restaurante, ordenadas por 'order'
     const restaurantCategories = await db.select()
       .from(categories)
-      .where(eq(categories.restaurantId, restaurantId));
+      .where(eq(categories.restaurantId, restaurantId))
+      .orderBy(asc(categories.order));
 
-    console.log('Found categories:', restaurantCategories); // Debug log
+    console.log('Found categories (ordered):', restaurantCategories); // Debug log
 
     return json({ success: true, data: restaurantCategories });
   } catch (error) {
@@ -119,53 +128,90 @@ export async function GET({ params }: RequestEvent) {
 }
 
 /**
- * Endpoint DELETE para eliminar una categoría específica
- * @param {RequestEvent} evento - Contiene los params de la petición
+ * Endpoint DELETE para eliminar una categoría específica y reordenar las restantes.
+ * @param {RequestEvent} event - Contiene los params de la petición
  * @returns {Promise<Response>} JSON con la categoría eliminada o error
  */
 export async function DELETE({ params }: RequestEvent) {
   try {
     const { restaurantId, categoryId } = params;
-    console.log('Deleting category:', { restaurantId, categoryId }); // Debug log
-    
-    // Validation of category ID
+    console.log('Deleting category and reordering:', { restaurantId, categoryId }); // Debug log
+
     if (!categoryId || categoryId === 'undefined') {
       return json({ success: false, error: 'Valid category ID is required' }, { status: 400 });
     }
-
-    // Validation of restaurant ID
     if (!restaurantId || restaurantId === 'undefined') {
       return json({ success: false, error: 'Valid restaurant ID is required' }, { status: 400 });
     }
 
-    // Delete category, verifying it belongs to the correct restaurant
-    const [deletedCategory] = await db.delete(categories)
-      .where(
-        and(
+    // Use a transaction to ensure atomicity during delete and reorder
+    const result = await db.transaction(async (tx) => {
+      // a. Get Deleted Item's Info (order and restaurantId)
+      const categoryToDeleteInfo = await tx
+        .select({
+          order: categories.order,
+          restaurantId: categories.restaurantId
+        })
+        .from(categories)
+        .where(and(
           eq(categories.id, categoryId),
           eq(categories.restaurantId, restaurantId)
-        )
-      )
-      .returning();
+        ))
+        .limit(1);
 
-    // Verificar si se encontró y eliminó la categoría
-    if (!deletedCategory) {
-      return json({ success: false, error: 'Category not found' }, { status: 404 });
-    }
+      if (!categoryToDeleteInfo.length) {
+        // Throw an error to rollback the transaction if category not found
+        throw new Error('Category not found or does not belong to this restaurant');
+      }
+      const { order: deletedOrder, restaurantId: catRestaurantId } = categoryToDeleteInfo[0];
 
-    console.log('Deleted category:', deletedCategory); // Debug log
+      // b. Delete Category
+      const [deletedCategory] = await tx
+        .delete(categories)
+        .where(eq(categories.id, categoryId)) // Already confirmed restaurantId above
+        .returning(); // Return the deleted category data
 
-    return json({ success: true, data: deletedCategory });
+      // Ensure restaurantId is not null before proceeding with update
+      if (!catRestaurantId) {
+          // This should theoretically not happen based on schema/logic, but good practice
+          throw new Error("Restaurant ID is missing for the category being deleted.");
+      }
+
+      // c. Update Subsequent Orders
+      await tx
+        .update(categories)
+        .set({ order: sql`${categories.order} - 1` })
+        .where(and(
+          eq(categories.restaurantId, catRestaurantId), // Now TypeScript knows catRestaurantId is string
+          gt(categories.order, deletedOrder)
+        ));
+
+      console.log('Deleted category:', deletedCategory); // Debug log
+      return { success: true, data: deletedCategory };
+    });
+
+    // If transaction was successful, return the result
+    return json(result);
+
   } catch (error) {
-    // Manejo detallado de errores
     console.error('Error deleting category:', error);
+    let status = 500;
+    let errorMessage = 'Unknown error';
+
     if (error instanceof Error) {
-      console.error('Error details:', error.message, error.stack);
+        errorMessage = error.message;
+        // Check if the error is the one we threw for "not found"
+        if (errorMessage === 'Category not found or does not belong to this restaurant') {
+            status = 404; // Use 404 for not found
+        } else {
+            console.error('Error details:', error.message, error.stack);
+        }
     }
+    
     return json({ 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      details: error instanceof Error ? error.stack : undefined
-    }, { status: 500 });
+      error: errorMessage,
+      details: (error instanceof Error && status === 500) ? error.stack : undefined // Only include stack for internal errors
+    }, { status });
   }
 } 

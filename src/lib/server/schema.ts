@@ -29,11 +29,14 @@ export const categories = pgTable('categories', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }),
+  order: integer('order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow()
 }, (table) => ({
   // Add unique constraint for name within a restaurant
-  nameRestaurantUnique: unique().on(table.name, table.restaurantId)
+  nameRestaurantUnique: unique().on(table.name, table.restaurantId),
+  // Add unique constraint for order within a restaurant
+  orderRestaurantUnique: unique().on(table.restaurantId, table.order)
 }));
 
 export const dishes = pgTable('dishes', {
