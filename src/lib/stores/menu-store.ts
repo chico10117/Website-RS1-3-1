@@ -736,6 +736,9 @@ function createMenuStore() {
     async saveChanges() {
       const state = get({ subscribe });
       
+      // Capture the frontend order before saving
+      const frontendCategoryOrder = state.categories.map(c => c.id);
+      
       try {
         update(s => ({ ...s, isSaving: true }));
         
@@ -775,6 +778,20 @@ function createMenuStore() {
         );
         
         update(s => {
+          // Re-sort the categories returned from the backend based on the frontend order
+          const orderMap = new Map(frontendCategoryOrder.map((id, index) => [id, index]));
+          const reorderedCategories = [...result.categories].sort((a, b) => {
+            const orderA = orderMap.get(a.id);
+            const orderB = orderMap.get(b.id);
+            
+            // Handle potential new categories not present before save
+            if (orderA === undefined && orderB === undefined) return 0; 
+            if (orderA === undefined) return 1; 
+            if (orderB === undefined) return -1; 
+
+            return orderA - orderB;
+          });
+
           const restaurantIndex = s.restaurants.findIndex(r => r.id === result.restaurant.id);
           const restaurants = [...s.restaurants];
           
@@ -796,7 +813,7 @@ function createMenuStore() {
             menuLogo: result.restaurant.logo,
             customPrompt: result.restaurant.customPrompt,
             phoneNumber: result.restaurant.phoneNumber,
-            categories: result.categories,
+            categories: reorderedCategories, // Use the re-sorted categories
             isSaving: false,
             lastSaveTime: new Date(),
             changedItems: {
