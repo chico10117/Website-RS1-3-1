@@ -820,7 +820,7 @@ function createMenuStore() {
         throw error;
       }
     },
-
+    //To check later
     reorderCategories(newOrderCategories: Category[]) {
       update(state => {
         if (!state.selectedRestaurant) return state;
