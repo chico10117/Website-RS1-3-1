@@ -217,10 +217,44 @@ export async function saveMenuChanges(
     savedDishes.push(savedDish);
   }
 
-  // Step 7: Reset the change tracking in the store
+  // Step 7: Update category order AFTER other saves resolve temp IDs
+  // Get the latest state which might include newly created categories with real IDs
+  const finalStoreState = get(menuStore); // Get the state *after* potential updates
+  const orderedCategoryIds = finalStoreState.categories
+      .filter(cat => cat.restaurantId === restaurantId) // Ensure categories belong to the saved restaurant
+      .map(category => tempToRealIdMap.get(category.id) || category.id); // Use real IDs
+
+  console.log('Attempting to update category order with IDs:', orderedCategoryIds);
+  if (orderedCategoryIds.length > 0) { // Only call if there are categories to order
+    try {
+        const orderResponse = await fetch(`/api/restaurants/${restaurantId}/categories/order`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderedCategoryIds }),
+            credentials: 'include'
+        });
+
+        if (!orderResponse.ok) {
+            const orderError = await orderResponse.json().catch(() => ({ error: 'Failed to update category order' }));
+            console.error('Failed to update category order:', orderError);
+            // Consider throwing an error or showing a toast message here
+            // For now, we log the error and continue
+        } else {
+            console.log('Category order updated successfully.');
+        }
+    } catch (orderError) {
+        console.error('Error calling category order update endpoint:', orderError);
+        // Consider throwing an error or showing a toast message here
+        // For now, we log the error and continue
+    }
+  } else {
+    console.log("No categories found for this restaurant to update order.");
+  }
+
+  // Step 8: Reset the change tracking in the store (moved from original Step 7)
   menuStore.resetChanges();
 
-  // Step 8: Fetch all categories to return complete data
+  // Step 9: Fetch all categories to return complete data (Fetch should now respect order)
   const allCategories = await categoryService.fetchCategories(restaurantId);
   
   // Fetch dishes for each category

@@ -1,15 +1,16 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
-import { categories } from '$lib/server/schema';
-import { and, eq } from 'drizzle-orm';
+import { categories, restaurants, users } from '$lib/server/schema';
+import { eq, and, sql, max, asc } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
+import { dishes } from '$lib/server/schema';
 
 /**
  * Endpoint POST to find or create a category in a restaurant based on name.
  * @param {RequestEvent} evento - Contains request and params of the petition
  * @returns {Promise<Response>} JSON with the found or created category or error
  */
-export async function POST({ request, params }: RequestEvent) {
+export async function POST({ request, params, cookies }: RequestEvent) {
   try {
     const data = await request.json();
     const { restaurantId } = params;
@@ -24,6 +25,14 @@ export async function POST({ request, params }: RequestEvent) {
     if (!restaurantId || restaurantId === 'undefined') {
       return json({ success: false, error: 'Valid restaurant ID is required' }, { status: 400 });
     }
+
+    // Calculate the next order value for this restaurant
+    const maxOrderResult = await db.select({ value: max(categories.order) })
+      .from(categories)
+      .where(eq(categories.restaurantId, restaurantId));
+
+    const nextOrder = (maxOrderResult[0]?.value ?? -1) + 1;
+    console.log(`Calculated next order for category: ${nextOrder}`);
 
     // 1. Try to find an existing category with the same name in this restaurant
     const [existingCategory] = await db.select()
@@ -48,12 +57,13 @@ export async function POST({ request, params }: RequestEvent) {
       finalCategory = existingCategory;
       message = 'Category found successfully';
     } else {
-      // 3. If not found, insert a new category
+      // 3. If not found, insert a new category with the calculated order
       console.log('No existing category found with that name, creating new one...');
       const [newCategory] = await db.insert(categories)
         .values({
           name: data.name,
-          restaurantId: restaurantId
+          restaurantId: restaurantId,
+          order: nextOrder
         })
         .returning();
 
@@ -96,12 +106,14 @@ export async function GET({ params }: RequestEvent) {
       return json({ success: false, error: 'Valid restaurant ID is required' }, { status: 400 });
     }
 
-    // Consultar categorías del restaurante
-    const restaurantCategories = await db.select()
+    // Consultar categorías del restaurante, ordenadas
+    const restaurantCategories = await db
+      .select()
       .from(categories)
-      .where(eq(categories.restaurantId, restaurantId));
+      .where(eq(categories.restaurantId, restaurantId))
+      .orderBy(asc(categories.order));
 
-    console.log('Found categories:', restaurantCategories); // Debug log
+    console.log(`Found ${restaurantCategories.length} categories for restaurant ${restaurantId}`);
 
     return json({ success: true, data: restaurantCategories });
   } catch (error) {
