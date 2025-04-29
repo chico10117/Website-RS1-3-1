@@ -859,6 +859,26 @@ function createMenuStore() {
           return state; // No changes if order is the same
         }
       });
+    },
+    reorderDishes(categoryId: string, reorderedDishes: Dish[]) {
+      update(state => {
+        const categories = state.categories.map(category => {
+          if (category.id === categoryId) {
+            // Directly use the reordered list, assuming it contains full Dish objects
+            // Ensure it only contains dishes that were originally in this category 
+            // (This check might be refined based on how reorderedDishes is generated)
+            const originalDishIds = new Set((category.dishes || []).map(d => d.id));
+            const newDishes = reorderedDishes.filter(d => originalDishIds.has(d.id));
+            console.log(`Reordering dishes for category ${categoryId}. New order:`, newDishes.map(d => d.title)); // Log the new order
+            return { ...category, dishes: newDishes };
+          }
+          return category;
+        });
+        // Mark the category as changed (simple approach)
+        const changedCategories = new Set(state.changedItems.categories);
+        changedCategories.add(categoryId);
+        return { ...state, categories, changedItems: { ...state.changedItems, categories: changedCategories } }; 
+      });
     }
   };
 }

@@ -7,6 +7,8 @@
   import DishItem from './DishItem.svelte';
   import DishForm from './DishForm.svelte';
   import { currentRestaurant } from '$lib/stores/restaurant';
+  import { dndzone, type DndEvent } from 'svelte-dnd-action';
+  import { flip } from 'svelte/animate';
 
   export let dishes: Dish[] = [];
   export let categoryId: string;
@@ -17,8 +19,14 @@
   }>();
 
   let editingDish: Dish | null = null;
+  let localDishes: Dish[] = dishes;
+  let isDragging = false;
+  const flipDurationMs = 300;
 
-  // Make translations reactive
+  $: if (!isDragging && JSON.stringify(dishes) !== JSON.stringify(localDishes)) {
+    localDishes = dishes;
+  }
+
   $: currentLanguage = $language;
   $: t = (key: string): string => {
     if (!translations[key]) {
@@ -28,18 +36,15 @@
     return translations[key][currentLanguage] || key;
   };
 
-  // Use the currency from currentRestaurant if available
   $: if ($currentRestaurant && $currentRestaurant.currency) {
     currency = $currentRestaurant.currency;
   }
 
-  // Keep track of dishes by ID to prevent duplicates
   $: dishMap = new Map(dishes.map(dish => [dish.id, dish]));
 
   async function handleDishAdd(event: CustomEvent<Dish>) {
     const newDish = event.detail;
     
-    // Update map and convert back to array
     dishMap.set(newDish.id, newDish);
     dishes = Array.from(dishMap.values());
     
@@ -49,7 +54,6 @@
   async function handleDishUpdate(event: CustomEvent<Dish>) {
     const updatedDish = event.detail;
     
-    // Update map and convert back to array
     dishMap.set(updatedDish.id, updatedDish);
     dishes = Array.from(dishMap.values());
     
@@ -60,7 +64,6 @@
   async function handleDishDelete(event: CustomEvent<string>) {
     const dishId = event.detail;
     
-    // Remove from map and update array
     dishMap.delete(dishId);
     dishes = Array.from(dishMap.values());
     
@@ -74,20 +77,47 @@
   function cancelEditing() {
     editingDish = null;
   }
+
+  function handleDndConsider(e: CustomEvent<DndEvent<Dish>>) {
+    isDragging = true;
+    localDishes = e.detail.items;
+  }
+
+  function handleDndFinalize(e: CustomEvent<DndEvent<Dish>>) {
+    isDragging = false;
+    localDishes = e.detail.items;
+    menuStore.reorderDishes(categoryId, localDishes);
+    dispatch('update', localDishes);
+  }
 </script>
 
 <div class="space-y-4">
-  {#each dishes as dish (dish.id)}
-    <DishItem
-      {dish}
-      isEditing={editingDish?.id === dish.id}
-      {categoryId}
-      {currency}
-      on:edit={() => startEditing(dish)}
-      on:update={handleDishUpdate}
-      on:delete={handleDishDelete}
-    />
-  {/each}
+  <div
+    use:dndzone={{ items: localDishes, flipDurationMs, dragHandle: '.dish-drag-handle' }}
+    on:consider={handleDndConsider}
+    on:finalize={handleDndFinalize}
+    class="space-y-2"
+  >
+    {#each localDishes as dish (dish.id)}
+      <div animate:flip={{ duration: flipDurationMs }}>
+        <DishItem
+          {dish}
+          isEditing={editingDish?.id === dish.id}
+          {categoryId}
+          {currency}
+          on:edit={() => {
+            if (editingDish?.id === dish.id) {
+              editingDish = null;
+            } else {
+              editingDish = dish;
+            }
+          }}
+          on:update={handleDishUpdate}
+          on:delete={handleDishDelete}
+        />
+      </div>
+    {/each}
+  </div>
 
   <DishForm
     {categoryId}
