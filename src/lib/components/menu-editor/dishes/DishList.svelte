@@ -9,6 +9,8 @@
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { dndzone, type DndEvent } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
+  import { toasts } from '$lib/stores/toast';
+  import { get } from 'svelte/store';
 
   export let dishes: Dish[] = [];
   export let categoryId: string;
@@ -19,12 +21,12 @@
   }>();
 
   let editingDish: Dish | null = null;
-  let localDishes: Dish[] = dishes;
+  let localDishes: Dish[] = [];
   let isDragging = false;
   const flipDurationMs = 300;
 
   $: if (!isDragging && JSON.stringify(dishes) !== JSON.stringify(localDishes)) {
-    localDishes = dishes;
+    localDishes = [...dishes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
 
   $: currentLanguage = $language;
@@ -33,41 +35,38 @@
       console.warn(`Translation key not found: ${key}`);
       return key;
     }
-    return translations[key][currentLanguage] || key;
+    return translations[currentLanguage]?.[key] ?? key;
   };
 
   $: if ($currentRestaurant && $currentRestaurant.currency) {
     currency = $currentRestaurant.currency;
   }
 
-  $: dishMap = new Map(dishes.map(dish => [dish.id, dish]));
-
   async function handleDishAdd(event: CustomEvent<Dish>) {
     const newDish = event.detail;
     
-    dishMap.set(newDish.id, newDish);
-    dishes = Array.from(dishMap.values());
+    const maxOrder = localDishes.reduce((max, d) => Math.max(max, d.order ?? 0), -1);
+    newDish.order = maxOrder + 1;
+    localDishes = [...localDishes, newDish];
     
-    dispatch('update', dishes);
+    dispatch('update', localDishes);
   }
 
   async function handleDishUpdate(event: CustomEvent<Dish>) {
     const updatedDish = event.detail;
     
-    dishMap.set(updatedDish.id, updatedDish);
-    dishes = Array.from(dishMap.values());
+    localDishes = localDishes.map(d => d.id === updatedDish.id ? updatedDish : d);
     
-    dispatch('update', dishes);
+    dispatch('update', localDishes);
     editingDish = null;
   }
 
   async function handleDishDelete(event: CustomEvent<string>) {
     const dishId = event.detail;
     
-    dishMap.delete(dishId);
-    dishes = Array.from(dishMap.values());
+    localDishes = localDishes.filter(d => d.id !== dishId);
     
-    dispatch('update', dishes);
+    dispatch('update', localDishes);
   }
 
   function startEditing(dish: Dish) {
@@ -83,11 +82,52 @@
     localDishes = e.detail.items;
   }
 
-  function handleDndFinalize(e: CustomEvent<DndEvent<Dish>>) {
+  async function handleDndFinalize(e: CustomEvent<DndEvent<Dish>>) {
     isDragging = false;
     localDishes = e.detail.items;
+
+    const orderedLocalDishes = localDishes.map((dish, index) => ({ ...dish, order: index }));
+    localDishes = orderedLocalDishes;
+
     menuStore.reorderDishes(categoryId, localDishes);
     dispatch('update', localDishes);
+
+    const orderedDishIds = localDishes.map(dish => dish.id);
+    const restaurantId = get(currentRestaurant)?.id;
+
+    if (!restaurantId) {
+      console.error("Cannot reorder dishes: Restaurant ID not found.");
+      toasts.error(t('error') + ': ' + t('restaurant_not_selected'));
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/restaurants/${restaurantId}/categories/${categoryId}/dishes/order`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedDishIds }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const errorResult = await response.json().catch(() => ({ error: t('failed_update_dish_order') }));
+        console.error('API Error Response:', errorResult);
+        throw new Error(errorResult.error || t('unknown_api_error'));
+      }
+
+      const result = await response.json();
+      if (result.success) {
+      } else {
+        throw new Error(result.error || t('api_returned_error'));
+      }
+
+    } catch (error) {
+      console.error('Error updating dish order:', error);
+      toasts.error(t('error') + ': ' + (error instanceof Error ? error.message : t('failed_save_dish_order')));
+      localDishes = [...dishes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      menuStore.reorderDishes(categoryId, localDishes);
+      dispatch('update', localDishes);
+    }
   }
 </script>
 

@@ -179,24 +179,19 @@ function createMenuStore() {
           deletedDishes: new Set(state.changedItems.deletedDishes)
         }
       });
-      
-      console.log('Saved state for restaurant:', state.selectedRestaurant);
     }
   }
   
   async function loadAndMergeData(restaurantId: string) {
     try {
       const restaurant = await restaurantService.fetchRestaurantById(restaurantId);
-      console.log('Fetched restaurant data:', restaurant);
       
       const fetchedCategories = await categoryService.fetchCategories(restaurantId);
-      console.log('Found categories:', fetchedCategories);
       
       const categoriesWithDishes = await Promise.all(
         fetchedCategories.map(async (category) => {
           try {
             const dishes = await dishService.fetchDishes(restaurantId, category.id);
-            console.log(`Fetched ${dishes.length} dishes for category ${category.name}`);
             return {
               ...category,
               dishes
@@ -222,7 +217,6 @@ function createMenuStore() {
       
       if (restaurantStates.has(restaurantId)) {
         const savedState = restaurantStates.get(restaurantId);
-        console.log('Found saved state for restaurant:', restaurantId);
         
         finalCategories = mergeWithUnsavedChanges(
           categoriesWithDishes,
@@ -240,8 +234,6 @@ function createMenuStore() {
           deletedCategories: new Set(savedState.changedItems.deletedCategories),
           deletedDishes: new Set(savedState.changedItems.deletedDishes)
         };
-        
-        console.log('Merged categories:', finalCategories);
       }
       
       finalCategories = finalCategories.map(category => ({
@@ -284,9 +276,7 @@ function createMenuStore() {
 
     async loadRestaurants() {
       try {
-        console.log('Loading restaurants from menuStore...');
         const restaurants = await restaurantService.fetchRestaurants();
-        console.log('Loaded restaurants:', restaurants);
         update(state => ({ ...state, restaurants }));
         return restaurants;
       } catch (error) {
@@ -296,8 +286,6 @@ function createMenuStore() {
     },
 
     async selectRestaurant(restaurantId: string) {
-      console.log('selectRestaurant called with ID:', restaurantId);
-      
       if (!restaurantId) {
         console.error('No restaurant ID provided to selectRestaurant');
         throw new Error('No restaurant ID provided');
@@ -307,7 +295,6 @@ function createMenuStore() {
         const currentState = get({ subscribe });
         
         if (currentState.selectedRestaurant === restaurantId) {
-          console.log('Already on this restaurant, no need to reload');
           return currentState.restaurants.find(r => r.id === restaurantId);
         }
         
@@ -410,10 +397,9 @@ function createMenuStore() {
         reservas,
         redes_sociales,
         color: validatedColor,
-        currency, // Log currency
+        currency,
         isUrlUpdate: {
           reservasProvided: reservas !== undefined,
-          redes_socialesProvided: redes_sociales !== undefined
         }
       });
 
@@ -462,21 +448,7 @@ function createMenuStore() {
     },
 
     updateReservasAndSocials(reservas: string | null, redes_sociales: string | null) {
-      console.trace('updateReservasAndSocials TRACE');
-      
-      console.log('updateReservasAndSocials called with:', { 
-        reservas, 
-        reservasType: typeof reservas, 
-        redes_sociales, 
-        redes_socialesType: typeof redes_sociales 
-      });
-      
       update(state => {
-        console.log('Updating store state, before:', { 
-          stateReservas: state.reservas, 
-          stateRedesSociales: state.redes_sociales 
-        });
-        
         const currentRestaurantIndex = state.restaurants.findIndex(r => r.id === state.selectedRestaurant);
         
         const updatedRestaurants = [...state.restaurants];
@@ -490,9 +462,7 @@ function createMenuStore() {
           };
         }
         
-        console.log('Updating store state with:', { reservas, redes_sociales });
-        
-        const result = {
+        return {
           ...state,
           reservas,
           redes_sociales,
@@ -502,14 +472,6 @@ function createMenuStore() {
             restaurant: true
           }
         };
-        
-        console.log('State after update:', { 
-          resultReservas: result.reservas, 
-          resultRedesSociales: result.redes_sociales,
-          changedItems: result.changedItems 
-        });
-        
-        return result;
       });
     },
 
@@ -743,7 +705,6 @@ function createMenuStore() {
         update(s => ({ ...s, isSaving: true }));
         
         const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
-        console.log('Current restaurant in store:', currentRestaurantObj);
         
         const colorValue = state.color === 'light' || state.color === '1'
           ? '#85A3FA'
@@ -751,17 +712,6 @@ function createMenuStore() {
         
         const reservas = state.reservas !== undefined ? state.reservas : currentRestaurantObj?.reservas;
         const redes_sociales = state.redes_sociales !== undefined ? state.redes_sociales : currentRestaurantObj?.redes_sociales;
-        
-        console.log('Restaurant data for save:', {
-          name: state.restaurantName,
-          logo: state.menuLogo,
-          customPrompt: state.customPrompt,
-          phoneNumber: state.phoneNumber,
-          currency: state.currency || '€',
-          color: colorValue,
-          reservas,
-          redes_sociales
-        });
         
         const result = await menuService.saveMenuChanges(
           {
@@ -864,23 +814,31 @@ function createMenuStore() {
       update(state => {
         const categories = state.categories.map(category => {
           if (category.id === categoryId) {
-            // Directly use the reordered list, assuming it contains full Dish objects
-            // Ensure it only contains dishes that were originally in this category 
-            // (This check might be refined based on how reorderedDishes is generated)
-            const originalDishIds = new Set((category.dishes || []).map(d => d.id));
-            const newDishes = reorderedDishes.filter(d => originalDishIds.has(d.id));
-            console.log(`Reordering dishes for category ${categoryId}. New order:`, newDishes.map(d => d.title)); // Log the new order
-            return { ...category, dishes: newDishes };
+            // Update the order property on each dish and ensure dishes array exists
+            const updatedDishes = (reorderedDishes || []).map((dish, index) => ({
+              ...dish,
+              order: index // Set the order based on the new array index
+            }));
+            return { ...category, dishes: updatedDishes };
           }
           return category;
         });
-        // Mark the category as changed (simple approach)
+
+        // Mark the category as changed because its dish order changed.
         const changedCategories = new Set(state.changedItems.categories);
         changedCategories.add(categoryId);
-        return { ...state, categories, changedItems: { ...state.changedItems, categories: changedCategories } }; 
+
+        return {
+          ...state,
+          categories,
+          changedItems: {
+            ...state.changedItems,
+            categories: changedCategories
+          }
+        };
       });
-    }
+    },
   };
 }
 
-export const menuStore = createMenuStore(); 
+export const menuStore = createMenuStore();
