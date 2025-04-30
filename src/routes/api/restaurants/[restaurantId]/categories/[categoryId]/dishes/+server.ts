@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
 import { dishes, categories } from '$lib/server/schema';
-import { and, eq, asc } from 'drizzle-orm';
+import { and, eq, asc, desc, max } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { Dish } from '$lib/types/menu.types';
 
@@ -18,6 +18,14 @@ export async function POST({ request, params }: RequestEvent) {
       }, { status: 400 });
     }
 
+    // Calculate the next order value
+    const [{ maxOrder }] = await db
+      .select({ maxOrder: max(dishes.order) })
+      .from(dishes)
+      .where(eq(dishes.categoryId, categoryId));
+
+    const nextOrder = (maxOrder ?? -1) + 1;
+
     // Simple insert
     const [newDish] = await db.insert(dishes)
       .values({
@@ -25,7 +33,8 @@ export async function POST({ request, params }: RequestEvent) {
         price: data.price || null,
         description: data.description || null,
         imageUrl: data.imageUrl || null,
-        categoryId
+        categoryId,
+        order: nextOrder
       })
       .returning();
 
