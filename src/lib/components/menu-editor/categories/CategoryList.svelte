@@ -80,10 +80,10 @@
     dispatch('update', $menuStore.categories);
   }
 
-  function toggleCategory(index: number) {
-    const category = localCategories[index];
-    if (!category) return;
-    selectedCategoryId = selectedCategoryId === category.id ? null : category.id;
+  function toggleCategory(categoryId: string) {
+    console.log('CategoryList: toggleCategory called for ID:', categoryId, ' | Current selectedCategoryId:', selectedCategoryId);
+    selectedCategoryId = selectedCategoryId === categoryId ? null : categoryId;
+    console.log('CategoryList: NEW selectedCategoryId:', selectedCategoryId);
   }
 
   function handleDndConsider(e: CustomEvent<DndEvent<Category>>) {
@@ -123,7 +123,7 @@
           isSelected={selectedCategoryId === category.id}
           on:update={handleCategoryUpdate} 
           on:delete={() => handleCategoryDelete(index)} 
-          on:toggle={() => toggleCategory(index)}
+          on:toggle={() => toggleCategory(category.id)}
         />
       </div>
     {/each}

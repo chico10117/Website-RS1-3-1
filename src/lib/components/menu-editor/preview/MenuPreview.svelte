@@ -7,6 +7,8 @@
   // import { menuState } from '$lib/stores/menu-state'; // <--- REMOVED THIS LINE
   import { currentRestaurant } from '$lib/stores/restaurant';
   import { menuStore } from '$lib/stores/menu-store';
+  // import { getCurrencySymbol } from '$lib/utils/currency';
+  // import { formatPrice } from '$lib/utils/formatters';
 
   export let restaurantName: string = '';
   export let menuLogo: string | null = null;
@@ -15,7 +17,7 @@
 
   // Make translations reactive
   $: currentLanguage = $language;
-  $: t = (key: string): string => translations[key][currentLanguage];
+  $: t = (key: string): string => translations[key]?.[currentLanguage] || translations[key]?.['es'] || key;
 
   // Update restaurant data when currentRestaurant changes
   $: if ($currentRestaurant) {
@@ -43,7 +45,7 @@
   //   }
   // }
 
-  // Format price as currency
+  // Keep the locally defined formatPrice function
   function formatPrice(price: number | string): string {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);

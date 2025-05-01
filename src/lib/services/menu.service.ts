@@ -233,7 +233,7 @@ export async function saveMenuChanges(
             body: JSON.stringify({ orderedCategoryIds }),
             credentials: 'include'
         });
-
+ 
         if (!orderResponse.ok) {
             const orderError = await orderResponse.json().catch(() => ({ error: 'Failed to update category order' }));
             console.error('Failed to update category order:', orderError);
