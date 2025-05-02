@@ -7,8 +7,8 @@ interface Translation {
 
 export const translations: Translation = {
   appTitle: {
-    es: "Creador de Carta",
-    en: "Menu Builder"
+    es: "Crea Tu Carta Inteligente",
+    en: "Create Your Smart Menu"
   },
   processingImages: {
     es: "Procesando imágenes",
