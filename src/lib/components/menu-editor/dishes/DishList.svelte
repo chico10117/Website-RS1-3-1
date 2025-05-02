@@ -14,7 +14,6 @@
 
   export let dishes: Dish[] = [];
   export let categoryId: string;
-  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     update: Dish[];
@@ -38,9 +37,7 @@
     return translations[currentLanguage]?.[key] ?? key;
   };
 
-  $: if ($currentRestaurant && $currentRestaurant.currency) {
-    currency = $currentRestaurant.currency;
-  }
+  $: dishMap = new Map(dishes.map(dish => [dish.id, dish]));
 
   async function handleDishAdd(event: CustomEvent<Dish>) {
     const newDish = event.detail;
@@ -144,7 +141,6 @@
           {dish}
           isEditing={editingDish?.id === dish.id}
           {categoryId}
-          {currency}
           on:edit={() => {
             if (editingDish?.id === dish.id) {
               editingDish = null;
@@ -161,7 +157,6 @@
 
   <DishForm
     {categoryId}
-    {currency}
     on:add={handleDishAdd}
   />
 </div> 

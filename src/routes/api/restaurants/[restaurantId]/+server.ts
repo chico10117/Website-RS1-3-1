@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/database';
-import { restaurants } from '$lib/server/schema';
-import { eq, and, ne } from 'drizzle-orm';
+import { restaurants, categories, dishes } from '$lib/server/schema';
+import { eq, and, ne, inArray } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 import { generateSlug } from '$lib/utils/slug';
 import { users } from '$lib/server/schema';
@@ -16,6 +16,11 @@ async function getUserFromToken(token: string) {
 export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
   try {
     const { restaurantId } = params;
+    
+    if (!restaurantId) {
+       return json({ success: false, error: 'Restaurant ID is required' }, { status: 400 });
+    }
+
     const updateData = await request.json();
 
     console.log('PUT /api/restaurants/[restaurantId]:', {
@@ -41,10 +46,10 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
       userEmail: user.email
     });
 
-    // First check if restaurant exists at all
+    // First check if restaurant exists at all and belongs to the user
     const [restaurant] = await db.select()
       .from(restaurants)
-      .where(eq(restaurants.id, restaurantId as string))
+      .where(and(eq(restaurants.id, restaurantId), eq(restaurants.userId, user.id)))
       .limit(1);
 
     console.log('Restaurant lookup result:', {
@@ -56,39 +61,29 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
     if (!restaurant) {
       return json({ 
         success: false, 
-        error: 'Restaurant not found' 
-      }, { status: 404 });
+        error: 'Restaurant not found or does not belong to user' 
+      }, { status: 404 }); // Use 404 for not found or 403 for forbidden
     }
 
-    // Then check if it belongs to the user
-    if (restaurant.userId !== user.id) {
-      console.log('Restaurant ownership mismatch:', {
-        restaurantUserId: restaurant.userId,
-        requestingUserId: user.id
-      });
-      return json({ 
-        success: false, 
-        error: 'Restaurant does not belong to current user' 
-      }, { status: 403 });
-    }
-
-    // Prepare update data
-    const updateSet: any = {
+    // --- Prepare update data ---
+    const updateSet: Partial<typeof restaurants.$inferInsert> = {
       updatedAt: new Date()
     };
+    let currencyChanged = false;
+    let newCurrency = restaurant.currency; // Start with the current currency
 
     // Handle name update if provided
     if (updateData.name !== undefined && updateData.name !== restaurant.name) {
       const slug = await generateSlug(updateData.name, fetch);
       
-      // Check if name is already taken by another restaurant owned by the same user
-      const slugExists = await db.select()
+      // Check if slug is already taken by another restaurant owned by the same user
+      const slugExists = await db.select({ id: restaurants.id })
         .from(restaurants)
         .where(
           and(
             eq(restaurants.userId, user.id),
             eq(restaurants.slug, slug),
-            ne(restaurants.id, restaurantId as string)
+            ne(restaurants.id, restaurantId)
           )
         )
         .limit(1);
@@ -103,7 +98,7 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
       updateSet.name = updateData.name;
       updateSet.slug = slug;
     } else if (updateData.slug !== undefined && updateData.slug !== restaurant.slug) {
-      // If slug is provided directly and has changed, use it
+      // If slug is provided directly and has changed, use it (Validate if needed)
       updateSet.slug = updateData.slug;
     }
 
@@ -120,23 +115,6 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
     // Handle phone number update if provided
     if (updateData.phoneNumber !== undefined) {
       updateSet.phoneNumber = updateData.phoneNumber;
-    }
-
-    // Add currency and color updates
-    if (updateData.currency !== undefined) {
-      updateSet.currency = updateData.currency;
-    }
-
-    if (updateData.color !== undefined) {
-      console.log('Before conversion - Color value:', updateData.color, 'type:', typeof updateData.color);
-      // Ensure color is saved as a string
-      updateSet.color = String(updateData.color);
-      console.log('After conversion - Updating restaurant color to:', updateSet.color, 'type:', typeof updateSet.color);
-    }
-    
-    // Add customColor update
-    if (updateData.customColor !== undefined) {
-      updateSet.customColor = updateData.customColor;
     }
 
     // Handle new fields update if provided
@@ -160,16 +138,80 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
       }
     }
 
-    // Update the restaurant
-    const [updatedRestaurant] = await db.update(restaurants)
+    // Add currency and color updates
+    if (updateData.currency !== undefined && updateData.currency !== restaurant.currency) {
+      updateSet.currency = updateData.currency;
+      newCurrency = updateData.currency; // Store the new currency for dish update
+      currencyChanged = true;
+    }
+
+    if (updateData.color !== undefined) {
+      console.log('Before conversion - Color value:', updateData.color, 'type:', typeof updateData.color);
+      // Ensure color is saved as a string
+      updateSet.color = String(updateData.color);
+      console.log('After conversion - Updating restaurant color to:', updateSet.color, 'type:', typeof updateSet.color);
+    }
+    
+    // --- End Prepare update data ---
+
+    // --- Update the restaurant --- 
+    // Check if there's anything to update besides updatedAt
+    if (Object.keys(updateSet).length === 1 && updateSet.updatedAt) {
+       console.log('No changes detected for restaurant update.');
+        // Optionally return early or just return the current restaurant data
+         return json({ 
+           success: true, 
+           data: restaurant // Return existing data as nothing changed
+         });
+    }
+    
+    const [updatedRestaurantResult] = await db.update(restaurants)
       .set(updateSet)
-      .where(eq(restaurants.id, restaurantId as string))
+      .where(eq(restaurants.id, restaurantId))
       .returning();
+
+    if (!updatedRestaurantResult) {
+       // This shouldn't happen if the initial check passed, but good to handle
+       console.error('Failed to update restaurant after initial check passed');
+       return json({ success: false, error: 'Failed to update restaurant' }, { status: 500 });
+    }
+    // --- End Update the restaurant ---
+
+    // --- Update Dish Currencies if Restaurant Currency Changed ---
+    if (currencyChanged) {
+      console.log(`Restaurant currency changed to ${newCurrency}. Updating dishes...`);
+      try {
+        // 1. Find all category IDs for this restaurant
+        const restaurantCategories = await db.select({ id: categories.id })
+          .from(categories)
+          .where(eq(categories.restaurantId, restaurantId));
+        
+        const categoryIds = restaurantCategories.map(cat => cat.id);
+
+        if (categoryIds.length > 0) {
+          // 2. Update dishes in those categories
+          const updateResult = await db.update(dishes)
+            .set({ currency: newCurrency })
+            .where(inArray(dishes.categoryId, categoryIds));
+            
+          console.log(`Updated currency for ${updateResult.rowCount} dishes in categories:`, categoryIds);
+        } else {
+           console.log('No categories found for this restaurant, skipping dish currency update.');
+        }
+      } catch (dishUpdateError) {
+        // Log the error but don't fail the whole request, 
+        // as the restaurant update itself was successful.
+        console.error(`Error updating dish currencies for restaurant ${restaurantId}:`, dishUpdateError);
+        // Optionally, you could add a message to the response indicating the partial failure.
+      }
+    }
+    // --- End Update Dish Currencies ---
 
     return json({ 
       success: true, 
-      data: updatedRestaurant 
+      data: updatedRestaurantResult 
     });
+
   } catch (error) {
     console.error('Error updating restaurant:', error);
     return json({ 
@@ -180,21 +222,41 @@ export async function PUT({ params, request, cookies, fetch }: RequestEvent) {
   }
 }
 
-export async function DELETE({ params }: RequestEvent) {
+export async function DELETE({ params, cookies }: RequestEvent) {
   try {
-    const { restaurantId } = params;
+     const { restaurantId } = params;
 
-    // Delete the restaurant (categories and dishes will be cascade deleted due to foreign key constraints)
+     if (!restaurantId) {
+        return json({ success: false, error: 'Restaurant ID is required' }, { status: 400 });
+     }
+
+     // --- Optional but Recommended: Authentication/Authorization Check ---
+     const token = cookies.get('auth_token');
+     if (!token) {
+       return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+     }
+     const user = await getUserFromToken(token);
+     if (!user) {
+       return json({ success: false, error: 'User not found' }, { status: 404 });
+     }
+     
+     // Verify the restaurant belongs to the user before deleting
+     const [restaurant] = await db.select({ id: restaurants.id })
+       .from(restaurants)
+       .where(and(eq(restaurants.id, restaurantId), eq(restaurants.userId, user.id)))
+       .limit(1);
+       
+     if (!restaurant) {
+        return json({ success: false, error: 'Restaurant not found or does not belong to user' }, { status: 404 });
+     }
+     // --- End Auth Check ---
+
+    // Delete the restaurant (categories and dishes should cascade delete if FKs are set up correctly)
     const [deletedRestaurant] = await db.delete(restaurants)
-      .where(eq(restaurants.id, restaurantId as string))
+      .where(eq(restaurants.id, restaurantId)) // Already verified ownership
       .returning();
 
-    if (!deletedRestaurant) {
-      return json({ 
-        success: false, 
-        error: 'Restaurant not found' 
-      }, { status: 404 });
-    }
+    // No need to check deletedRestaurant here again, as we verified existence and ownership
 
     return json({
       success: true,
@@ -203,6 +265,7 @@ export async function DELETE({ params }: RequestEvent) {
 
   } catch (error) {
     console.error('Error deleting restaurant:', error);
+    // Check for specific database errors if needed (e.g., foreign key constraints if cascade isn't set)
     return json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Failed to delete restaurant',

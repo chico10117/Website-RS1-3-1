@@ -33,6 +33,7 @@ export async function POST({ request, params }: RequestEvent) {
         price: data.price || null,
         description: data.description || null,
         imageUrl: data.imageUrl || null,
+        currency: data.currency || '€',
         categoryId,
         order: nextOrder
       })
