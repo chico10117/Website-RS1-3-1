@@ -137,10 +137,10 @@
           
           <!-- Contact Information Section -->
           <div class="mt-6 text-center w-full">
-            <p class="text-gray-700 font-medium text-lg mb-4">¿Tienes dudas o preguntas?</p>
+            <p class="text-gray-700 font-medium text-lg mb-4">{t('haveQuestions')}</p>
             <div class="flex flex-col sm:flex-row justify-center gap-3">
               <a 
-                href="https://calendly.com/fernando-lqrb/30min" 
+                href="https://calendly.com/fernando-lqrb/15min" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 class="px-4 py-2 text-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 border border-black-500 rounded-lg"

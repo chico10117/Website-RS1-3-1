@@ -315,8 +315,8 @@ export const translations: Translation = {
     en: "Select a restaurant to manage its menu"
   },
   addRestaurant: {
-    es: "Agregar Carta",
-    en: "Add Menu"
+    es: "Agregar Nueva Carta",
+    en: "Add New Menu"
   },
   noRestaurantsFound: {
     es: "No se encontraron restaurantes",
@@ -335,8 +335,8 @@ export const translations: Translation = {
     en: "Saving..."
   },
   loginSubtitle: {
-    es: "Carta digital QR gratuita con IA para restaurantes y hoteles",
-    en: "Free QR digital menu with AI for restaurants and hotels"
+    es: "La Carta Digital con IA para Restaurantes y Hoteles",
+    en: "The Digital Menu with AI for Restaurants and Hotels"
   },
   manualLoginPrompt: {
     es: "Si el botón de Google no funciona:",
@@ -405,5 +405,21 @@ export const translations: Translation = {
   qrCodeError: {
     en: 'Error generating QR code',
     es: 'Error al generar el código QR'
+  },
+  haveQuestions: {
+    es: "¿Tienes dudas o preguntas?",
+    en: "Have questions?"
+  },
+  logout: {
+    es: "Cerrar sesión",
+    en: "Logout"
+  },
+  expand: {
+    es: "Expandir",
+    en: "Expand"
+  },
+  collapse: {
+    es: "Contraer",
+    en: "Collapse"
   }
 }; 
