@@ -421,5 +421,9 @@ export const translations: Translation = {
   collapse: {
     es: "Contraer",
     en: "Collapse"
+  },
+  processingPleaseWait: {
+    en: 'Processing, please wait...',
+    es: 'Procesando, por favor espera...'
   }
 }; 

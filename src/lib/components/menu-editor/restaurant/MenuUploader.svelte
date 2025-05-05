@@ -4,6 +4,7 @@
   import { translations } from '$lib/i18n/translations';
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
+  import { uploaderStore } from '$lib/stores/uploaderStore';
 
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
@@ -18,9 +19,6 @@
   }>();
 
   let images: { page: number; dataURL: string }[] = [];
-  let loading = false;
-  let progress = 0;
-  let currentStep = '';
   let isDragging = false;
 
   // Make translations reactive
@@ -31,9 +29,7 @@
   $: if (restaurantId === null) {
     console.log('Resetting MenuUploader state - new restaurant');
     images = [];
-    loading = false;
-    progress = 0;
-    currentStep = '';
+    uploaderStore.reset();
     isDragging = false;
   }
 
@@ -41,9 +37,7 @@
   $: if (restaurantId) {
     console.log('Resetting MenuUploader state - changing restaurant');
     images = [];
-    loading = false;
-    progress = 0;
-    currentStep = '';
+    uploaderStore.reset();
     isDragging = false;
   }
 
@@ -77,10 +71,8 @@
 
   async function processFiles(files: FileList) {
     try {
-      loading = true;
       images = [];
-      progress = 0;
-      currentStep = t('processingFiles');
+      uploaderStore.setLoading(true, t('processingFiles'), 0);
 
       for (const file of files) {
         if (file.type === 'application/pdf') {
@@ -96,6 +88,8 @@
       if (images.length > 0) {
         console.log('Images:', images.length);
         await generateRestaurantData();
+      } else {
+         uploaderStore.reset();
       }
     } catch (error) {
       console.error('Error processing files:', error);
@@ -103,10 +97,10 @@
         toasts.error(t('error') + ': ' + error.message);
         dispatch('error', error.message);
       }
+      uploaderStore.reset();
     } finally {
-      loading = false;
-      progress = 0;
-      currentStep = '';
+      // Don't reset store here if generateRestaurantData is successful
+      // The store will be reset at the end of generateRestaurantData or in catch block
     }
   }
 
@@ -118,8 +112,9 @@
       console.log(`PDF loaded: ${pdf.numPages} pages`);
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        currentStep = t('processingPage') + ` ${pageNum}/${pdf.numPages}`;
-        progress = (pageNum / pdf.numPages) * 50;
+        const step = t('processingPage') + ` ${pageNum}/${pdf.numPages}`;
+        const progress = (pageNum / pdf.numPages) * 50;
+        uploaderStore.updateProgress(step, progress);
         console.log(`Rendering page ${pageNum}`);
 
         try {
@@ -153,6 +148,7 @@
          toasts.error(t('errorProcessingPdf'));
          dispatch('error', t('errorProcessingPdf'));
       }
+      uploaderStore.reset();
       throw pdfError;
     }
   }
@@ -173,8 +169,7 @@
 
   async function generateRestaurantData() {
     try {
-      currentStep = t('generatingRestaurantData');
-      progress = 75;
+      uploaderStore.updateProgress(t('generatingRestaurantData'), 75);
 
       const payload = {
         prompt: customPrompt,
@@ -242,18 +237,15 @@
           } catch (error) {
             console.error("Error al procesar la respuesta del stream:", error);
             toasts.error(t('error') + ': Error procesando la respuesta del chatbot');
+            uploaderStore.reset();
           }
 
-          progress = 100;
-          currentStep = t('completed');
           break;
         }
       }
     } catch (error) {
       console.error('Error en la carga del menú:', error);
-      loading = false;
-      progress = 0;
-      currentStep = '';
+      uploaderStore.reset();
       if (error instanceof Error) {
         toasts.error(t('error') + ': ' + error.message);
         dispatch('error', error.message);
@@ -413,10 +405,13 @@
       // Dispatch the success event with the processed data
       dispatch('success', { restaurantData: result });
       toasts.success(t('menuUploadSuccess'));
+      uploaderStore.setLoading(false, t('completed'), 100);
+      setTimeout(() => uploaderStore.reset(), 1000);
 
     } catch (error) {
       console.error('Error guardando datos del restaurante:', error);
       toasts.error(t('error') + ': No se pudo guardar la información');
+      uploaderStore.reset();
     }
   }
 
@@ -449,19 +444,7 @@
     on:drop={handleDrop}
   >
     <div class="absolute inset-0 flex flex-col items-center justify-center">
-      {#if loading}
-        <div class="space-y-4 w-full max-w-md px-4">
-          <div class="text-center space-y-2">
-            <p class="text-sm font-medium text-gray-600">{currentStep}</p>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                style="width: {progress}%"
-              ></div>
-            </div>
-          </div>
-        </div>
-      {:else}
+      {#if !$uploaderStore.isLoading}  <!-- Only show dropzone content when NOT loading -->
         <div class="text-center space-y-4">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -482,10 +465,9 @@
             <p class="text-sm text-gray-500">
               {isDragging ? t('dropToUpload') : t('dragAndDropOrClick')}
             </p>
-            <!-- <p class="text-xs text-gray-400">{t('supportedFormats')}</p> -->
           </div>
         </div>
-      {/if}
+      {/if} <!-- End of !loading block -->
     </div>
     <input
       type="file"
@@ -494,10 +476,11 @@
       accept="application/pdf,image/*"
       multiple
       on:change={handleFileChange}
+      disabled={$uploaderStore.isLoading}
     />
   </div>
 
-  {#if images.length > 0 && !loading}
+  {#if images.length > 0}
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {#each images as img, index}
         <div class="relative group">
@@ -510,22 +493,14 @@
             <button
               class="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
               on:click={() => {
-                images.splice(index, 1);
-                images = [...images];
+                 if (!$uploaderStore.isLoading) {
+                   images.splice(index, 1);
+                   images = [...images];
+                 }
               }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <!-- SVG icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
             </button>
           </div>
         </div>
