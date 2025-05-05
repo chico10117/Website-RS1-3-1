@@ -1,35 +1,44 @@
 import { writable } from 'svelte/store';
 
-interface Toast {
-  message: string;
-  type: 'success' | 'error' | 'info';
+export interface Toast {
   id: number;
+  type: 'success' | 'error' | 'info' | 'warning';
+  message: string;
+  timeout?: number;
 }
 
 function createToastStore() {
   const { subscribe, update } = writable<Toast[]>([]);
-  let nextId = 1;
+  let id = 0;
 
-  function addToast(message: string, type: Toast['type'] = 'info') {
-    const id = nextId++;
-    update(toasts => [...toasts, { message, type, id }]);
-    
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-      removeToast(id);
-    }, 3000);
+  function addToast(type: Toast['type'], message: string, timeout: number = 3000) {
+    const toast: Toast = {
+      id: id++,
+      type,
+      message,
+      timeout
+    };
+
+    update(toasts => [...toasts, toast]);
+
+    if (timeout) {
+      setTimeout(() => {
+        remove(toast.id);
+      }, timeout);
+    }
   }
 
-  function removeToast(id: number) {
-    update(toasts => toasts.filter(t => t.id !== id));
+  function remove(id: number) {
+    update(toasts => toasts.filter(toast => toast.id !== id));
   }
 
   return {
     subscribe,
-    success: (message: string) => addToast(message, 'success'),
-    error: (message: string) => addToast(message, 'error'),
-    info: (message: string) => addToast(message, 'info'),
-    remove: removeToast
+    success: (message: string) => addToast('success', message),
+    error: (message: string) => addToast('error', message),
+    info: (message: string) => addToast('info', message),
+    warning: (message: string) => addToast('warning', message),
+    remove
   };
 }
 

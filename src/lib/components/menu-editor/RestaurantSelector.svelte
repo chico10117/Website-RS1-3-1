@@ -170,7 +170,7 @@
   <div class="p-3 sm:p-6">
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center">
-        <p class="text-gray-500 text-sm mr-2">{t('selectRestaurantManage')}</p>
+        <p class="text-gray-500 text-base mr-2">{t('selectRestaurantManage')}</p>
         {#if restaurants.length > 0}
           <Button variant="ghost" size="icon" on:click={toggleCollapse} class="h-6 w-6 text-gray-400 hover:text-gray-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform transition-transform duration-200 {isCollapsed ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="currentColor">
