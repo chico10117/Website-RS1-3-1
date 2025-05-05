@@ -437,7 +437,7 @@
 <div class="space-y-4">
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
-    class="w-full h-36 border-2 border-dashed rounded-xl transition-all duration-200 relative {isDragging ? 'border-blue-400 bg-blue-50' : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300'}"
+    class="w-full h-36 border-2 border-dashed rounded-xl transition-all duration-200 relative {isDragging ? 'border-blue-400 bg-blue-50' : 'border-blue-200 bg-blue-50/50 hover:bg-blue-100 hover:border-blue-400'}"
     on:dragenter={handleDragEnter}
     on:dragleave={handleDragLeave}
     on:dragover={handleDragOver}
