@@ -6,12 +6,18 @@
   import { toasts } from '$lib/stores/toast';
   import { uploaderStore } from '$lib/stores/uploaderStore';
 
-
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
   export let restaurantName: string;
   export let customPrompt: string | null = null;
   export let restaurantId: string | null = null;
+
+  // Configuration constants (optimizations)
+  const MAX_FILE_SIZE_MB = 20; // Maximum file size in MB
+  const MAX_PDF_PAGES = 10; // Maximum number of PDF pages to process
+  const IMAGE_QUALITY = 0.8; // JPEG quality (0-1), lower = smaller files
+  const MAX_IMAGE_DIMENSION = 1800; // Maximum width/height for images
+  const PDF_SCALE_FACTOR = 1.5; // Scale factor for PDF rendering (lower = smaller)
 
   const dispatch = createEventDispatcher<{
     success: { restaurantData: any;};
@@ -20,10 +26,18 @@
 
   let images: { page: number; dataURL: string }[] = [];
   let isDragging = false;
+  let totalUploadSizeMB = 0; // Track the total upload size
 
   // Make translations reactive
   $: currentLanguage = $language;
-  $: t = (key: string): string => translations[key][currentLanguage];
+  $: t = (key: string): string => {
+    // Safely access translations with a fallback for missing keys
+    if (!translations[key]) {
+      console.warn(`Missing translation key: ${key}`);
+      return key; // Return the key itself as fallback
+    }
+    return translations[key][currentLanguage];
+  }
 
   // Reset component state when restaurantId changes to null (new restaurant)
   $: if (restaurantId === null) {
@@ -31,6 +45,7 @@
     images = [];
     uploaderStore.reset();
     isDragging = false;
+    totalUploadSizeMB = 0;
   }
 
   // Reset component state when restaurantId changes
@@ -39,6 +54,7 @@
     images = [];
     uploaderStore.reset();
     isDragging = false;
+    totalUploadSizeMB = 0;
   }
 
   // Validate restaurant name
@@ -69,27 +85,109 @@
     await processFiles(files);
   }
 
+  // Check file size limit
+  function validateFileSize(file: File): boolean {
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      toasts.error(`${t('error')}: ${file.name} ${t('fileTooLarge')} (${fileSizeMB.toFixed(1)}MB > ${MAX_FILE_SIZE_MB}MB)`);
+      return false;
+    }
+    
+    totalUploadSizeMB += fileSizeMB;
+    console.log(`File size: ${fileSizeMB.toFixed(1)}MB, Total: ${totalUploadSizeMB.toFixed(1)}MB`);
+    return true;
+  }
+
+  // Compress an image to a reasonable size
+  async function compressImage(imageDataURL: string, quality: number = IMAGE_QUALITY): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        
+        // Resize if either dimension exceeds MAX_IMAGE_DIMENSION
+        if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+          if (width > height) {
+            height = Math.round(height * (MAX_IMAGE_DIMENSION / width));
+            width = MAX_IMAGE_DIMENSION;
+          } else {
+            width = Math.round(width * (MAX_IMAGE_DIMENSION / height));
+            height = MAX_IMAGE_DIMENSION;
+          }
+        }
+        
+        // Create canvas and draw resized image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to JPEG for better compression (works well for scanned documents)
+        // Use PNG only for small images that might contain sharp text
+        const smallImage = width * height < 400000; // Arbitrary threshold (e.g., ~600x600px)
+        const format = smallImage ? 'image/png' : 'image/jpeg';
+        const compressionQuality = smallImage ? 0.95 : quality;
+        
+        resolve(canvas.toDataURL(format, compressionQuality));
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imageDataURL;
+    });
+  }
+
   async function processFiles(files: FileList) {
     try {
       images = [];
+      totalUploadSizeMB = 0;
       uploaderStore.setLoading(true, t('processingFiles'), 0);
 
+      // Count total files to process
+      let validFiles = 0;
       for (const file of files) {
+        if ((file.type === 'application/pdf' || file.type.startsWith('image/')) && validateFileSize(file)) {
+          validFiles++;
+        }
+      }
+
+      if (validFiles === 0) {
+        uploaderStore.reset();
+        return;
+      }
+
+      let processedFiles = 0;
+      for (const file of files) {
+        if (!validateFileSize(file)) continue;
+
         if (file.type === 'application/pdf') {
           await processPDF(file);
         } else if (file.type.startsWith('image/')) {
+          const progress = Math.round((processedFiles / validFiles) * 40);
+          uploaderStore.updateProgress(`${t('processingImage')} ${file.name}`, progress);
           await processImage(file);
         } else {
           toasts.error(t('error') + ': ' + t('invalidFileType'));
           continue;
         }
+        processedFiles++;
       }
 
       if (images.length > 0) {
-        console.log('Images:', images.length);
+        console.log('Images ready for upload:', images.length);
+        uploaderStore.updateProgress(t('preparingToUpload'), 50);
         await generateRestaurantData();
       } else {
-         uploaderStore.reset();
+        uploaderStore.reset();
       }
     } catch (error) {
       console.error('Error processing files:', error);
@@ -98,9 +196,6 @@
         dispatch('error', error.message);
       }
       uploaderStore.reset();
-    } finally {
-      // Don't reset store here if generateRestaurantData is successful
-      // The store will be reset at the end of generateRestaurantData or in catch block
     }
   }
 
@@ -108,18 +203,35 @@
     try {
       console.log(`Processing PDF: ${file.name}, Size: ${file.size} bytes`);
       const arrayBuffer = await file.arrayBuffer();
+      uploaderStore.updateProgress(t('loadingPdf'), 10);
+      
       const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
       console.log(`PDF loaded: ${pdf.numPages} pages`);
+      
+      // Limit the number of pages to process
+      const pagesToProcess = Math.min(pdf.numPages, MAX_PDF_PAGES);
+      if (pdf.numPages > MAX_PDF_PAGES) {
+        toasts.warning(`${t('warning')}: ${t('processingFirstPages')} ${MAX_PDF_PAGES} ${t('of')} ${pdf.numPages}`);
+      }
 
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const step = t('processingPage') + ` ${pageNum}/${pdf.numPages}`;
-        const progress = (pageNum / pdf.numPages) * 50;
+      for (let pageNum = 1; pageNum <= pagesToProcess; pageNum++) {
+        const step = t('processingPage') + ` ${pageNum}/${pagesToProcess}`;
+        const progress = 10 + ((pageNum / pagesToProcess) * 30); // 10-40% of the overall process
         uploaderStore.updateProgress(step, progress);
         console.log(`Rendering page ${pageNum}`);
 
         try {
           const page = await pdf.getPage(pageNum);
-          const viewport = page.getViewport({ scale: 1});
+          
+          // Optimize viewport scale based on target dimensions
+          const viewport = page.getViewport({ scale: 1 });
+          const scaleFactor = Math.min(
+            MAX_IMAGE_DIMENSION / viewport.width,
+            MAX_IMAGE_DIMENSION / viewport.height,
+            PDF_SCALE_FACTOR // Cap at the maximum scale factor (quality vs. size tradeoff)
+          );
+          
+          const scaledViewport = page.getViewport({ scale: scaleFactor });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           
@@ -127,13 +239,16 @@
             throw new Error(`Could not get canvas context for page ${pageNum}`);
           }
 
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({ canvasContext: context, viewport }).promise;
+          canvas.width = scaledViewport.width;
+          canvas.height = scaledViewport.height;
+          await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
 
-          const dataURL = canvas.toDataURL('image/png');
-          console.log(`Page ${pageNum} rendered. Data URL length: ${dataURL.length}`);
-          images.push({ page: pageNum, dataURL });
+          // Use JPEG for better compression
+          const dataURL = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+          const compressedDataURL = await compressImage(dataURL);
+          
+          console.log(`Page ${pageNum}: Original size: ${dataURL.length}, Compressed: ${compressedDataURL.length}`);
+          images.push({ page: pageNum, dataURL: compressedDataURL });
         } catch (pageError) {
           console.error(`Error rendering page ${pageNum}:`, pageError);
           toasts.error(t('errorProcessingPage') + ` ${pageNum}`);
@@ -154,8 +269,15 @@
   }
 
   async function processImage(file: File) {
-    const dataURL = await convertToBase64(file);
-    images.push({ page: images.length + 1, dataURL });
+    try {
+      const dataURL = await convertToBase64(file);
+      const compressedDataURL = await compressImage(dataURL);
+      console.log(`Image ${file.name}: Original size: ${dataURL.length}, Compressed: ${compressedDataURL.length}`);
+      images.push({ page: images.length + 1, dataURL: compressedDataURL });
+    } catch (error) {
+      console.error(`Error processing image ${file.name}:`, error);
+      toasts.error(`${t('error')}: ${t('errorProcessingImage')} ${file.name}`);
+    }
   }
 
   async function convertToBase64(file: File): Promise<string> {
@@ -169,8 +291,16 @@
 
   async function generateRestaurantData() {
     try {
-      uploaderStore.updateProgress(t('generatingRestaurantData'), 75);
+      uploaderStore.updateProgress(t('uploadingImages'), 60);
 
+      // Calculate and log total upload size
+      let totalBase64Length = 0;
+      for (const img of images) {
+        totalBase64Length += img.dataURL.length;
+      }
+      console.log(`Uploading ${images.length} images, total size: ${(totalBase64Length / (1024 * 1024)).toFixed(2)}MB`);
+
+      // Prepare the images for the API
       const payload = {
         prompt: customPrompt,
         images: images.map(img => ({
@@ -178,6 +308,41 @@
           base64: img.dataURL.split(',')[1]
         }))
       };
+
+      uploaderStore.updateProgress(t('waitingForAI'), 70);
+      
+      const aiStartTime = Date.now();
+      let lastProgressUpdate = Date.now();
+      let isWaitingLong = false;
+      
+      // Set up a timer to show incremental progress during long waits
+      const progressTimer = setInterval(() => {
+        const elapsedSecs = (Date.now() - aiStartTime) / 1000;
+        
+        // After 5 seconds of waiting, start showing incremental progress
+        if (elapsedSecs > 5 && !isWaitingLong) {
+          isWaitingLong = true;
+          uploaderStore.updateProgress(t('stillAnalyzing'), 75);
+        }
+        
+        // Every 8 seconds, update the progress message if no backend updates
+        if (Date.now() - lastProgressUpdate > 8000) {
+          lastProgressUpdate = Date.now();
+          
+          // Increase progress by a small amount each update, max at 85%
+          // (leaving room for backend progress messages to take us to 95%)
+          const currentProgress = $uploaderStore.progress;
+          const newProgress = Math.min(85, currentProgress + (currentProgress < 80 ? 3 : 1));
+          
+          if (elapsedSecs > 30) {
+            uploaderStore.updateProgress(t('processingLargeMenu'), newProgress);
+          } else if (elapsedSecs > 15) {
+            uploaderStore.updateProgress(t('analyzingMenuItems'), newProgress);
+          } else {
+            uploaderStore.updateProgress(t('extractingData'), newProgress);
+          }
+        }
+      }, 1000);
 
       const response = await fetch('/api/process-images', {
         method: 'POST',
@@ -187,6 +352,7 @@
       });
 
       if (!response.body) {
+        clearInterval(progressTimer);
         throw new Error('No response body');
       }
 
@@ -201,8 +367,39 @@
         const chunk = decoder.decode(value, { stream: true });
         fullResponse += chunk;
 
-        if (chunk.includes('[DONE]')) {
+        // Process different message types from the backend
+        if (chunk.includes('[START]')) {
+          console.log("AI processing started");
+          lastProgressUpdate = Date.now();
+          uploaderStore.updateProgress(t('aiProcessingStarted'), 75);
+        } 
+        else if (chunk.includes('[PROGRESS]')) {
+          lastProgressUpdate = Date.now();
+          try {
+            const progressMessage = chunk.split('[PROGRESS]')[1].trim();
+            console.log(`Progress update: ${progressMessage}`);
+            // No translation needed - just use the message directly
+            const currentProgress = $uploaderStore.progress;
+            // Increment progress slowly, up to 90%
+            const newProgress = Math.min(90, currentProgress + 1);
+            uploaderStore.updateProgress(progressMessage, newProgress);
+          } catch (error) {
+            console.error('Error parsing progress message:', error);
+            // Keep the process going, don't throw
+          }
+        }
+        else if (chunk.includes('[ERROR]')) {
+          clearInterval(progressTimer);
+          const errorData = chunk.split('[ERROR]')[1].trim();
+          console.error("Error from backend:", errorData);
+          toasts.error(t('error') + ': ' + t('aiProcessingError'));
+          uploaderStore.reset();
+          return;
+        }
+        else if (chunk.includes('[DONE]')) {
           console.log("Stream finalizado. Procesando la respuesta...");
+          console.log(`AI processing took ${((Date.now() - aiStartTime) / 1000).toFixed(1)} seconds`);
+          clearInterval(progressTimer);
 
           // Extract the JSON data after the [DONE] marker
           const jsonData = fullResponse.split('[DONE]')[1].trim();
@@ -465,6 +662,9 @@
             <p class="text-sm text-gray-500">
               {isDragging ? t('dropToUpload') : t('dragAndDropOrClick')}
             </p>
+            <p class="text-xs text-gray-400">
+              {`${t('maxFileSize')}: ${MAX_FILE_SIZE_MB}MB, ${t('maxPdfPages')}: ${MAX_PDF_PAGES}`}
+            </p>
           </div>
         </div>
       {/if} <!-- End of !loading block -->
@@ -479,6 +679,13 @@
       disabled={$uploaderStore.isLoading}
     />
   </div>
+
+  {#if $uploaderStore.isLoading}
+    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+      <div class="bg-blue-600 h-2.5 rounded-full" style="width: {$uploaderStore.progress}%"></div>
+    </div>
+    <p class="text-sm text-gray-600 text-center">{$uploaderStore.currentStep}</p>
+  {/if}
 
   {#if images.length > 0}
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

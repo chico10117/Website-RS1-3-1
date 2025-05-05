@@ -425,5 +425,94 @@ export const translations: Translation = {
   processingPleaseWait: {
     en: 'Processing, please wait...',
     es: 'Procesando, por favor espera...'
+  },
+  processingImage: {
+    en: 'Processing image',
+    es: 'Procesando imagen'
+  },
+  loadingPdf: {
+    en: 'Loading PDF document',
+    es: 'Cargando documento PDF'
+  },
+  preparingToUpload: {
+    en: 'Preparing images for upload',
+    es: 'Preparando imágenes para subir'
+  },
+  uploadingImages: {
+    en: 'Uploading images to server',
+    es: 'Subiendo imágenes al servidor'
+  },
+  waitingForAI: {
+    en: 'Waiting for AI processing',
+    es: 'Esperando procesamiento de IA'
+  },
+  stillAnalyzing: {
+    en: 'Still analyzing menu',
+    es: 'Analizando la carta'
+  },
+  analyzingMenuItems: {
+    en: 'Analyzing menu items',
+    es: 'Analizando elementos del menú'
+  },
+  extractingData: {
+    en: 'Extracting menu data',
+    es: 'Extrayendo datos del menú'
+  },
+  processingLargeMenu: {
+    en: 'Processing large menu (this may take a while)',
+    es: 'Procesando carta grande (esto puede tomar tiempo)'
+  },
+  aiProcessingStarted: {
+    en: 'AI processing has started',
+    es: 'El procesamiento de IA ha comenzado'
+  },
+  aiProcessingError: {
+    en: 'Error during AI processing',
+    es: 'Error durante el procesamiento de IA'
+  },
+  errorProcessingImage: {
+    en: 'Error processing image',
+    es: 'Error al procesar la imagen'
+  },
+  errorProcessingPage: {
+    en: 'Error processing page',
+    es: 'Error al procesar la página'
+  },
+  errorProcessingPdf: {
+    en: 'Error processing PDF file',
+    es: 'Error al procesar el archivo PDF'
+  },
+  warning: {
+    en: 'Warning',
+    es: 'Advertencia'
+  },
+  processingFirstPages: {
+    en: 'Processing only the first',
+    es: 'Procesando solo las primeras'
+  },
+  of: {
+    en: 'of',
+    es: 'de'
+  },
+  maxPdfPages: {
+    en: 'max PDF pages',
+    es: 'máximo de páginas PDF'
+  },
+  // Backend progress message translations
+  "Starting analysis...": {
+    en: 'Starting analysis...',
+    es: 'Iniciando análisis...'
+  },
+  "Analyzing menu content...": {
+    en: 'Analyzing menu content...',
+    es: 'Analizando contenido del menú...'
+  },
+  "Processing menu sections...": {
+    en: 'Processing menu sections...',
+    es: 'Procesando secciones del menú...'
+  },
+  "Extracting detailed information...": {
+    en: 'Extracting detailed information...',
+    es: 'Extrayendo información detallada...'
   }
 }; 
