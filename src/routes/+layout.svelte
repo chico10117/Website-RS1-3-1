@@ -6,6 +6,9 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { uploaderStore } from '$lib/stores/uploaderStore';
+  import { translations } from '$lib/i18n/translations';
+  import { language } from '$lib/stores/language';
 
   // Initialize user store with server data
   $: if (browser && $page.data.user) {
@@ -64,10 +67,35 @@
       console.log('User already in store:', currentUser);
     }
   });
+
+  // Reactive translations for the overlay
+  $: currentLanguage = $language;
+  $: t = (key: string): string => translations[key]?.[currentLanguage] || translations[key]?.['es'] || key;
 </script>
 
+<!-- FULL SCREEN OVERLAY controlled by store -->
+{#if $uploaderStore.isLoading}
+  <div class="fixed inset-0 bg-black/50 z-[9999] flex flex-col items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-xl text-center space-y-4 w-full max-w-md">
+      <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <p class="text-lg font-medium text-gray-700">{$uploaderStore.currentStep}</p>
+      <div class="w-full bg-gray-200 rounded-full h-2.5">
+        <div
+          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+          style="width: {$uploaderStore.progress}%"
+        ></div>
+      </div>
+      <!-- Make sure you have 'processingPleaseWait' in translations.ts -->
+      <p class="text-sm text-gray-500">{t('processingPleaseWait')}</p> 
+    </div>
+  </div>
+{/if}
+
 <Header />
-<main class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+<main class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 pt-12 sm:pt-14">
   <div class="container mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8">
     <slot />
   </div>
@@ -78,6 +106,7 @@
     background: linear-gradient(135deg, #e0f2fe 0%, #e0e7ff 50%, #faf5ff 100%);
     min-height: 100vh;
     margin: 0;
+    position: relative;
   }
 
   main {

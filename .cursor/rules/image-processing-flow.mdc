@@ -1,0 +1,68 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+## Menu Image Processing Flow
+
+This document outlines the steps involved when a user uploads a menu file (PDF or image) to extract restaurant data using the OpenAI API.
+
+**1. Frontend File Handling (`MenuUploader.svelte`)**
+
+*   **Input:** User uploads one or more files via drag-and-drop or file selector. Accepted formats are PDF and standard image types (PNG, JPG, etc.).
+*   **PDF Processing:**
+    *   If a PDF is uploaded, the `pdfjs-dist` library reads the file client-side.
+    *   Each page of the PDF is rendered onto an invisible `<canvas>`.
+    *   The canvas content for each page is converted into a PNG `dataURL` (base64 encoded string). This step can be slow for large/complex PDFs.
+*   **Image Processing:**
+    *   If an image file is uploaded, `FileReader` converts it directly into a `dataURL` (base64 encoded string).
+*   **Data Preparation:** An array of objects is created, where each object contains `{ page: number, base64: string }`. The `base64` string is extracted from the `dataURL`.
+
+**2. API Request (`MenuUploader.svelte` -> `/api/process-images`)**
+
+*   A `POST` request is sent to the `/api/process-images` endpoint.
+*   **Payload:**
+    *   `images`: The array of base64 image strings prepared in the previous step.
+    *   `prompt` (optional): A custom prompt provided by the user, otherwise a default prompt is used by the backend.
+
+**3. Backend Processing (`/api/process-images/+server.ts`)**
+
+*   **Authentication:** Verifies the user is logged in.
+*   **OpenAI Request Preparation:**
+    *   Constructs a request for the OpenAI API (`gpt-4o` model).
+    *   The request includes:
+        *   A system message instructing the AI to act as a JSON extractor.
+        *   A user message containing:
+            *   The prompt (custom or default).
+            *   The base64 encoded images (passed as `image_url` data).
+    *   Specifies `response_format: { type: "json_object" }` to request structured JSON output.
+    *   Sets `stream: true` to receive the response incrementally.
+*   **OpenAI API Call:** Sends the prepared request to OpenAI. This is often the most time-consuming step, depending on image complexity and model load.
+
+**4. Streaming Response (OpenAI -> Backend -> Frontend)**
+
+*   **Backend Receives Stream:** The backend receives the response from OpenAI as a stream of chunks.
+*   **Backend Sends Stream:** The backend forwards the stream to the frontend using `text/event-stream`.
+    *   It accumulates the full JSON response from the stream chunks.
+    *   Sends placeholder `[LOADING]` messages initially (primarily for keep-alive).
+    *   Once the OpenAI stream ends, it parses the complete JSON.
+    *   Injects the `user.email` into the parsed JSON.
+    *   Sends a final `[DONE]` message followed by the complete JSON payload.
+*   **Frontend Receives Stream:** `MenuUploader.svelte` listens for the event stream.
+    *   It reads chunks until the `[DONE]` marker is received.
+    *   It parses the JSON data following `[DONE]`.
+
+**5. Frontend Data Finalization (`MenuUploader.svelte`)**
+
+*   **Processing:** The parsed JSON data (containing restaurant details and menu structure) is processed:
+    *   Reconciles the restaurant name.
+    *   Restructures the menu/category/dish data into a standardized format.
+    *   Adds default values or temporary IDs if needed.
+*   **Dispatch:** Dispatches a `success` event with the finalized restaurant data, which is then used to update the UI/stores.
+
+**Potential Performance Bottlenecks:**
+
+*   Client-side PDF page rendering (`pdfjs-dist`).
+*   Uploading large base64 image data.
+*   OpenAI API processing time (`gpt-4o` vision analysis).
+*   Network latency between client, server, and OpenAI.

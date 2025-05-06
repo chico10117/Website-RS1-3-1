@@ -18,6 +18,7 @@
   let deletingRestaurant: string | null = null;
   let showDeleteConfirm = false;
   let restaurantToDelete: Restaurant | null = null;
+  let isCollapsed = false;
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -149,6 +150,10 @@
     showDeleteConfirm = false;
   }
 
+  function toggleCollapse() {
+    isCollapsed = !isCollapsed;
+  }
+
   async function refreshRestaurants() {
     try {
       // Load fresh data and sort
@@ -164,8 +169,15 @@
 <div class="w-full max-w-[1200px] mx-auto">
   <div class="p-3 sm:p-6">
     <div class="flex items-center justify-between mb-6">
-      <div>
-        <p class="text-gray-500 text-sm">{t('selectRestaurantManage')}</p>
+      <div class="flex items-center">
+        <p class="text-gray-500 text-base mr-2">{t('selectRestaurantManage')}</p>
+        {#if restaurants.length > 0}
+          <Button variant="ghost" size="icon" on:click={toggleCollapse} class="h-6 w-6 text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transform transition-transform duration-200 {isCollapsed ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </Button>
+        {/if}
       </div>
       <Button
         variant="outline"
@@ -204,6 +216,7 @@
         <p class="text-gray-500 text-sm mt-1">{t('addFirstRestaurant')}</p>
       </div>
     {:else}
+      {#if !isCollapsed}
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         {#each restaurants as restaurant (restaurant.id)}
           <button
@@ -262,6 +275,7 @@
           </button>
         {/each}
       </div>
+      {/if}
     {/if}
   </div>
 </div>

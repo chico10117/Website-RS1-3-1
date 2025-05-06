@@ -283,13 +283,6 @@
     </div>
   {:else}
     <div class="glass rounded-3xl p-3 sm:p-8">
-      <!-- Title and save button -->
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div class="flex items-center gap-3">
-          <img src="/recologo.svg" alt="Reco Logo" class="h-6 sm:h-8 w-auto" />
-          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{t('appTitle')}</h1>
-        </div>
-      </div>
       <!-- Restaurant selector -->
       <div class="mb-4 sm:mb-8">
         <RestaurantSelector 
@@ -362,9 +355,6 @@
 <div class="sticky bottom-4 sm:bottom-8 float-right mr-2 sm:mr-8 z-50">
   <SaveButton />
 </div>
-
-<!-- Toast notifications -->
-<Toast />
 
 <style>
   :global(input[type="text"]) {
