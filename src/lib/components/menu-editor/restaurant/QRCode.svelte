@@ -17,7 +17,7 @@
   const LOGO_MARGIN = 0; /// Used for CSS styling of the overlay
 
   // Add a mobile-specific size
-  const MOBILE_QR_SIZE = 150; // Smaller size for mobile
+  const MOBILE_QR_SIZE = 100; // Smaller size for mobile
 
   // Reactive translations
   $: currentLanguage = $language;
