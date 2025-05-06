@@ -155,12 +155,12 @@ export const translations: Translation = {
     en: "Dish successfully deleted"
   },
   restaurantUpdateSuccess: {
-    es: "Restaurante actualizado exitosamente",
-    en: "Restaurant successfully updated"
+    es: "Carta actualizada exitosamente",
+    en: "Menu successfully updated"
   },
   restaurantDeleteSuccess: {
-    es: "Restaurante eliminado exitosamente",
-    en: "Restaurant successfully deleted"
+    es: "Carta eliminada exitosamente",
+    en: "Menu successfully deleted"
   },
   noFileUploaded: {
     es: "No se ha subido ningún archivo",
@@ -215,8 +215,8 @@ export const translations: Translation = {
     en: "Enter any additional instructions or information for your chatbot (max 10,000 characters)"
   },
   noRestaurantSelected: {
-    es: "No hay restaurante seleccionado",
-    en: "No restaurant selected"
+    es: "No hay carta seleccionada",
+    en: "No menu selected"
   },
   logo: {
     es: "Logo",
@@ -264,7 +264,7 @@ export const translations: Translation = {
   },
   menuUploadSuccess: {
     en: 'Menu uploaded and processed successfully',
-    es: 'Menú subido y procesado exitosamente'
+    es: 'Carta subida y procesada exitosamente'
   },
   changesSaved: {
     es: "Cambios guardados",
@@ -311,8 +311,8 @@ export const translations: Translation = {
     en: "Your Restaurants"
   },
   selectRestaurantManage: {
-    es: "Selecciona un restaurante para administrar su carta",
-    en: "Select a restaurant to manage its menu"
+    es: "Selecciona una carta",
+    en: "Select a menu"
   },
   addRestaurant: {
     es: "Agregar Nueva Carta",
@@ -323,8 +323,8 @@ export const translations: Translation = {
     en: "No restaurants found"
   },
   addFirstRestaurant: {
-    es: "Agrega tu primer restaurante para comenzar",
-    en: "Add your first restaurant to get started"
+    es: "Agrega tu primera carta para comenzar",
+    en: "Add your first menu to get started"
   },
   loading: {
     es: "Cargando...",
@@ -514,5 +514,9 @@ export const translations: Translation = {
   "Extracting detailed information...": {
     en: 'Extracting detailed information...',
     es: 'Extrayendo información detallada...'
+  },
+  takePhotoOnMobile: {
+    es: "Toma una foto",
+    en: "Take a picture!"
   }
 }; 
