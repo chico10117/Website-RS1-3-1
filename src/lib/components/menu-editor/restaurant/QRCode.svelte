@@ -10,6 +10,7 @@
   let qrError: string | null = null;
   let displaySize: number;
   let pixelRatio: number = 1;
+  let containerWidth: number;
 
   const QR_SIZE = 200; // Logical size
   const LOGO_SIZE = 50; // Used for CSS styling of the overlay
@@ -22,46 +23,54 @@
   onMount(() => {
     if (!url) return;
     
-    // Adjust for device pixel ratio for sharpness on high-DPI screens
-    pixelRatio = window.devicePixelRatio || 1;
-    displaySize = QR_SIZE;
-    const scaledSize = displaySize * pixelRatio;
-
-    // Set canvas buffer size
-    canvas.width = scaledSize;
-    canvas.height = scaledSize;
-
-    // Set display size via CSS
-    canvas.style.width = `${displaySize}px`;
-    canvas.style.height = `${displaySize}px`;
-
-    QRCode.toCanvas(canvas, url, {
-      width: scaledSize,
-      margin: 0,
-      errorCorrectionLevel: 'H', // Highest error correction for better logo visibility
-      color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
-    }).then(() => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Scale the context (only needed if pixelRatio > 1)
-      if (pixelRatio !== 1) {
-        ctx.scale(pixelRatio, pixelRatio);
-      }
-      // Logo drawing removed, handled by CSS overlay now
-    }).catch((err: Error) => {
-      console.error('Error generating QR code:', err);
-      qrError = err.message;
-    });
+    // Get container width for responsive sizing
+    const updateSize = () => {
+      if (!container) return;
+      containerWidth = container.clientWidth;
+      displaySize = Math.min(containerWidth, QR_SIZE);
+      
+      // Update canvas with new size
+      pixelRatio = window.devicePixelRatio || 1;
+      const scaledSize = displaySize * pixelRatio;
+      
+      canvas.width = scaledSize;
+      canvas.height = scaledSize;
+      canvas.style.width = `${displaySize}px`;
+      canvas.style.height = `${displaySize}px`;
+      
+      generateQR();
+    };
+    
+    // Generate QR with current size settings
+    const generateQR = () => {
+      QRCode.toCanvas(canvas, url, {
+        width: canvas.width,
+        margin: 0,
+        errorCorrectionLevel: 'H',
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      }).catch((err: Error) => {
+        console.error('Error generating QR code:', err);
+        qrError = err.message;
+      });
+    };
+    
+    updateSize();
+    
+    // Handle window resize
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+    
+    return () => resizeObserver.disconnect();
   });
 </script>
 
 <div 
+  bind:this={container}
   class="qr-code-container"
-  style="--logo-size: {LOGO_SIZE}px; --logo-margin: {LOGO_MARGIN}px;"
+  style="--logo-size: {LOGO_SIZE * (displaySize / QR_SIZE)}px; --logo-margin: {LOGO_MARGIN}px;"
 >
   <canvas
     bind:this={canvas}
