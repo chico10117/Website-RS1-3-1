@@ -16,6 +16,9 @@
   const LOGO_SIZE = 50; // Used for CSS styling of the overlay
   const LOGO_MARGIN = 0; /// Used for CSS styling of the overlay
 
+  // Add a mobile-specific size
+  const MOBILE_QR_SIZE = 150; // Smaller size for mobile
+
   // Reactive translations
   $: currentLanguage = $language;
   $: t = (key: string) => translations[key][currentLanguage];
@@ -27,7 +30,13 @@
     const updateSize = () => {
       if (!container) return;
       containerWidth = container.clientWidth;
-      displaySize = Math.min(containerWidth, QR_SIZE);
+      
+      // Use smaller size on mobile devices
+      const isMobile = window.innerWidth < 768;
+      const maxSize = isMobile ? MOBILE_QR_SIZE : QR_SIZE;
+      
+      // Calculate appropriate size - consider parent container constraints
+      displaySize = Math.min(containerWidth, maxSize);
       
       // Update canvas with new size
       pixelRatio = window.devicePixelRatio || 1;
@@ -92,8 +101,9 @@
   .qr-code-container {
     display: inline-flex;
     flex-direction: column;
-    align-items: flex-end;
-    position: relative; /* Positioning context for the overlay */
+    align-items: center; /* Center horizontally instead of flex-end */
+    position: relative;
+    max-width: 100%; /* Ensure it never exceeds parent width */
   }
   
   .qr-code {
