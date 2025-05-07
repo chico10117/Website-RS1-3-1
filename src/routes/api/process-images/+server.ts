@@ -133,11 +133,11 @@ export async function POST({ request, locals }: RequestEvent) {
 
         console.log('Sending request to OpenAI...');
         const stream = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",
-                    content: "You are an assistant designed to extract information from images and respond strictly in JSON format."
+                    content: "Eres un asistente diseñado para extraer información de imágenes y responder estrictamente en formato JSON."
                 },
                 {
                     role: "user",

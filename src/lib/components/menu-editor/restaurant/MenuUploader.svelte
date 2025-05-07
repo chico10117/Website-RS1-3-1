@@ -15,7 +15,7 @@
   // Configuration constants (optimizations)
   const MAX_FILE_SIZE_MB = 20; // Maximum file size in MB
   const MAX_PDF_PAGES = 10; // Maximum number of PDF pages to process
-  const IMAGE_QUALITY = 0.8; // JPEG quality (0-1), lower = smaller files
+  const IMAGE_QUALITY = 1; // PNG quality (0-1)
   const MAX_IMAGE_DIMENSION = 1800; // Maximum width/height for images
   const PDF_SCALE_FACTOR = 1.5; // Scale factor for PDF rendering (lower = smaller)
 
@@ -146,13 +146,8 @@
         
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Convert to JPEG for better compression (works well for scanned documents)
-        // Use PNG only for small images that might contain sharp text
-        const smallImage = width * height < 400000; // Arbitrary threshold (e.g., ~600x600px)
-        const format = smallImage ? 'image/png' : 'image/jpeg';
-        const compressionQuality = smallImage ? 0.95 : quality;
-        
-        resolve(canvas.toDataURL(format, compressionQuality));
+        // Always use PNG for better text quality
+        resolve(canvas.toDataURL('image/png', quality));
       };
       
       img.onerror = () => reject(new Error('Failed to load image'));
@@ -257,8 +252,8 @@
           canvas.height = scaledViewport.height;
           await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
 
-          // Use JPEG for better compression
-          const dataURL = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+          // Use PNG for better text quality
+          const dataURL = canvas.toDataURL('image/png', IMAGE_QUALITY);
           const compressedDataURL = await compressImage(dataURL);
           
           console.log(`Page ${pageNum}: Original size: ${dataURL.length}, Compressed: ${compressedDataURL.length}`);
@@ -412,6 +407,8 @@
         }
         else if (chunk.includes('[DONE]')) {
           console.log("Stream finalizado. Procesando la respuesta...");
+          const totalTime = ((Date.now() - aiStartTime) / 1000).toFixed(1);
+          console.log(`Total OpenAI API processing time: ${totalTime} seconds`);
           console.log(`AI processing took ${((Date.now() - aiStartTime) / 1000).toFixed(1)} seconds`);
           clearInterval(progressTimer);
 
