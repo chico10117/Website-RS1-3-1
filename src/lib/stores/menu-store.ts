@@ -720,14 +720,14 @@ function createMenuStore() {
         const categoriesPayload = state.categories.map((cat, catIndex) => ({
           id: cat.id, // temp_ or actual ID
           name: cat.name,
-          order: cat.order !== undefined ? cat.order : catIndex, // Ensure order is passed
+          order: (cat as any).order !== undefined ? (cat as any).order : catIndex, // Ensure order is passed
           dishes: (cat.dishes || []).map((dish, dishIndex) => ({
             id: dish.id, // temp_ or actual ID
             title: dish.title,
             description: dish.description,
             price: dish.price,
             imageUrl: dish.imageUrl,
-            order: dish.order !== undefined ? dish.order : dishIndex, // Ensure order is passed
+            order: (dish as any).order !== undefined ? (dish as any).order : dishIndex, // Ensure order is passed
           })),
         }));
 
@@ -742,14 +742,20 @@ function createMenuStore() {
         // Call the new bulk save method
         const result = await menuService.saveMenuBulk(bulkPayload);
 
+        // The result structure is now:
+        // { 
+        //   ...finalRestaurant, 
+        //   categories: categoriesWithDishes 
+        // }
+
+        // Create a Restaurant object without the nested categories for the array
+        const restaurantForArray = { ...result };
+        // @ts-ignore // categories is part of the result type, but not strictly Restaurant type
+        delete restaurantForArray.categories;
+
         update(s => {
           const updatedRestaurantsArray = s.restaurants.filter(r => !r.id.startsWith('temp_'));
           const existingIndex = updatedRestaurantsArray.findIndex(r => r.id === result.id);
-          
-          // Create a Restaurant object without the nested categories for the array
-          const restaurantForArray = { ...result };
-          // @ts-ignore // categories is part of the result type, but not strictly Restaurant type
-          delete restaurantForArray.categories;
 
           if (existingIndex > -1) {
             updatedRestaurantsArray[existingIndex] = restaurantForArray;
@@ -781,7 +787,11 @@ function createMenuStore() {
             }
           };
         });
-        return result; // Return the result from the service
+
+        // Now return the result in the expected format for SaveButton
+        return {
+          restaurant: restaurantForArray
+        };
       } catch (error) {
         console.error('Error saving changes in menuStore:', error);
         update(s => ({ ...s, isSaving: false }));

@@ -70,7 +70,7 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
   try {
     // 1. Save/Update Restaurant
     let restaurantId = payload.restaurant.id?.startsWith('temp_') ? undefined : payload.restaurant.id;
-    let savedRestaurant: schema.RestaurantSelect;
+    let savedRestaurant: any;
     const restaurantData = payload.restaurant;
     const restaurantSlug = restaurantData.slug || await generateSlug(restaurantData.name, svelteKitFetch);
 
@@ -109,7 +109,9 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
           userId: user.id,
         }).returning();
       restaurantId = savedRestaurant.id;
-      if (payload.restaurant.id) tempToRealIdMap.set(payload.restaurant.id, restaurantId);
+      if (payload.restaurant.id && typeof payload.restaurant.id === 'string') {
+        tempToRealIdMap.set(payload.restaurant.id, restaurantId);
+      }
     }
     if (!restaurantId) throw new Error("Failed to get restaurant ID");
 
@@ -139,9 +141,9 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
     const savedCategoriesWithDishes: any[] = []; // To store the final structure
 
     for (const [catIndex, catPayload] of payload.categories.entries()) {
-      let categoryDbId = catPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(catPayload.id!) || catPayload.id;
-      let savedCategory: schema.CategorySelect;
-      const targetCategoryOrder = payload.orderedCategoryIds.indexOf(catPayload.id!); // Get order from ordered list
+      let categoryDbId = catPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(catPayload.id || '') || catPayload.id;
+      let savedCategory: any;
+      const targetCategoryOrder = catPayload.id ? payload.orderedCategoryIds.indexOf(catPayload.id) : -1; // Get order from ordered list
 
       const categoryDataToSave = {
         name: catPayload.name,
@@ -157,17 +159,19 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
       } else { // Create
         [savedCategory] = await db.insert(schema.categories).values(categoryDataToSave).returning();
         categoryDbId = savedCategory.id;
-        if (catPayload.id) tempToRealIdMap.set(catPayload.id, categoryDbId);
+        if (catPayload.id && typeof catPayload.id === 'string') {
+          tempToRealIdMap.set(catPayload.id, categoryDbId);
+        }
       }
       if (!categoryDbId) throw new Error(`Failed to save category: ${catPayload.name}`);
 
-      const savedDishesForThisCategory: schema.DishSelect[] = [];
+      const savedDishesForThisCategory: any[] = [];
       if (catPayload.dishes && catPayload.dishes.length > 0) {
-        const dishesToCreate: schema.DishInsert[] = [];
-        const dishUpdatePromises: Promise<schema.DishSelect[]>[] = [];
+        const dishesToCreate: any[] = [];
+        const dishUpdatePromises: Promise<any[]>[] = [];
 
         for (const [dishIndex, dishPayload] of catPayload.dishes.entries()) {
-          let dishDbId = dishPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(dishPayload.id!) || dishPayload.id;
+          let dishDbId = dishPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(dishPayload.id || '') || dishPayload.id;
           const dishData = {
             title: dishPayload.title, 
             description: dishPayload.description,
@@ -233,23 +237,36 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
     }
 
     // 5. Re-fetch the final state to ensure consistency and correct ordering
-    const finalRestaurantState = await db.query.restaurants.findFirst({
-      where: eq(schema.restaurants.id, restaurantId),
-      with: {
-        categories: {
-          orderBy: schema.categories.order,
-          with: {
-            dishes: {
-              orderBy: schema.dishes.order,
-            }
-          }
-        }
-      }
-    });
+    // Instead of using relational queries, we'll do it manually with regular queries
+    const [finalRestaurant] = await db.select().from(schema.restaurants)
+      .where(eq(schema.restaurants.id, restaurantId));
     
-    if (!finalRestaurantState) {
+    if (!finalRestaurant) {
       throw new Error("Failed to fetch final restaurant state after save.");
     }
+
+    // Get categories ordered by their order field
+    const categories = await db.select().from(schema.categories)
+      .where(eq(schema.categories.restaurantId, restaurantId))
+      .orderBy(schema.categories.order);
+    
+    // For each category, get its dishes
+    const categoriesWithDishes = await Promise.all(categories.map(async (category) => {
+      const dishes = await db.select().from(schema.dishes)
+        .where(eq(schema.dishes.categoryId, category.id))
+        .orderBy(schema.dishes.order);
+      
+      return {
+        ...category,
+        dishes
+      };
+    }));
+
+    // Create the final restaurant state with categories and dishes
+    const finalRestaurantState = {
+      ...finalRestaurant,
+      categories: categoriesWithDishes
+    };
 
     return json({
       success: true,
@@ -259,7 +276,8 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
   } catch (e: any) {
     console.error("Bulk save error:", e);
     const errorMessage = e instanceof Error ? e.message : "Failed to save menu";
-    const errorStatus = (e as any).status || (e instanceof svelteKitError ? e.status : 500);
+    // If e is a SvelteKit error, it will have a status property
+    const errorStatus = typeof e === 'object' && e !== null && 'status' in e ? (e as any).status : 500;
     return json({ success: false, error: errorMessage, details: e.stack }, { status: errorStatus });
   }
 } 
