@@ -72,47 +72,93 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
     let restaurantId = payload.restaurant.id?.startsWith('temp_') ? undefined : payload.restaurant.id;
     let savedRestaurant: any;
     const restaurantData = payload.restaurant;
-    const restaurantSlug = restaurantData.slug || await generateSlug(restaurantData.name, svelteKitFetch);
-
+    
+    // Ensure we always have a valid name
+    const restaurantName: string = typeof restaurantData.name === 'string' && restaurantData.name.trim() 
+                                ? restaurantData.name 
+                                : 'Unnamed Restaurant';
+    
+    // Initialize slug handling
+    let finalSlug: string; 
+    
     if (restaurantId && !payload.restaurant.id?.startsWith('temp_')) {
+      // Updating existing restaurant - get the existing restaurant first
       const [existingRestaurant] = await db.select()
         .from(schema.restaurants)
         .where(and(eq(schema.restaurants.id, restaurantId), eq(schema.restaurants.userId, user.id)));
+      
       if (!existingRestaurant) throw svelteKitError(404, 'Restaurant not found or not owned by user');
       
+      // Determine which slug to use:
+      // 1. Use the slug provided in the payload if it exists
+      // 2. Otherwise keep the existing slug from the database
+      // 3. As a last resort, generate a timestamp-based fallback
+      if (typeof restaurantData.slug === 'string' && restaurantData.slug.trim()) {
+        finalSlug = restaurantData.slug.trim();
+      } else if (existingRestaurant.slug) {
+        finalSlug = existingRestaurant.slug;
+      } else {
+        finalSlug = `restaurant-${Date.now()}`;
+      }
+      
+      // Now update the restaurant with our validated data
       [savedRestaurant] = await db.update(schema.restaurants)
         .set({
-          name: restaurantData.name, 
-          slug: restaurantSlug, 
+          name: restaurantName, 
+          slug: finalSlug,
           logo: restaurantData.logo,
           customPrompt: restaurantData.customPrompt, 
           phoneNumber: restaurantData.phoneNumber,
-          currency: restaurantData.currency, 
-          color: restaurantData.color,
+          currency: restaurantData.currency || '€', 
+          color: restaurantData.color || '#85A3FA',
           reservas: restaurantData.reservas, 
           redes_sociales: restaurantData.redes_sociales,
           updatedAt: new Date(),
         })
         .where(eq(schema.restaurants.id, restaurantId)).returning();
     } else {
+      // Creating a new restaurant
+      
+      // For new restaurants, try these slug sources in order:
+      // 1. Use the slug provided in the payload if it exists
+      // 2. Try to generate a new slug based on the restaurant name
+      // 3. Fall back to a timestamp-based slug if all else fails
+      if (typeof restaurantData.slug === 'string' && restaurantData.slug.trim()) {
+        finalSlug = restaurantData.slug.trim();
+      } else {
+        try {
+          // generateSlug expects a string and we've validated restaurantName is a string
+          finalSlug = await generateSlug(restaurantName, svelteKitFetch);
+          console.log(`Generated new slug for restaurant: ${finalSlug}`);
+        } catch (error) {
+          console.error('Error generating slug:', error);
+          finalSlug = `restaurant-${Date.now()}`;
+          console.log(`Using fallback slug: ${finalSlug}`);
+        }
+      }
+      
+      // Insert the new restaurant with our validated data
       [savedRestaurant] = await db.insert(schema.restaurants)
         .values({
-          name: restaurantData.name, 
-          slug: restaurantSlug, 
+          name: restaurantName, 
+          slug: finalSlug,
           logo: restaurantData.logo,
           customPrompt: restaurantData.customPrompt, 
           phoneNumber: restaurantData.phoneNumber,
-          currency: restaurantData.currency, 
-          color: restaurantData.color,
+          currency: restaurantData.currency || '€', 
+          color: restaurantData.color || '#85A3FA',
           reservas: restaurantData.reservas, 
           redes_sociales: restaurantData.redes_sociales,
           userId: user.id,
         }).returning();
+      
       restaurantId = savedRestaurant.id;
       if (payload.restaurant.id && typeof payload.restaurant.id === 'string') {
         tempToRealIdMap.set(payload.restaurant.id, restaurantId);
       }
     }
+    
+    // Double-check that we have a valid restaurantId at this point
     if (!restaurantId) throw new Error("Failed to get restaurant ID");
 
     // 2. Handle Deletions
@@ -145,8 +191,13 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
       let savedCategory: any;
       const targetCategoryOrder = catPayload.id ? payload.orderedCategoryIds.indexOf(catPayload.id) : -1; // Get order from ordered list
 
+      // Ensure category name is a valid string
+      const categoryName = typeof catPayload.name === 'string' && catPayload.name.trim()
+                          ? catPayload.name
+                          : `Category ${catIndex + 1}`;
+
       const categoryDataToSave = {
-        name: catPayload.name,
+        name: categoryName,
         restaurantId: restaurantId,
         order: targetCategoryOrder !== -1 ? targetCategoryOrder : catIndex, // Use resolved order or fall back to payload index
       };
@@ -163,7 +214,7 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
           tempToRealIdMap.set(catPayload.id, categoryDbId);
         }
       }
-      if (!categoryDbId) throw new Error(`Failed to save category: ${catPayload.name}`);
+      if (!categoryDbId) throw new Error(`Failed to save category: ${categoryName}`);
 
       const savedDishesForThisCategory: any[] = [];
       if (catPayload.dishes && catPayload.dishes.length > 0) {
@@ -172,8 +223,14 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
 
         for (const [dishIndex, dishPayload] of catPayload.dishes.entries()) {
           let dishDbId = dishPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(dishPayload.id || '') || dishPayload.id;
+          
+          // Ensure dish title is a valid string
+          const dishTitle = typeof dishPayload.title === 'string' && dishPayload.title.trim()
+                          ? dishPayload.title
+                          : `Dish ${dishIndex + 1}`;
+          
           const dishData = {
-            title: dishPayload.title, 
+            title: dishTitle, 
             description: dishPayload.description,
             price: dishPayload.price, 
             imageUrl: dishPayload.imageUrl,
@@ -267,6 +324,9 @@ export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestE
       ...finalRestaurant,
       categories: categoriesWithDishes
     };
+
+    // Log the final slug for debugging
+    console.log(`Restaurant saved with slug: ${finalRestaurant.slug}`);
 
     return json({
       success: true,
