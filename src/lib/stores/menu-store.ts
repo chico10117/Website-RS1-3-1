@@ -697,94 +697,105 @@ function createMenuStore() {
 
     async saveChanges() {
       const state = get({ subscribe });
-      
-      // Capture the frontend order before saving
-      const frontendCategoryOrder = state.categories.map(c => c.id);
-      
+      if (!state.restaurantName && !state.selectedRestaurant) {
+        throw new Error("Cannot save without a restaurant name or a selected restaurant.");
+      }
+
+      update(s => ({ ...s, isSaving: true }));
+
       try {
-        update(s => ({ ...s, isSaving: true }));
+        const restaurantPayload = {
+          id: state.selectedRestaurant || undefined, // Will be temp_ or actual ID
+          name: state.restaurantName,
+          logo: state.menuLogo,
+          customPrompt: state.customPrompt,
+          phoneNumber: state.phoneNumber,
+          currency: state.currency || '€',
+          color: (state.color === 'light' || state.color === '1') ? '#85A3FA' : state.color,
+          reservas: state.reservas,
+          redes_sociales: state.redes_sociales,
+          slug: state.restaurants.find(r => r.id === state.selectedRestaurant)?.slug // Pass current slug if available
+        };
+
+        const categoriesPayload = state.categories.map((cat, catIndex) => ({
+          id: cat.id, // temp_ or actual ID
+          name: cat.name,
+          order: (cat as any).order !== undefined ? (cat as any).order : catIndex, // Ensure order is passed
+          dishes: (cat.dishes || []).map((dish, dishIndex) => ({
+            id: dish.id, // temp_ or actual ID
+            title: dish.title,
+            description: dish.description,
+            price: dish.price,
+            imageUrl: dish.imageUrl,
+            order: (dish as any).order !== undefined ? (dish as any).order : dishIndex, // Ensure order is passed
+          })),
+        }));
+
+        const bulkPayload = {
+          restaurant: restaurantPayload,
+          categories: categoriesPayload,
+          deletedCategoryIds: Array.from(state.changedItems.deletedCategories),
+          deletedDishIds: Array.from(state.changedItems.deletedDishes),
+          orderedCategoryIds: state.categories.map(c => c.id), // Send current order of all categories
+        };
         
-        const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
-        
-        const colorValue = state.color === 'light' || state.color === '1'
-          ? '#85A3FA'
-          : state.color;
-        
-        const reservas = state.reservas !== undefined ? state.reservas : currentRestaurantObj?.reservas;
-        const redes_sociales = state.redes_sociales !== undefined ? state.redes_sociales : currentRestaurantObj?.redes_sociales;
-        
-        const result = await menuService.saveMenuChanges(
-          {
-            name: state.restaurantName,
-            logo: state.menuLogo,
-            customPrompt: state.customPrompt,
-            phoneNumber: state.phoneNumber,
-            currency: state.currency || '€',
-            color: colorValue,
-            reservas,
-            redes_sociales,
-          },
-          state.selectedRestaurant
-        );
-        
+        // Call the new bulk save method
+        const result = await menuService.saveMenuBulk(bulkPayload);
+
+        // The result structure is now:
+        // { 
+        //   ...finalRestaurant, 
+        //   categories: categoriesWithDishes 
+        // }
+
+        // Create a Restaurant object without the nested categories for the array
+        const restaurantForArray = { ...result };
+        // @ts-ignore // categories is part of the result type, but not strictly Restaurant type
+        delete restaurantForArray.categories;
+
         update(s => {
-          // Re-sort the categories returned from the backend based on the frontend order
-          const orderMap = new Map(frontendCategoryOrder.map((id, index) => [id, index]));
-          const reorderedCategories = [...result.categories].sort((a, b) => {
-            const orderA = orderMap.get(a.id);
-            const orderB = orderMap.get(b.id);
-            
-            // Handle potential new categories not present before save
-            if (orderA === undefined && orderB === undefined) return 0; 
-            if (orderA === undefined) return 1; 
-            if (orderB === undefined) return -1; 
+          const updatedRestaurantsArray = s.restaurants.filter(r => !r.id.startsWith('temp_'));
+          const existingIndex = updatedRestaurantsArray.findIndex(r => r.id === result.id);
 
-            return orderA - orderB;
-          });
-
-          const restaurantIndex = s.restaurants.findIndex(r => r.id === result.restaurant.id);
-          const restaurants = [...s.restaurants];
-          
-          if (restaurantIndex >= 0) {
-            restaurants[restaurantIndex] = {
-              ...result.restaurant,
-              reservas: result.restaurant.reservas ?? restaurants[restaurantIndex].reservas,
-              redes_sociales: result.restaurant.redes_sociales ?? restaurants[restaurantIndex].redes_sociales
-            };
+          if (existingIndex > -1) {
+            updatedRestaurantsArray[existingIndex] = restaurantForArray;
           } else {
-            restaurants.push(result.restaurant);
+            updatedRestaurantsArray.push(restaurantForArray);
           }
-          
+
           return {
             ...s,
-            restaurants,
-            selectedRestaurant: result.restaurant.id,
-            restaurantName: result.restaurant.name,
-            menuLogo: result.restaurant.logo,
-            customPrompt: result.restaurant.customPrompt,
-            phoneNumber: result.restaurant.phoneNumber,
-            categories: reorderedCategories, // Use the re-sorted categories
+            restaurants: updatedRestaurantsArray,
+            selectedRestaurant: result.id,
+            restaurantName: result.name,
+            menuLogo: result.logo,
+            customPrompt: result.customPrompt,
+            phoneNumber: result.phoneNumber,
+            categories: result.categories || [], // these include dishes
+            color: result.color || '#85A3FA',
+            currency: result.currency || '€',
+            reservas: result.reservas,
+            redes_sociales: result.redes_sociales,
             isSaving: false,
             lastSaveTime: new Date(),
-            changedItems: {
+            changedItems: { // Reset changes
               restaurant: false,
               categories: new Set<string>(),
               dishes: new Set<string>(),
               deletedCategories: new Set<string>(),
               deletedDishes: new Set<string>()
-            },
-            reservas: result.restaurant.reservas ?? s.reservas,
-            redes_sociales: result.restaurant.redes_sociales ?? s.redes_sociales,
-            color: result.restaurant.color || '#85A3FA',
-            currency: result.restaurant.currency || '€'
+            }
           };
         });
-        
-        return result;
+
+        // Now return the result in the expected format for SaveButton
+        return {
+          restaurant: restaurantForArray
+        };
       } catch (error) {
-        console.error('Error saving changes:', error);
+        console.error('Error saving changes in menuStore:', error);
         update(s => ({ ...s, isSaving: false }));
-        throw error;
+        throw error; // Re-throw to be caught by UI
       }
     },
     //To check later
