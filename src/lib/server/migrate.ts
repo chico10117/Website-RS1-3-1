@@ -27,11 +27,11 @@ const runMigration = async () => {
       );
     `;
 
-    // Create admin user
+    // Create admin user (idempotent)
     await sql`
       INSERT INTO "users" (id, email, name, created_at, updated_at)
       VALUES (
-        gen_random_uuid(),
+        '00000000-0000-0000-0000-000000000000', -- Consistent Admin UUID for idempotency
         'admin@example.com',
         'Admin',
         now(),
@@ -40,37 +40,98 @@ const runMigration = async () => {
       ON CONFLICT (email) DO NOTHING;
     `;
 
-    // Add user_id column if it doesn't exist
-    const columnExists = await sql`
+    // Create restaurants table if not exists (added for completeness and FK dependency)
+    await sql`
+      CREATE TABLE IF NOT EXISTS "restaurants" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "name" text NOT NULL,
+        "slug" text NOT NULL,
+        "logo" text,
+        "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action,
+        "custom_prompt" text,
+        "currency" text NOT NULL DEFAULT '€',
+        "color" text NOT NULL DEFAULT '1',
+        "phone_number" bigint,
+        "reservas" text,
+        "redes_sociales" text,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now(),
+        CONSTRAINT "restaurants_slug_unique" UNIQUE("slug")
+      );
+    `;
+    
+    // Create categories table if not exists (added for completeness and FK dependency)
+    await sql`
+      CREATE TABLE IF NOT EXISTS "categories" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "name" text NOT NULL,
+        "restaurant_id" uuid REFERENCES "restaurants"("id") ON DELETE cascade ON UPDATE no action,
+        "order" integer NOT NULL DEFAULT 0,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now(),
+        CONSTRAINT "categories_name_restaurant_id_unique" UNIQUE("name", "restaurant_id")
+      );
+    `;
+
+    // Create dishes table if not exists (added for completeness)
+    await sql`
+      CREATE TABLE IF NOT EXISTS "dishes" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "title" text NOT NULL,
+        "image_url" text,
+        "price" numeric(10, 2),
+        "description" text,
+        "category_id" uuid REFERENCES "categories"("id") ON DELETE cascade ON UPDATE no action,
+        "order" integer NOT NULL DEFAULT 0,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now()
+      );
+    `;
+
+
+    // Add user_id column to restaurants if it doesn't exist
+    const restaurantUserIdColumnExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.columns 
         WHERE table_name = 'restaurants' AND column_name = 'user_id'
       );
     `;
 
-    if (!columnExists[0].exists) {
+    if (!restaurantUserIdColumnExists[0].exists) {
       await sql`ALTER TABLE "restaurants" ADD COLUMN "user_id" uuid;`;
+      // Make user_id not null after potentially populating it
+      await sql`
+        UPDATE "restaurants" 
+        SET "user_id" = (SELECT id FROM "users" WHERE email = 'admin@example.com')
+        WHERE "user_id" IS NULL;
+      `;
+      await sql`ALTER TABLE "restaurants" ALTER COLUMN "user_id" SET NOT NULL;`;
+    } else {
+        // Ensure user_id is not null if it already exists
+        const userIdIsNullable = await sql`
+            SELECT is_nullable 
+            FROM information_schema.columns 
+            WHERE table_name = 'restaurants' AND column_name = 'user_id';
+        `;
+        if (userIdIsNullable[0].is_nullable === 'YES') {
+            await sql`
+              UPDATE "restaurants" 
+              SET "user_id" = (SELECT id FROM "users" WHERE email = 'admin@example.com')
+              WHERE "user_id" IS NULL;
+            `;
+            await sql`ALTER TABLE "restaurants" ALTER COLUMN "user_id" SET NOT NULL;`;
+        }
     }
 
-    // Update existing restaurants to use admin user
-    await sql`
-      UPDATE "restaurants" 
-      SET "user_id" = (SELECT id FROM "users" WHERE email = 'admin@example.com')
-      WHERE "user_id" IS NULL;
-    `;
-
-    // Make user_id not null
-    await sql`ALTER TABLE "restaurants" ALTER COLUMN "user_id" SET NOT NULL;`;
-
-    // Add foreign key constraint if it doesn't exist
-    const constraintExists = await sql`
+    // Add foreign key constraint for user_id in restaurants if it doesn't exist
+    const restaurantUserFkConstraintExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.table_constraints 
-        WHERE constraint_name = 'restaurants_user_id_users_id_fk'
+        WHERE constraint_name = 'restaurants_user_id_users_id_fk' AND table_name = 'restaurants'
       );
     `;
 
-    if (!constraintExists[0].exists) {
+    if (!restaurantUserFkConstraintExists[0].exists) {
       await sql`
         ALTER TABLE "restaurants" 
         ADD CONSTRAINT "restaurants_user_id_users_id_fk" 
@@ -80,6 +141,13 @@ const runMigration = async () => {
         ON UPDATE no action;
       `;
     }
+    
+    // Add indexes
+    await sql`CREATE INDEX IF NOT EXISTS idx_categories_restaurant_id_order ON "categories" ("restaurant_id", "order");`;
+    console.log('Checked/Created index idx_categories_restaurant_id_order.');
+    
+    await sql`CREATE INDEX IF NOT EXISTS idx_dishes_category_id_order ON "dishes" ("category_id", "order");`;
+    console.log('Checked/Created index idx_dishes_category_id_order.');
 
     console.log('✅ Migration completed successfully');
     process.exit(0);
