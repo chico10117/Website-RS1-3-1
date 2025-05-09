@@ -1,10 +1,11 @@
 import type { Restaurant, Category, Dish } from '$lib/types/menu.types';
-import type { MenuStore } from '$lib/stores/menu-store';
-import * as restaurantService from './restaurant.service';
-import * as categoryService from './category.service';
-import * as dishService from './dish.service';
-import { menuStore } from '$lib/stores/menu-store';
-import { get } from 'svelte/store';
+// Importing types and services related to menu management
+// import type { MenuStore } from '$lib/stores/menu-store'; // Type for menu store state
+// import * as restaurantService from './restaurant.service'; // Service for restaurant operations
+// import * as categoryService from './category.service'; // Service for category operations
+// import * as dishService from './dish.service'; // Service for dish operations
+// import { menuStore } from '$lib/stores/menu-store'; // Menu store instance
+// import { get } from 'svelte/store'; // Svelte store utility for accessing store values
 
 interface SaveResult {
   restaurant: Restaurant;
@@ -76,8 +77,9 @@ export async function saveMenuBulk(payload: BulkSavePayload): Promise<any> {
 
 /**
  * Legacy function to save menu changes using individual API calls
- * This is kept for backward compatibility but new code should use saveMenuBulk
+ * This is kept for reference but is no longer in use - use saveMenuBulk instead
  */
+/* 
 export async function saveMenuChanges(
   restaurantData: any,
   restaurantId: string | null,
@@ -238,4 +240,5 @@ export async function saveMenuChanges(
     restaurant: savedRestaurant,
     categories: categoriesWithDishes,
   };
-} 
+}
+*/ 
