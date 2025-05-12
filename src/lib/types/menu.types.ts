@@ -25,8 +25,12 @@ export interface Category {
 export interface Dish {
   id: string;
   title: string;
-  description: string;
-  price: string;
   imageUrl: string | null;
+  price: string;
+  currency: string;
+  description: string | null;
   categoryId: string;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
 } 
