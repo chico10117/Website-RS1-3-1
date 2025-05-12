@@ -10,6 +10,7 @@
   export let dish: Dish;
   export let isEditing: boolean;
   export let categoryId: string;
+  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     edit: void;
@@ -28,6 +29,11 @@
     }
     return translations[key][currentLanguage] || key;
   };
+
+  // Use the currency from currentRestaurant if available
+  $: if ($currentRestaurant && $currentRestaurant.currency) {
+    currency = $currentRestaurant.currency;
+  }
 
   async function handleImageUpload(event: Event) {
     try {
@@ -187,7 +193,7 @@
         </div>
       </div>
       {#if dish.price}
-        <span class="text-sm font-medium">{$menuStore.currency || '€'}{dish.price}</span>
+        <span class="text-sm font-medium">{currency}{dish.price}</span>
       {/if}
       {#if dish.description}
         <p class="text-sm font-normal text-gray-300 mt-1">{dish.description}</p>
