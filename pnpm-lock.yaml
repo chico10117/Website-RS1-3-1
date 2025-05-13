@@ -17,6 +17,9 @@ importers:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.11.10
+      '@vercel/analytics':
+        specifier: ^1.5.0
+        version: 1.5.0(@sveltejs/kit@2.7.3(@sveltejs/vite-plugin-svelte@3.1.2(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14)))(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14)))(svelte@4.2.19)
       '@vercel/blob':
         specifier: ^0.27.0
         version: 0.27.0
@@ -1024,6 +1027,32 @@ packages:
 
   '@types/qrcode@1.5.5':
     resolution: {integrity: sha512-CdfBi/e3Qk+3Z/fXYShipBT13OJ2fDO2Q2w5CIP5anLTLIndQG9z6P1cnm+8zCWSpm5dnxMFd/uREtb0EXuQzg==}
+
+  '@vercel/analytics@1.5.0':
+    resolution: {integrity: sha512-MYsBzfPki4gthY5HnYN7jgInhAZ7Ac1cYDoRWFomwGHWEX7odTEzbtg9kf/QSo7XEsEAqlQugA6gJ2WS2DEa3g==}
+    peerDependencies:
+      '@remix-run/react': ^2
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   '@vercel/blob@0.27.0':
     resolution: {integrity: sha512-EkYMKRMlHkWRWCnh99adrIT7G6cgv1dWpj/S3Kqykha8cI3EAMSmvnzI1N+41MAZiLMm0CsoGToKgtzGTf5xKQ==}
@@ -3112,6 +3141,11 @@ snapshots:
   '@types/qrcode@1.5.5':
     dependencies:
       '@types/node': 20.17.14
+
+  '@vercel/analytics@1.5.0(@sveltejs/kit@2.7.3(@sveltejs/vite-plugin-svelte@3.1.2(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14)))(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14)))(svelte@4.2.19)':
+    optionalDependencies:
+      '@sveltejs/kit': 2.7.3(@sveltejs/vite-plugin-svelte@3.1.2(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14)))(svelte@4.2.19)(vite@5.4.10(@types/node@20.17.14))
+      svelte: 4.2.19
 
   '@vercel/blob@0.27.0':
     dependencies:
