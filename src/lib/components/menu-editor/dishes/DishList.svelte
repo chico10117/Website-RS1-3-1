@@ -14,7 +14,6 @@
 
   export let dishes: Dish[] = [];
   export let categoryId: string;
-  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     update: Dish[];
@@ -31,16 +30,20 @@
 
   $: currentLanguage = $language;
   $: t = (key: string): string => {
-    if (!translations[key]) {
-      console.warn(`Translation key not found: ${key}`);
-      return key;
+    const langTranslations = translations[currentLanguage];
+    if (langTranslations && typeof langTranslations === 'object' && key in langTranslations) {
+      return langTranslations[key];
     }
-    return translations[currentLanguage]?.[key] ?? key;
+    // Fallback to default language (e.g., 'es') if current language translation is missing
+    const defaultLangTranslations = translations['es']; // Assuming 'es' is your default
+    if (defaultLangTranslations && typeof defaultLangTranslations === 'object' && key in defaultLangTranslations) {
+      console.warn(`Translation key '${key}' not found for language '${currentLanguage}'. Using default.`);
+      return defaultLangTranslations[key];
+    }
+    // Fallback to the key itself if no translation is found
+    console.error(`Translation key '${key}' not found for language '${currentLanguage}' or default.`);
+    return key;
   };
-
-  $: if ($currentRestaurant && $currentRestaurant.currency) {
-    currency = $currentRestaurant.currency;
-  }
 
   async function handleDishAdd(event: CustomEvent<Dish>) {
     const newDish = event.detail;
@@ -133,7 +136,7 @@
 
 <div class="space-y-4">
   <div
-    use:dndzone={{ items: localDishes, flipDurationMs, dragHandle: '.dish-drag-handle' }}
+    use:dndzone={{ items: localDishes, flipDurationMs, dragHandleSelector: '.dish-drag-handle' }}
     on:consider={handleDndConsider}
     on:finalize={handleDndFinalize}
     class="space-y-2"
@@ -144,7 +147,6 @@
           {dish}
           isEditing={editingDish?.id === dish.id}
           {categoryId}
-          {currency}
           on:edit={() => {
             if (editingDish?.id === dish.id) {
               editingDish = null;
@@ -161,7 +163,6 @@
 
   <DishForm
     {categoryId}
-    {currency}
     on:add={handleDishAdd}
   />
 </div> 

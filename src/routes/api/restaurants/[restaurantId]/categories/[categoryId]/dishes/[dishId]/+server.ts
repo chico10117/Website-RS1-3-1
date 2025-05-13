@@ -7,6 +7,12 @@ import type { RequestEvent } from '@sveltejs/kit';
 export async function PUT({ params, request }: RequestEvent) {
   try {
     const { dishId, categoryId } = params;
+    
+    // Add validation for required params
+    if (!dishId || !categoryId) {
+      return json({ success: false, error: 'Dish ID and Category ID are required' }, { status: 400 });
+    }
+
     const updatedDish = await request.json();
 
     console.log('Updating dish:', { dishId, categoryId, updatedDish }); // Debug log
@@ -14,7 +20,7 @@ export async function PUT({ params, request }: RequestEvent) {
     // Primero verificamos si el plato existe
     const existingDish = await db.select()
       .from(dishes)
-      .where(eq(dishes.id, dishId))
+      .where(eq(dishes.id, dishId)) // dishId is now guaranteed to be a string
       .limit(1);
 
     if (!existingDish.length) {
@@ -28,9 +34,11 @@ export async function PUT({ params, request }: RequestEvent) {
         price: updatedDish.price,
         description: updatedDish.description,
         imageUrl: updatedDish.imageUrl,
-        categoryId: categoryId // Usamos el categoryId de los params
+        currency: updatedDish.currency, // Add currency update
+        categoryId: categoryId, // categoryId is now guaranteed to be a string
+        updatedAt: new Date() // Ensure updatedAt is updated
       })
-      .where(eq(dishes.id, dishId))
+      .where(eq(dishes.id, dishId)) // dishId is now guaranteed to be a string
       .returning();
 
     if (!dish) {
@@ -40,23 +48,24 @@ export async function PUT({ params, request }: RequestEvent) {
       }, { status: 500 });
     }
 
-    // Obtenemos la categoría actualizada con sus platos
+    // Obtenemos la categoría actualizada con sus platos (optional, depending on required response)
     const updatedCategory = await db.select()
       .from(categories)
-      .where(eq(categories.id, categoryId));
+      .where(eq(categories.id, categoryId)); // categoryId is now guaranteed to be a string
 
     const categoryDishes = await db.select()
       .from(dishes)
-      .where(eq(dishes.categoryId, categoryId));
+      .where(eq(dishes.categoryId, categoryId)); // categoryId is now guaranteed to be a string
 
     const response = {
       success: true,
       data: {
         dish,
-        category: {
-          ...updatedCategory[0],
-          dishes: categoryDishes
-        }
+        // Optional: include updated category and its dishes if needed by frontend
+        // category: {
+        //   ...updatedCategory[0],
+        //   dishes: categoryDishes
+        // }
       },
       message: 'Dish updated successfully'
     };
@@ -77,11 +86,17 @@ export async function PUT({ params, request }: RequestEvent) {
 export async function DELETE({ params }: RequestEvent) {
   try {
     const { dishId, categoryId } = params;
+
+    // Add validation for required params
+    if (!dishId || !categoryId) {
+      return json({ success: false, error: 'Dish ID and Category ID are required' }, { status: 400 });
+    }
     
-    // Primero verificamos si el plato existe
+    // Primero verificamos si el plato existe (Check belongs to category too?)
     const existingDish = await db.select()
       .from(dishes)
-      .where(eq(dishes.id, dishId))
+      // Consider adding 'and(eq(dishes.categoryId, categoryId))' here if needed
+      .where(eq(dishes.id, dishId)) // dishId is now guaranteed to be a string
       .limit(1);
 
     if (!existingDish.length) {
@@ -90,26 +105,28 @@ export async function DELETE({ params }: RequestEvent) {
 
     // Eliminamos el plato
     const [deletedDish] = await db.delete(dishes)
-      .where(eq(dishes.id, dishId))
+       // If you added the categoryId check above, add it here too
+      .where(eq(dishes.id, dishId)) // dishId is now guaranteed to be a string
       .returning();
 
-    // Obtenemos la categoría actualizada con sus platos
+    // Obtenemos la categoría actualizada con sus platos (optional)
     const updatedCategory = await db.select()
       .from(categories)
-      .where(eq(categories.id, categoryId));
+      .where(eq(categories.id, categoryId)); // categoryId is now guaranteed to be a string
 
     const categoryDishes = await db.select()
       .from(dishes)
-      .where(eq(dishes.categoryId, categoryId));
+      .where(eq(dishes.categoryId, categoryId)); // categoryId is now guaranteed to be a string
 
     return json({ 
       success: true, 
       data: {
         dish: deletedDish,
-        category: {
-          ...updatedCategory[0],
-          dishes: categoryDishes
-        }
+         // Optional: include updated category and its dishes if needed by frontend
+        // category: {
+        //   ...updatedCategory[0],
+        //   dishes: categoryDishes
+        // }
       },
       message: 'Dish deleted successfully'
     });

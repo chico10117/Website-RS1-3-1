@@ -19,7 +19,7 @@ export interface MenuStore {
   redes_sociales: string | null;
   
   changedItems: {
-    restaurant: boolean;
+    restaurant: boolean; // 
     categories: Set<string>; // IDs of changed categories
     dishes: Set<string>;     // IDs of changed dishes
     deletedCategories: Set<string>; // IDs of categories to delete

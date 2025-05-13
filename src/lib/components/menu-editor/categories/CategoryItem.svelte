@@ -11,7 +11,6 @@
   export let category: Category;
   export let index: number;
   export let isSelected: boolean;
-  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     update: { index: number; category: Category };
@@ -25,11 +24,6 @@
   // Make translations reactive
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
-
-  // Use the currency from currentRestaurant if available
-  $: if ($currentRestaurant && $currentRestaurant.currency) {
-    currency = $currentRestaurant.currency;
-  }
 
   function startEditing() {
     isEditing = true;
@@ -226,7 +220,6 @@
       <DishList
         dishes={category.dishes || []}
         categoryId={category.id}
-        {currency}
         on:update={handleDishesUpdate}
       />
     </div>

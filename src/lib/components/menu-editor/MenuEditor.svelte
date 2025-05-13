@@ -168,7 +168,7 @@
 
     try {
       if (isUpdate && restaurantId) {
-        // Update existing restaurant in the store
+        // Update existing restaurant in the menuStore
         console.log('MenuEditor: Updating store for existing restaurant:', restaurantId, mergedData);
         menuStore.updateRestaurantInfo(
           mergedData.name,
@@ -181,8 +181,11 @@
           mergedData.color, // Already validated as string
           mergedData.currency
         );
+        // Also update the currentRestaurant store using set()
+        const updatedRestaurantData = { ...get(currentRestaurant), ...mergedData };
+        currentRestaurant.set(updatedRestaurantData);
       } else {
-        // Create new restaurant in the store
+        // Create new restaurant in the menuStore
         console.log('MenuEditor: Calling createRestaurant in store:', mergedData);
         menuStore.createRestaurant(
           mergedData.name,
@@ -197,9 +200,7 @@
         // Post-creation sync with currentRestaurant might need review
         const newState = get(menuStore);
         const newRestaurant = newState.restaurants.find(r => r.id === newState.selectedRestaurant);
-        if (newRestaurant) {
-          currentRestaurant.set(newRestaurant); // Sync currentRestaurant store
-        }
+        currentRestaurant.set(newRestaurant || null); // Sync currentRestaurant store
       }
     } catch (error) {
        console.error("Error processing restaurant update in store:", error);
@@ -312,10 +313,8 @@
           
             <div class="mt-4 sm:mt-8">
               <CategoryList 
-                categories={$menuStore.categories}
                 selectedRestaurant={$menuStore.selectedRestaurant}
                 restaurantName={$menuStore.restaurantName}
-                currency={$menuStore.currency || '€'}
                 on:update={handleCategoriesUpdate}
               />
             </div>

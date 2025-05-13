@@ -42,6 +42,7 @@ export const dishes = pgTable('dishes', {
   title: text('title').notNull(),
   imageUrl: text('image_url'),
   price: decimal('price', { precision: 10, scale: 2 }),
+  currency: text('currency').notNull().default('€'),
   description: text('description'),
   categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'cascade' }),
   order: integer('order').notNull().default(0),

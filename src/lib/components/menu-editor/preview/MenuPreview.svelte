@@ -13,7 +13,6 @@
   export let restaurantName: string = '';
   export let menuLogo: string | null = null;
   export let categories: Category[] = [];
-  export let currency: string = '€';
 
   // Make translations reactive
   $: currentLanguage = $language;
@@ -23,7 +22,6 @@
   $: if ($currentRestaurant) {
     restaurantName = $currentRestaurant.name || restaurantName;
     menuLogo = $currentRestaurant.logo || menuLogo;
-    currency = $currentRestaurant.currency || currency;
   }
 
   // Subscribe to menu store changes to get categories
@@ -99,7 +97,7 @@
                 <div class="flex-1 w-full">
                   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-2">
                     <h4 class="text-base sm:text-lg font-semibold text-gray-800">{dish.title}</h4>
-                    <p class="text-base sm:text-lg font-bold text-gray-800">{currency}{formatPrice(dish.price)}</p>
+                    <p class="text-base sm:text-lg font-bold text-gray-800">{$currentRestaurant?.currency || '€'}{formatPrice(dish.price)}</p>
                   </div>
                   {#if dish.description}
                     <p class="text-sm sm:text-base text-gray-600 mt-1 font-normal">{dish.description}</p>

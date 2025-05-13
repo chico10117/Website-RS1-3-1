@@ -13,7 +13,6 @@
 
   export let selectedRestaurant: string | null;
   export let restaurantName: string = '';
-  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     update: Category[];
@@ -33,10 +32,6 @@
 
   $: currentLanguage = $language;
   $: t = (key: string): string => translations[key][currentLanguage];
-
-  $: if ($currentRestaurant && $currentRestaurant.currency) {
-    currency = $currentRestaurant.currency;
-  }
 
   $: categoryNameMap = new Map(localCategories.map((cat: Category) => [cat.name.toLowerCase(), cat.id]));
 
@@ -119,7 +114,6 @@
         <CategoryItem
           {category}
           {index}
-          {currency}
           isSelected={selectedCategoryId === category.id}
           on:update={handleCategoryUpdate} 
           on:delete={() => handleCategoryDelete(index)} 

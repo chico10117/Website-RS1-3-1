@@ -8,7 +8,6 @@
   import { currentRestaurant } from '$lib/stores/restaurant';
 
   export let categoryId: string;
-  export let currency: string = '€';
 
   const dispatch = createEventDispatcher<{
     add: Dish;
@@ -41,11 +40,6 @@
     }
     return translations[key][currentLanguage] || key;
   };
-
-  // Use the currency from currentRestaurant if available
-  $: if ($currentRestaurant && $currentRestaurant.currency) {
-    currency = $currentRestaurant.currency;
-  }
 
   async function handleImageUpload(event: Event) {
     try {
@@ -193,7 +187,7 @@
       <div>
         <label class="text-xs font-semibold text-gray-700 mb-1 block w-[25px]">{t('price')}*</label>
         <div class="relative">
-          <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">{currency}</span>
+          <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">{$menuStore.currency || '€'}</span>
           <input
             type="text"
             class="w-[120px] pl-7 pr-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-normal transition-all duration-200"
