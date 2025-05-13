@@ -135,6 +135,9 @@ src
     │   │           ├── +server.ts
     │   │           └── [dishId]
     │   │               └── +server.ts
+    │   ├── menu
+    │   │   └── bulk-save
+    │   │       └── +server.ts
     │   ├── process-images
     │   │   └── +server.ts
     │   ├── restaurants
@@ -7168,11 +7171,11 @@ const runMigration = async () => {
       );
     `;
 
-    // Create admin user
+    // Create admin user (idempotent)
     await sql`
       INSERT INTO "users" (id, email, name, created_at, updated_at)
       VALUES (
-        gen_random_uuid(),
+        '00000000-0000-0000-0000-000000000000', -- Consistent Admin UUID for idempotency
         'admin@example.com',
         'Admin',
         now(),
@@ -7181,37 +7184,98 @@ const runMigration = async () => {
       ON CONFLICT (email) DO NOTHING;
     `;
 
-    // Add user_id column if it doesn't exist
-    const columnExists = await sql`
+    // Create restaurants table if not exists (added for completeness and FK dependency)
+    await sql`
+      CREATE TABLE IF NOT EXISTS "restaurants" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "name" text NOT NULL,
+        "slug" text NOT NULL,
+        "logo" text,
+        "user_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE cascade ON UPDATE no action,
+        "custom_prompt" text,
+        "currency" text NOT NULL DEFAULT '€',
+        "color" text NOT NULL DEFAULT '1',
+        "phone_number" bigint,
+        "reservas" text,
+        "redes_sociales" text,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now(),
+        CONSTRAINT "restaurants_slug_unique" UNIQUE("slug")
+      );
+    `;
+    
+    // Create categories table if not exists (added for completeness and FK dependency)
+    await sql`
+      CREATE TABLE IF NOT EXISTS "categories" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "name" text NOT NULL,
+        "restaurant_id" uuid REFERENCES "restaurants"("id") ON DELETE cascade ON UPDATE no action,
+        "order" integer NOT NULL DEFAULT 0,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now(),
+        CONSTRAINT "categories_name_restaurant_id_unique" UNIQUE("name", "restaurant_id")
+      );
+    `;
+
+    // Create dishes table if not exists (added for completeness)
+    await sql`
+      CREATE TABLE IF NOT EXISTS "dishes" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "title" text NOT NULL,
+        "image_url" text,
+        "price" numeric(10, 2),
+        "description" text,
+        "category_id" uuid REFERENCES "categories"("id") ON DELETE cascade ON UPDATE no action,
+        "order" integer NOT NULL DEFAULT 0,
+        "created_at" timestamp DEFAULT now(),
+        "updated_at" timestamp DEFAULT now()
+      );
+    `;
+
+
+    // Add user_id column to restaurants if it doesn't exist
+    const restaurantUserIdColumnExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.columns 
         WHERE table_name = 'restaurants' AND column_name = 'user_id'
       );
     `;
 
-    if (!columnExists[0].exists) {
+    if (!restaurantUserIdColumnExists[0].exists) {
       await sql`ALTER TABLE "restaurants" ADD COLUMN "user_id" uuid;`;
+      // Make user_id not null after potentially populating it
+      await sql`
+        UPDATE "restaurants" 
+        SET "user_id" = (SELECT id FROM "users" WHERE email = 'admin@example.com')
+        WHERE "user_id" IS NULL;
+      `;
+      await sql`ALTER TABLE "restaurants" ALTER COLUMN "user_id" SET NOT NULL;`;
+    } else {
+        // Ensure user_id is not null if it already exists
+        const userIdIsNullable = await sql`
+            SELECT is_nullable 
+            FROM information_schema.columns 
+            WHERE table_name = 'restaurants' AND column_name = 'user_id';
+        `;
+        if (userIdIsNullable[0].is_nullable === 'YES') {
+            await sql`
+              UPDATE "restaurants" 
+              SET "user_id" = (SELECT id FROM "users" WHERE email = 'admin@example.com')
+              WHERE "user_id" IS NULL;
+            `;
+            await sql`ALTER TABLE "restaurants" ALTER COLUMN "user_id" SET NOT NULL;`;
+        }
     }
 
-    // Update existing restaurants to use admin user
-    await sql`
-      UPDATE "restaurants" 
-      SET "user_id" = (SELECT id FROM "users" WHERE email = 'admin@example.com')
-      WHERE "user_id" IS NULL;
-    `;
-
-    // Make user_id not null
-    await sql`ALTER TABLE "restaurants" ALTER COLUMN "user_id" SET NOT NULL;`;
-
-    // Add foreign key constraint if it doesn't exist
-    const constraintExists = await sql`
+    // Add foreign key constraint for user_id in restaurants if it doesn't exist
+    const restaurantUserFkConstraintExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.table_constraints 
-        WHERE constraint_name = 'restaurants_user_id_users_id_fk'
+        WHERE constraint_name = 'restaurants_user_id_users_id_fk' AND table_name = 'restaurants'
       );
     `;
 
-    if (!constraintExists[0].exists) {
+    if (!restaurantUserFkConstraintExists[0].exists) {
       await sql`
         ALTER TABLE "restaurants" 
         ADD CONSTRAINT "restaurants_user_id_users_id_fk" 
@@ -7221,6 +7285,13 @@ const runMigration = async () => {
         ON UPDATE no action;
       `;
     }
+    
+    // Add indexes
+    await sql`CREATE INDEX IF NOT EXISTS idx_categories_restaurant_id_order ON "categories" ("restaurant_id", "order");`;
+    console.log('Checked/Created index idx_categories_restaurant_id_order.');
+    
+    await sql`CREATE INDEX IF NOT EXISTS idx_dishes_category_id_order ON "dishes" ("category_id", "order");`;
+    console.log('Checked/Created index idx_dishes_category_id_order.');
 
     console.log('✅ Migration completed successfully');
     process.exit(0);
@@ -7461,12 +7532,13 @@ export async function deleteDish(restaurantId: string, categoryId: string, dishI
 
 ```ts
 import type { Restaurant, Category, Dish } from '$lib/types/menu.types';
-import type { MenuStore } from '$lib/stores/menu-store';
-import * as restaurantService from './restaurant.service';
-import * as categoryService from './category.service';
-import * as dishService from './dish.service';
-import { menuStore } from '$lib/stores/menu-store';
-import { get } from 'svelte/store';
+// Importing types and services related to menu management
+// import type { MenuStore } from '$lib/stores/menu-store'; // Type for menu store state
+// import * as restaurantService from './restaurant.service'; // Service for restaurant operations
+// import * as categoryService from './category.service'; // Service for category operations
+// import * as dishService from './dish.service'; // Service for dish operations
+// import { menuStore } from '$lib/stores/menu-store'; // Menu store instance
+// import { get } from 'svelte/store'; // Svelte store utility for accessing store values
 
 interface SaveResult {
   restaurant: Restaurant;
@@ -7474,276 +7546,235 @@ interface SaveResult {
   dishes: Dish[];
 }
 
-export async function saveMenuChanges(
-  restaurantData: {
+// Define the BulkSavePayload interface mirroring the one in the server endpoint
+interface DishPayload {
+  id?: string;
+  title: string;
+  description: string | null;
+  price: string;
+  imageUrl: string | null;
+  order?: number;
+}
+
+interface CategoryPayload {
+  id?: string;
+  name: string;
+  dishes: DishPayload[];
+  order?: number;
+}
+
+export interface BulkSavePayload {
+  restaurant: {
+    id?: string;
     name: string;
     logo: string | null;
-    slug?: string;
-    customPrompt?: string | null;
-    phoneNumber?: number | null;
+    customPrompt: string | null;
+    phoneNumber: number | null;
     currency: string;
     color: string;
-    reservas?: string | null;
-    redes_sociales?: string | null;
-  },
-  currentRestaurantId: string | null
-): Promise<SaveResult> {
-  console.log('Starting saveMenuChanges with:', {
-    restaurantData,
-    reservas: restaurantData.reservas,
-    redes_sociales: restaurantData.redes_sociales,
-    currentRestaurantId
-  });
+    reservas: string | null;
+    redes_sociales: string | null;
+    slug?: string;
+  };
+  categories: CategoryPayload[];
+  deletedCategoryIds: string[];
+  deletedDishIds: string[];
+  orderedCategoryIds: string[];
+}
 
-  // Get the store state
-  const store = menuStore;
-  const storeState = get(store);
+/**
+ * Save the entire menu (restaurant, categories, dishes) in a single bulk operation
+ */
+export async function saveMenuBulk(payload: BulkSavePayload): Promise<any> {
+  console.log('Sending bulk save payload to /api/menu/bulk-save:', payload);
 
-  // Step 1: Save restaurant
-  // If we have a currentRestaurantId, it's an update. Otherwise, it's a new restaurant.
-  const isNewRestaurant = !currentRestaurantId || currentRestaurantId.startsWith('temp_');
-  
-  console.log('Restaurant operation type:', {
-    isNewRestaurant,
-    currentRestaurantId
-  });
-
-  // Find the current restaurant in the store
-  const currentRestaurant = storeState.restaurants.find(r => r.id === currentRestaurantId);
-
-  // CRITICAL: Log the actual values being sent to createOrUpdateRestaurant
-  const reservas = restaurantData.reservas ?? currentRestaurant?.reservas;
-  const redes_sociales = restaurantData.redes_sociales ?? currentRestaurant?.redes_sociales;
-  
-  console.log('CRITICAL - Values being sent to createOrUpdateRestaurant:', {
-    updatingReservas: restaurantData.reservas, 
-    existingReservas: currentRestaurant?.reservas,
-    finalReservas: reservas,
-    updatingRedesSociales: restaurantData.redes_sociales,
-    existingRedesSociales: currentRestaurant?.redes_sociales,
-    finalRedesSociales: redes_sociales
-  });
-
-  const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
-    {
-      name: restaurantData.name,
-      logo: restaurantData.logo,
-      slug: restaurantData.slug || currentRestaurant?.slug,
-      customPrompt: restaurantData.customPrompt ?? currentRestaurant?.customPrompt,
-      phoneNumber: restaurantData.phoneNumber ?? currentRestaurant?.phoneNumber,
-      currency: restaurantData.currency,
-      color: restaurantData.color,
-      reservas,
-      redes_sociales,
+  const response = await fetch('/api/menu/bulk-save', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    isNewRestaurant ? undefined : currentRestaurantId
+    body: JSON.stringify(payload),
+    credentials: 'include', // Important for cookies/auth
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    console.error('Bulk save failed:', result.error, result.details);
+    throw new Error(result.error || 'Failed to save menu changes via bulk endpoint');
+  }
+
+  console.log('Bulk save successful, result data:', result.data);
+  return result.data;
+}
+
+/**
+ * Legacy function to save menu changes using individual API calls
+ * This is kept for reference but is no longer in use - use saveMenuBulk instead
+ */
+/* 
+export async function saveMenuChanges(
+  restaurantData: any,
+  restaurantId: string | null,
+  storeState: any
+): Promise<any> {
+  console.log('saveMenuChanges called, consider using saveMenuBulk for better performance');
+  
+  // Restaurant save
+  const savedRestaurant = await restaurantService.createOrUpdateRestaurant(
+    restaurantData,
+    restaurantId
   );
 
-  console.log('Restaurant saved:', savedRestaurant, 'with URLs:', {
-    reservas: savedRestaurant.reservas,
-    redes_sociales: savedRestaurant.redes_sociales
-  });
-  
-  const restaurantId = savedRestaurant.id;
-  
-  // Step 2: Get existing categories from the API
-  const existingCategories = await categoryService.fetchCategories(restaurantId);
-  const existingCategoryMap = new Map(existingCategories.map(cat => [cat.id, cat]));
-  const existingCategoryNameMap = new Map(existingCategories.map(cat => [cat.name.toLowerCase(), cat]));
-  
-  const savedCategories: Category[] = [];
-  const savedDishes: Dish[] = [];
-  const tempToRealIdMap = new Map<string, string>();
+  // Get existing categories to avoid duplication
+  const existingCategories = await categoryService.fetchCategories(
+    savedRestaurant.id
+  );
 
-  // Step 3: First process category deletions
-  for (const deletedCategoryId of storeState.changedItems.deletedCategories) {
-    // Only delete if it's not a temporary ID (starts with 'temp_')
-    if (!deletedCategoryId.startsWith('temp_')) {
-      await categoryService.deleteCategory(restaurantId, deletedCategoryId);
-      // Remove from existingCategoryMap so it won't be considered when checking for duplicates
-      existingCategoryMap.delete(deletedCategoryId);
-      
-      // Find and remove from existingCategoryNameMap
-      for (const [name, cat] of existingCategoryNameMap.entries()) {
-        if (cat.id === deletedCategoryId) {
-          existingCategoryNameMap.delete(name);
-          break;
-        }
+  // Handle category deletions
+  if (storeState.changedItems.deletedCategories.size > 0) {
+    const categoryDeletionPromises = Array.from(
+      storeState.changedItems.deletedCategories
+    ).map(async (categoryId: string) => {
+      if (!categoryId.startsWith('temp_')) {
+        await categoryService.deleteCategory(savedRestaurant.id, categoryId);
       }
-    }
+    });
+
+    await Promise.all(categoryDeletionPromises);
   }
 
-  // Step 4: Process category creates and updates
-  for (const categoryId of storeState.changedItems.categories) {
-    // Find the category in the store
-    const category = storeState.categories.find(c => c.id === categoryId);
-    if (!category) continue;
+  // Handle dish deletions
+  if (storeState.changedItems.deletedDishes.size > 0) {
+    const dishDeletionPromises = Array.from(
+      storeState.changedItems.deletedDishes
+    ).map(async (dishId: string) => {
+      if (!dishId.startsWith('temp_')) {
+        // Find the category this dish belongs to
+        const category = storeState.categories.find((c: any) =>
+          c.dishes?.some((d: any) => d.id === dishId)
+        );
+        if (category && !category.id.startsWith('temp_')) {
+          await dishService.deleteDish(
+            savedRestaurant.id,
+            category.id,
+            dishId
+          );
+        }
+      }
+    });
 
-    // Check if this is a temporary ID (new category)
-    const isNewCategory = categoryId.startsWith('temp_');
-    
-    // For existing categories, verify it still exists
-    if (!isNewCategory && !existingCategoryMap.has(categoryId)) {
-      // If category was deleted on the server, treat this as a create
-      const savedCategory = await categoryService.createOrUpdateCategory(
-        restaurantId,
-        { name: category.name }
+    await Promise.all(dishDeletionPromises);
+  }
+
+  // Tracking temporary to real IDs for foreign key relationships
+  const tempToPermanentIds: Record<string, string> = {};
+
+  // Handle category creations and updates
+  const categoryPromises = storeState.categories.map(async (category: any) => {
+    let categoryId = category.id;
+    let savedCategory;
+
+    // If the category has changed or is new (temp_id)
+    if (
+      storeState.changedItems.categories.has(category.id) ||
+      category.id.startsWith('temp_')
+    ) {
+      // Check if a category with this name already exists
+      const existingCategory = existingCategories.find(
+        (ec: any) => ec.name === category.name
       );
-      savedCategories.push(savedCategory);
-      tempToRealIdMap.set(categoryId, savedCategory.id);
-      continue;
-    }
 
-    // Check if a category with this name already exists
-    const existingCategoryWithName = existingCategoryNameMap.get(category.name.toLowerCase());
-    
-    if (existingCategoryWithName && existingCategoryWithName.id !== categoryId) {
-      // If a category with this name already exists, use that one instead
-      tempToRealIdMap.set(categoryId, existingCategoryWithName.id);
-      savedCategories.push(existingCategoryWithName);
+      if (existingCategory && category.id.startsWith('temp_')) {
+        // Use the existing category instead of creating a new one
+        savedCategory = existingCategory;
+        tempToPermanentIds[category.id] = existingCategory.id;
+      } else {
+        // Create or update the category
+        savedCategory = await categoryService.createOrUpdateCategory(
+          savedRestaurant.id,
+          {
+            id: category.id.startsWith('temp_') ? undefined : category.id,
+            name: category.name,
+          }
+        );
+
+        if (category.id.startsWith('temp_')) {
+          tempToPermanentIds[category.id] = savedCategory.id;
+        }
+      }
     } else {
-      // Create or update the category
-      const savedCategory = await categoryService.createOrUpdateCategory(
-        restaurantId,
-        { name: category.name },
-        isNewCategory ? undefined : categoryId
-      );
-      savedCategories.push(savedCategory);
-      
-      // Map temporary ID to real ID
-      if (isNewCategory) {
-        tempToRealIdMap.set(categoryId, savedCategory.id);
-      }
+      savedCategory = { id: category.id, name: category.name };
     }
-  }
 
-  // Step 5: Process dish deletions
-  for (const deletedDishId of storeState.changedItems.deletedDishes) {
-    // Find the dish in any category
-    let categoryId: string | undefined;
+    return savedCategory;
+  });
+
+  const savedCategories = await Promise.all(categoryPromises);
+
+  // Handle dish creations and updates
+  let allDishes: any[] = [];
+
+  for (const category of storeState.categories) {
+    const realCategoryId = tempToPermanentIds[category.id] || category.id;
     
-    // Only delete if it's not a temporary ID
-    if (!deletedDishId.startsWith('temp_')) {
-      // Find which category this dish belongs to
-      for (const category of storeState.categories) {
-        if (category.dishes?.some(d => d.id === deletedDishId)) {
-          categoryId = category.id;
-          break;
+    if (category.dishes && category.dishes.length > 0) {
+      const dishPromises = category.dishes.map(async (dish: any) => {
+        if (
+          storeState.changedItems.dishes.has(dish.id) ||
+          dish.id.startsWith('temp_')
+        ) {
+          const dishPayload = {
+            title: dish.title,
+            description: dish.description,
+            price: dish.price,
+            imageUrl: dish.imageUrl,
+          };
+
+          const savedDish = await dishService.createOrUpdateDish(
+            savedRestaurant.id,
+            realCategoryId,
+            dish.id.startsWith('temp_') ? undefined : dish.id,
+            dishPayload
+          );
+
+          if (dish.id.startsWith('temp_')) {
+            tempToPermanentIds[dish.id] = savedDish.id;
+          }
+
+          return { ...savedDish, categoryId: realCategoryId };
         }
-      }
-      
-      if (categoryId) {
-        // If the category has a temporary ID, map it to the real ID
-        const realCategoryId = tempToRealIdMap.get(categoryId) || categoryId;
-        await dishService.deleteDish(restaurantId, realCategoryId, deletedDishId);
-      }
+        
+        return { ...dish, categoryId: realCategoryId };
+      });
+
+      const categoryDishes = await Promise.all(dishPromises);
+      allDishes = [...allDishes, ...categoryDishes];
     }
   }
 
-  // Step 6: Process dish creates and updates
-  for (const dishId of storeState.changedItems.dishes) {
-    // Find the dish in any category
-    let dish: Dish | undefined;
-    let categoryId: string | undefined;
-    
-    for (const category of storeState.categories) {
-      const foundDish = category.dishes?.find(d => d.id === dishId);
-      if (foundDish) {
-        dish = foundDish;
-        categoryId = category.id;
-        break;
-      }
-    }
-    
-    if (!dish || !categoryId) continue;
-    
-    // Check if this is a temporary ID (new dish)
-    const isNewDish = dishId.startsWith('temp_');
-    
-    // Map category ID if it's a temporary ID
-    const realCategoryId = tempToRealIdMap.get(categoryId) || categoryId;
-    
-    // Create or update the dish
-    const savedDish = await dishService.createOrUpdateDish(
-      restaurantId,
-      realCategoryId,
-      {
-        title: dish.title,
-        description: dish.description,
-        price: dish.price,
-        imageUrl: dish.imageUrl
-      },
-      isNewDish ? undefined : dishId
-    );
-    
-    savedDishes.push(savedDish);
-  }
+  // Get the final state with proper ordering
+  const finalCategories = await categoryService.fetchCategories(
+    savedRestaurant.id
+  );
 
-  // Step 7: Update category order AFTER other saves resolve temp IDs
-  // Get the latest state which might include newly created categories with real IDs
-  const finalStoreState = get(menuStore); // Get the state *after* potential updates
-  const orderedCategoryIds = finalStoreState.categories
-      .filter(cat => cat.restaurantId === restaurantId) // Ensure categories belong to the saved restaurant
-      .map(category => tempToRealIdMap.get(category.id) || category.id); // Use real IDs
-
-  console.log('Attempting to update category order with IDs:', orderedCategoryIds);
-  if (orderedCategoryIds.length > 0) { // Only call if there are categories to order
-    try {
-        const orderResponse = await fetch(`/api/restaurants/${restaurantId}/categories/order`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderedCategoryIds }),
-            credentials: 'include'
-        });
- 
-        if (!orderResponse.ok) {
-            const orderError = await orderResponse.json().catch(() => ({ error: 'Failed to update category order' }));
-            console.error('Failed to update category order:', orderError);
-            // Consider throwing an error or showing a toast message here
-            // For now, we log the error and continue
-        } else {
-            console.log('Category order updated successfully.');
-        }
-    } catch (orderError) {
-        console.error('Error calling category order update endpoint:', orderError);
-        // Consider throwing an error or showing a toast message here
-        // For now, we log the error and continue
-    }
-  } else {
-    console.log("No categories found for this restaurant to update order.");
-  }
-
-  // Step 8: Reset the change tracking in the store (moved from original Step 7)
-  menuStore.resetChanges();
-
-  // Step 9: Fetch all categories to return complete data (Fetch should now respect order)
-  const allCategories = await categoryService.fetchCategories(restaurantId);
-  
-  // Fetch dishes for each category
+  // Get dishes for each category
   const categoriesWithDishes = await Promise.all(
-    allCategories.map(async (category) => {
-      try {
-        const dishes = await dishService.fetchDishes(restaurantId, category.id);
-        return {
-          ...category,
-          dishes
-        };
-      } catch (error) {
-        console.error(`Error fetching dishes for category ${category.id}:`, error);
-        return {
-          ...category,
-          dishes: []
-        };
-      }
+    finalCategories.map(async (category: any) => {
+      const dishes = await dishService.fetchDishes(
+        savedRestaurant.id,
+        category.id
+      );
+      return { ...category, dishes };
     })
   );
 
   return {
     restaurant: savedRestaurant,
     categories: categoriesWithDishes,
-    dishes: savedDishes
   };
-} 
+}
+*/ 
 ```
 
 `src/lib/services/restaurant.service.ts`:
@@ -8685,94 +8716,105 @@ function createMenuStore() {
 
     async saveChanges() {
       const state = get({ subscribe });
-      
-      // Capture the frontend order before saving
-      const frontendCategoryOrder = state.categories.map(c => c.id);
-      
+      if (!state.restaurantName && !state.selectedRestaurant) {
+        throw new Error("Cannot save without a restaurant name or a selected restaurant.");
+      }
+
+      update(s => ({ ...s, isSaving: true }));
+
       try {
-        update(s => ({ ...s, isSaving: true }));
+        const restaurantPayload = {
+          id: state.selectedRestaurant || undefined, // Will be temp_ or actual ID
+          name: state.restaurantName,
+          logo: state.menuLogo,
+          customPrompt: state.customPrompt,
+          phoneNumber: state.phoneNumber,
+          currency: state.currency || '€',
+          color: (state.color === 'light' || state.color === '1') ? '#85A3FA' : state.color,
+          reservas: state.reservas,
+          redes_sociales: state.redes_sociales,
+          slug: state.restaurants.find(r => r.id === state.selectedRestaurant)?.slug // Pass current slug if available
+        };
+
+        const categoriesPayload = state.categories.map((cat, catIndex) => ({
+          id: cat.id, // temp_ or actual ID
+          name: cat.name,
+          order: (cat as any).order !== undefined ? (cat as any).order : catIndex, // Ensure order is passed
+          dishes: (cat.dishes || []).map((dish, dishIndex) => ({
+            id: dish.id, // temp_ or actual ID
+            title: dish.title,
+            description: dish.description,
+            price: dish.price,
+            imageUrl: dish.imageUrl,
+            order: (dish as any).order !== undefined ? (dish as any).order : dishIndex, // Ensure order is passed
+          })),
+        }));
+
+        const bulkPayload = {
+          restaurant: restaurantPayload,
+          categories: categoriesPayload,
+          deletedCategoryIds: Array.from(state.changedItems.deletedCategories),
+          deletedDishIds: Array.from(state.changedItems.deletedDishes),
+          orderedCategoryIds: state.categories.map(c => c.id), // Send current order of all categories
+        };
         
-        const currentRestaurantObj = state.restaurants.find(r => r.id === state.selectedRestaurant);
-        
-        const colorValue = state.color === 'light' || state.color === '1'
-          ? '#85A3FA'
-          : state.color;
-        
-        const reservas = state.reservas !== undefined ? state.reservas : currentRestaurantObj?.reservas;
-        const redes_sociales = state.redes_sociales !== undefined ? state.redes_sociales : currentRestaurantObj?.redes_sociales;
-        
-        const result = await menuService.saveMenuChanges(
-          {
-            name: state.restaurantName,
-            logo: state.menuLogo,
-            customPrompt: state.customPrompt,
-            phoneNumber: state.phoneNumber,
-            currency: state.currency || '€',
-            color: colorValue,
-            reservas,
-            redes_sociales,
-          },
-          state.selectedRestaurant
-        );
-        
+        // Call the new bulk save method
+        const result = await menuService.saveMenuBulk(bulkPayload);
+
+        // The result structure is now:
+        // { 
+        //   ...finalRestaurant, 
+        //   categories: categoriesWithDishes 
+        // }
+
+        // Create a Restaurant object without the nested categories for the array
+        const restaurantForArray = { ...result };
+        // @ts-ignore // categories is part of the result type, but not strictly Restaurant type
+        delete restaurantForArray.categories;
+
         update(s => {
-          // Re-sort the categories returned from the backend based on the frontend order
-          const orderMap = new Map(frontendCategoryOrder.map((id, index) => [id, index]));
-          const reorderedCategories = [...result.categories].sort((a, b) => {
-            const orderA = orderMap.get(a.id);
-            const orderB = orderMap.get(b.id);
-            
-            // Handle potential new categories not present before save
-            if (orderA === undefined && orderB === undefined) return 0; 
-            if (orderA === undefined) return 1; 
-            if (orderB === undefined) return -1; 
+          const updatedRestaurantsArray = s.restaurants.filter(r => !r.id.startsWith('temp_'));
+          const existingIndex = updatedRestaurantsArray.findIndex(r => r.id === result.id);
 
-            return orderA - orderB;
-          });
-
-          const restaurantIndex = s.restaurants.findIndex(r => r.id === result.restaurant.id);
-          const restaurants = [...s.restaurants];
-          
-          if (restaurantIndex >= 0) {
-            restaurants[restaurantIndex] = {
-              ...result.restaurant,
-              reservas: result.restaurant.reservas ?? restaurants[restaurantIndex].reservas,
-              redes_sociales: result.restaurant.redes_sociales ?? restaurants[restaurantIndex].redes_sociales
-            };
+          if (existingIndex > -1) {
+            updatedRestaurantsArray[existingIndex] = restaurantForArray;
           } else {
-            restaurants.push(result.restaurant);
+            updatedRestaurantsArray.push(restaurantForArray);
           }
-          
+
           return {
             ...s,
-            restaurants,
-            selectedRestaurant: result.restaurant.id,
-            restaurantName: result.restaurant.name,
-            menuLogo: result.restaurant.logo,
-            customPrompt: result.restaurant.customPrompt,
-            phoneNumber: result.restaurant.phoneNumber,
-            categories: reorderedCategories, // Use the re-sorted categories
+            restaurants: updatedRestaurantsArray,
+            selectedRestaurant: result.id,
+            restaurantName: result.name,
+            menuLogo: result.logo,
+            customPrompt: result.customPrompt,
+            phoneNumber: result.phoneNumber,
+            categories: result.categories || [], // these include dishes
+            color: result.color || '#85A3FA',
+            currency: result.currency || '€',
+            reservas: result.reservas,
+            redes_sociales: result.redes_sociales,
             isSaving: false,
             lastSaveTime: new Date(),
-            changedItems: {
+            changedItems: { // Reset changes
               restaurant: false,
               categories: new Set<string>(),
               dishes: new Set<string>(),
               deletedCategories: new Set<string>(),
               deletedDishes: new Set<string>()
-            },
-            reservas: result.restaurant.reservas ?? s.reservas,
-            redes_sociales: result.restaurant.redes_sociales ?? s.redes_sociales,
-            color: result.restaurant.color || '#85A3FA',
-            currency: result.restaurant.currency || '€'
+            }
           };
         });
-        
-        return result;
+
+        // Now return the result in the expected format for SaveButton
+        return {
+          restaurant: restaurantForArray
+        };
       } catch (error) {
-        console.error('Error saving changes:', error);
+        console.error('Error saving changes in menuStore:', error);
         update(s => ({ ...s, isSaving: false }));
-        throw error;
+        throw error; // Re-throw to be caught by UI
       }
     },
     //To check later
@@ -10915,6 +10957,354 @@ export async function DELETE({ params }: RequestEvent) {
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }, { status: 500 });
+  }
+} 
+```
+
+`src/routes/api/menu/bulk-save/+server.ts`:
+
+```ts
+import { json, error as svelteKitError } from '@sveltejs/kit';
+import { db } from '$lib/server/database';
+import * as schema from '$lib/server/schema';
+import { eq, and, inArray, sql as drizzleSql } from 'drizzle-orm';
+import type { RequestEvent } from '@sveltejs/kit';
+import { generateSlug } from '$lib/utils/slug'; // Assuming this util is adapted for server-side or passed `fetch`
+
+// Helper to get user from token
+async function getUserFromToken(token: string | undefined) {
+  if (!token) return null;
+  const [, payloadBase64] = token.split('.');
+  if (!payloadBase64) return null;
+  try {
+    const payload = JSON.parse(atob(payloadBase64));
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, payload.email));
+    return user;
+  } catch (e) {
+    console.error("Error decoding token or fetching user:", e);
+    return null;
+  }
+}
+
+interface DishPayload {
+  id?: string; // tempId for new, actual id for existing
+  title: string;
+  description: string | null;
+  price: string; // Assuming price is string from client
+  imageUrl: string | null;
+  order?: number;
+  // categoryId will be resolved server-side for new dishes
+}
+
+interface CategoryPayload {
+  id?: string; // tempId for new, actual id for existing
+  name: string;
+  dishes: DishPayload[];
+  order?: number;
+}
+
+interface BulkSavePayload {
+  restaurant: {
+    id?: string; // tempId for new, actual id for existing
+    name: string;
+    logo: string | null;
+    customPrompt: string | null;
+    phoneNumber: number | null;
+    currency: string;
+    color: string;
+    reservas: string | null;
+    redes_sociales: string | null;
+    slug?: string; // Optional, can be auto-generated
+  };
+  categories: CategoryPayload[];
+  deletedCategoryIds: string[];
+  deletedDishIds: string[];
+  orderedCategoryIds: string[]; // All category IDs in their desired order
+}
+
+export async function POST({ request, cookies, fetch: svelteKitFetch }: RequestEvent) {
+  const token = cookies.get('auth_token');
+  const user = await getUserFromToken(token);
+
+  if (!user) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const payload = await request.json() as BulkSavePayload;
+  const tempToRealIdMap = new Map<string, string>(); // For mapping temp client IDs to real DB IDs
+
+  try {
+    // 1. Save/Update Restaurant
+    let restaurantId = payload.restaurant.id?.startsWith('temp_') ? undefined : payload.restaurant.id;
+    let savedRestaurant: any;
+    const restaurantData = payload.restaurant;
+    
+    // Ensure we always have a valid name
+    const restaurantName: string = typeof restaurantData.name === 'string' && restaurantData.name.trim() 
+                                ? restaurantData.name 
+                                : 'Unnamed Restaurant';
+    
+    // Initialize slug handling
+    let finalSlug: string; 
+    
+    if (restaurantId && !payload.restaurant.id?.startsWith('temp_')) {
+      // Updating existing restaurant - get the existing restaurant first
+      const [existingRestaurant] = await db.select()
+        .from(schema.restaurants)
+        .where(and(eq(schema.restaurants.id, restaurantId), eq(schema.restaurants.userId, user.id)));
+      
+      if (!existingRestaurant) throw svelteKitError(404, 'Restaurant not found or not owned by user');
+      
+      // Determine which slug to use:
+      // 1. Use the slug provided in the payload if it exists
+      // 2. Otherwise keep the existing slug from the database
+      // 3. As a last resort, generate a timestamp-based fallback
+      if (typeof restaurantData.slug === 'string' && restaurantData.slug.trim()) {
+        finalSlug = restaurantData.slug.trim();
+      } else if (existingRestaurant.slug) {
+        finalSlug = existingRestaurant.slug;
+      } else {
+        finalSlug = `restaurant-${Date.now()}`;
+      }
+      
+      // Now update the restaurant with our validated data
+      [savedRestaurant] = await db.update(schema.restaurants)
+        .set({
+          name: restaurantName, 
+          slug: finalSlug,
+          logo: restaurantData.logo,
+          customPrompt: restaurantData.customPrompt, 
+          phoneNumber: restaurantData.phoneNumber,
+          currency: restaurantData.currency || '€', 
+          color: restaurantData.color || '#85A3FA',
+          reservas: restaurantData.reservas, 
+          redes_sociales: restaurantData.redes_sociales,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.restaurants.id, restaurantId)).returning();
+    } else {
+      // Creating a new restaurant
+      
+      // For new restaurants, try these slug sources in order:
+      // 1. Use the slug provided in the payload if it exists
+      // 2. Try to generate a new slug based on the restaurant name
+      // 3. Fall back to a timestamp-based slug if all else fails
+      if (typeof restaurantData.slug === 'string' && restaurantData.slug.trim()) {
+        finalSlug = restaurantData.slug.trim();
+      } else {
+        try {
+          // generateSlug expects a string and we've validated restaurantName is a string
+          finalSlug = await generateSlug(restaurantName, svelteKitFetch);
+          console.log(`Generated new slug for restaurant: ${finalSlug}`);
+        } catch (error) {
+          console.error('Error generating slug:', error);
+          finalSlug = `restaurant-${Date.now()}`;
+          console.log(`Using fallback slug: ${finalSlug}`);
+        }
+      }
+      
+      // Insert the new restaurant with our validated data
+      [savedRestaurant] = await db.insert(schema.restaurants)
+        .values({
+          name: restaurantName, 
+          slug: finalSlug,
+          logo: restaurantData.logo,
+          customPrompt: restaurantData.customPrompt, 
+          phoneNumber: restaurantData.phoneNumber,
+          currency: restaurantData.currency || '€', 
+          color: restaurantData.color || '#85A3FA',
+          reservas: restaurantData.reservas, 
+          redes_sociales: restaurantData.redes_sociales,
+          userId: user.id,
+        }).returning();
+      
+      restaurantId = savedRestaurant.id;
+      if (payload.restaurant.id && typeof payload.restaurant.id === 'string') {
+        tempToRealIdMap.set(payload.restaurant.id, restaurantId);
+      }
+    }
+    
+    // Double-check that we have a valid restaurantId at this point
+    if (!restaurantId) throw new Error("Failed to get restaurant ID");
+
+    // 2. Handle Deletions
+    if (payload.deletedDishIds.length > 0) {
+      const realDeletedDishIds = payload.deletedDishIds.filter(id => !id.startsWith('temp_'));
+      if (realDeletedDishIds.length > 0) {
+        const dishesToDelete = await db.select({ id: schema.dishes.id })
+          .from(schema.dishes)
+          .innerJoin(schema.categories, eq(schema.dishes.categoryId, schema.categories.id))
+          .where(and(eq(schema.categories.restaurantId, restaurantId), inArray(schema.dishes.id, realDeletedDishIds)));
+        const validatedDishIdsToDelete = dishesToDelete.map(d => d.id);
+        if (validatedDishIdsToDelete.length > 0) {
+          await db.delete(schema.dishes).where(inArray(schema.dishes.id, validatedDishIdsToDelete));
+        }
+      }
+    }
+    if (payload.deletedCategoryIds.length > 0) {
+      const realDeletedCategoryIds = payload.deletedCategoryIds.filter(id => !id.startsWith('temp_'));
+      if (realDeletedCategoryIds.length > 0) {
+        await db.delete(schema.categories)
+          .where(and(eq(schema.categories.restaurantId, restaurantId), inArray(schema.categories.id, realDeletedCategoryIds)));
+      }
+    }
+
+    // 3. Handle Category and Dish Creations & Updates
+    const savedCategoriesWithDishes: any[] = []; // To store the final structure
+
+    for (const [catIndex, catPayload] of payload.categories.entries()) {
+      let categoryDbId = catPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(catPayload.id || '') || catPayload.id;
+      let savedCategory: any;
+      const targetCategoryOrder = catPayload.id ? payload.orderedCategoryIds.indexOf(catPayload.id) : -1; // Get order from ordered list
+
+      // Ensure category name is a valid string
+      const categoryName = typeof catPayload.name === 'string' && catPayload.name.trim()
+                          ? catPayload.name
+                          : `Category ${catIndex + 1}`;
+
+      const categoryDataToSave = {
+        name: categoryName,
+        restaurantId: restaurantId,
+        order: targetCategoryOrder !== -1 ? targetCategoryOrder : catIndex, // Use resolved order or fall back to payload index
+      };
+
+      if (categoryDbId && !catPayload.id?.startsWith('temp_')) { // Update
+        [savedCategory] = await db.update(schema.categories)
+          .set({ ...categoryDataToSave, updatedAt: new Date() })
+          .where(and(eq(schema.categories.id, categoryDbId), eq(schema.categories.restaurantId, restaurantId)))
+          .returning();
+      } else { // Create
+        [savedCategory] = await db.insert(schema.categories).values(categoryDataToSave).returning();
+        categoryDbId = savedCategory.id;
+        if (catPayload.id && typeof catPayload.id === 'string') {
+          tempToRealIdMap.set(catPayload.id, categoryDbId);
+        }
+      }
+      if (!categoryDbId) throw new Error(`Failed to save category: ${categoryName}`);
+
+      const savedDishesForThisCategory: any[] = [];
+      if (catPayload.dishes && catPayload.dishes.length > 0) {
+        const dishesToCreate: any[] = [];
+        const dishUpdatePromises: Promise<any[]>[] = [];
+
+        for (const [dishIndex, dishPayload] of catPayload.dishes.entries()) {
+          let dishDbId = dishPayload.id?.startsWith('temp_') ? undefined : tempToRealIdMap.get(dishPayload.id || '') || dishPayload.id;
+          
+          // Ensure dish title is a valid string
+          const dishTitle = typeof dishPayload.title === 'string' && dishPayload.title.trim()
+                          ? dishPayload.title
+                          : `Dish ${dishIndex + 1}`;
+          
+          const dishData = {
+            title: dishTitle, 
+            description: dishPayload.description,
+            price: dishPayload.price, 
+            imageUrl: dishPayload.imageUrl,
+            order: dishPayload.order !== undefined ? dishPayload.order : dishIndex,
+            categoryId: categoryDbId,
+          };
+
+          if (dishDbId && !dishPayload.id?.startsWith('temp_')) { // Update
+            dishUpdatePromises.push(
+              db.update(schema.dishes)
+                .set({ ...dishData, updatedAt: new Date() })
+                .where(and(eq(schema.dishes.id, dishDbId), eq(schema.dishes.categoryId, categoryDbId)))
+                .returning()
+            );
+          } else { // Create
+            dishesToCreate.push(dishData);
+          }
+        }
+
+        if (dishesToCreate.length > 0) {
+          const newDbDishes = await db.insert(schema.dishes).values(dishesToCreate).returning();
+          savedDishesForThisCategory.push(...newDbDishes);
+          newDbDishes.forEach((newDish, i) => { // Attempt to map temp IDs
+            const originalPayloadDish = catPayload.dishes.find(dp => dp.title === newDish.title && dp.id?.startsWith('temp_'));
+            if (originalPayloadDish?.id && !tempToRealIdMap.has(originalPayloadDish.id)) { // check if not already mapped
+              tempToRealIdMap.set(originalPayloadDish.id, newDish.id);
+            }
+          });
+        }
+        const updatedDishResults = await Promise.all(dishUpdatePromises);
+        updatedDishResults.forEach(result => {
+          if(result && result.length > 0) savedDishesForThisCategory.push(...result);
+        });
+      }
+      // Ensure dishes are ordered correctly before adding to the category
+      savedDishesForThisCategory.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      savedCategoriesWithDishes.push({ ...savedCategory, dishes: savedDishesForThisCategory });
+    }
+    
+    // 4. Final Category Reordering (using resolved IDs)
+    if (payload.orderedCategoryIds && payload.orderedCategoryIds.length > 0) {
+      const finalOrderedRealCategoryIds = payload.orderedCategoryIds
+        .map(id => tempToRealIdMap.get(id) || id)
+        .filter(id => !id.startsWith('temp_')); // Filter out any unresolved temp IDs
+
+      if (finalOrderedRealCategoryIds.length > 0) {
+        // Using Drizzle `sql` for potential single batch update if Neon supports it
+        const cases = drizzleSql.raw(
+          finalOrderedRealCategoryIds.map((id, index) => `WHEN '${id}' THEN ${index}`).join(' ')
+        );
+        const idList = drizzleSql.raw(
+          finalOrderedRealCategoryIds.map(id => `'${id}'`).join(',')
+        );
+        
+        // Check if there are cases to apply
+        if (finalOrderedRealCategoryIds.length > 0) {
+          const updateQuery = drizzleSql`UPDATE ${schema.categories} SET "order" = CASE id ${cases} END WHERE id IN (${idList}) AND "restaurant_id" = ${restaurantId}`;
+          await db.execute(updateQuery);
+        }
+      }
+    }
+
+    // 5. Re-fetch the final state to ensure consistency and correct ordering
+    // Instead of using relational queries, we'll do it manually with regular queries
+    const [finalRestaurant] = await db.select().from(schema.restaurants)
+      .where(eq(schema.restaurants.id, restaurantId));
+    
+    if (!finalRestaurant) {
+      throw new Error("Failed to fetch final restaurant state after save.");
+    }
+
+    // Get categories ordered by their order field
+    const categories = await db.select().from(schema.categories)
+      .where(eq(schema.categories.restaurantId, restaurantId))
+      .orderBy(schema.categories.order);
+    
+    // For each category, get its dishes
+    const categoriesWithDishes = await Promise.all(categories.map(async (category) => {
+      const dishes = await db.select().from(schema.dishes)
+        .where(eq(schema.dishes.categoryId, category.id))
+        .orderBy(schema.dishes.order);
+      
+      return {
+        ...category,
+        dishes
+      };
+    }));
+
+    // Create the final restaurant state with categories and dishes
+    const finalRestaurantState = {
+      ...finalRestaurant,
+      categories: categoriesWithDishes
+    };
+
+    // Log the final slug for debugging
+    console.log(`Restaurant saved with slug: ${finalRestaurant.slug}`);
+
+    return json({
+      success: true,
+      data: finalRestaurantState
+    });
+
+  } catch (e: any) {
+    console.error("Bulk save error:", e);
+    const errorMessage = e instanceof Error ? e.message : "Failed to save menu";
+    // If e is a SvelteKit error, it will have a status property
+    const errorStatus = typeof e === 'object' && e !== null && 'status' in e ? (e as any).status : 500;
+    return json({ success: false, error: errorMessage, details: e.stack }, { status: errorStatus });
   }
 } 
 ```
