@@ -133,7 +133,7 @@ export async function POST({ request, locals }: RequestEvent) {
 
         console.log('Sending request to OpenAI...');
         const stream = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-4.1-mini",
             messages: [
                 {
                     role: "system",

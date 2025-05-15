@@ -326,48 +326,203 @@ In vercel
 
 ##############################################
 
-## Understanding `+server.ts` Files in Your SvelteKit API
+# API Endpoints for Restaurant Management (`src/routes/api/restaurants/`)
 
-In your SvelteKit project, files named `+server.ts` (or `+server.js`) are the cornerstone for creating backend API endpoints. The way these files are structured within your `src/routes/` directory directly dictates the URL paths of your API.
+This section outlines the functionality of each `+server.ts` file located within the `src/routes/api/restaurants/` directory and its subdirectories. These files define the backend API endpoints for managing restaurant, category, and dish data in the SvelteKit application.
 
-Here's a breakdown of their function, particularly in the context of your `src/routes/api/restaurants/` structure:
+---
 
-### 1. Defining API Endpoints via File-System Routing
+## 1. `/api/restaurants/+server.ts`
 
-SvelteKit uses a file-system based router. This means the location of a `+server.ts` file within the `src/routes` directory defines the API endpoint's URL.
+*   **URL:** `/api/restaurants`
+*   **Purpose:** Manages the collection of restaurants for the authenticated user.
+*   **Methods:**
+    *   **`POST`**:
+        *   **Action:** Creates a new restaurant.
+        *   **Input:** Expects restaurant details in the request body (e.g., `name`, `logo`, `customPrompt`, `phoneNumber`, `currency`, `color`, `reservas`, `redes_sociales`). Optionally, a client-provided `id` (if not a temp ID) and `slug` can be included.
+        *   **Logic:**
+            1.  Authenticates the user via `auth_token` cookie.
+            2.  Validates that a `name` is provided.
+            3.  Generates a unique `slug` for the restaurant if one isn't provided or if the provided one needs to be unique.
+            4.  Checks if a restaurant with the same slug already exists for the current user to prevent duplicates by name.
+            5.  Inserts the new restaurant record into the `restaurants` table, associating it with the authenticated user's `id`.
+        *   **Output:** Returns a JSON response with `success: true` and the newly created `restaurant` object, or `success: false` with an error message.
+    *   **`GET`**:
+        *   **Action:** Retrieves restaurants.
+        *   **Logic:**
+            1.  Authenticates the user.
+            2.  If an `id` query parameter is provided (e.g., `/api/restaurants?id=some-uuid`), it fetches and returns that specific restaurant, verifying ownership.
+            3.  If no `id` query parameter is provided, it fetches and returns all restaurants associated with the authenticated user.
+        *   **Output:** Returns JSON with `success: true` and an array of `restaurant` objects (or a single restaurant object if an ID was queried), or `success: false` with an error.
 
-*   A file at `src/routes/api/some-path/+server.ts` will create an API endpoint accessible at `/api/some-path`.
-*   Dynamic segments in the path are created using square brackets, e.g., `src/routes/api/items/[itemId]/+server.ts` creates an endpoint like `/api/items/123`, where `123` becomes a parameter.
+---
 
-### 2. Handling HTTP Methods
+## 2. `/api/restaurants/[restaurantId]/+server.ts`
 
-Inside each `+server.ts` file, you export functions named after standard HTTP methods (e.g., `GET`, `POST`, `PUT`, `DELETE`, `PATCH`). Each exported function becomes a handler for requests made to the file's corresponding URL using that specific HTTP method.
+*   **URL:** `/api/restaurants/{restaurantId}` (e.g., `/api/restaurants/123e4567-e89b-12d3-a456-426614174000`)
+*   **Purpose:** Manages a specific restaurant identified by `restaurantId`.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the restaurant.
+*   **Methods:**
+    *   **`PUT`**:
+        *   **Action:** Updates the details of the specified restaurant.
+        *   **Input:** Expects a JSON body with fields to update (e.g., `name`, `logo`, `slug`, `customPrompt`, `phoneNumber`, `currency`, `color`, `reservas`, `redes_sociales`).
+        *   **Logic:**
+            1.  Authenticates the user and verifies they own the restaurant.
+            2.  If the `name` is being updated, it may also regenerate and update the `slug`, checking for uniqueness if necessary.
+            3.  Updates the corresponding restaurant record in the database.
+        *   **Output:** Returns JSON with `success: true` and the updated `restaurant` object, or `success: false` with an error.
+    *   **`DELETE`**:
+        *   **Action:** Deletes the specified restaurant.
+        *   **Logic:**
+            1.  Authenticates the user and verifies they own the restaurant.
+            2.  Deletes the restaurant record from the database. (Associated categories and dishes are expected to be cascade deleted due to database foreign key constraints).
+        *   **Output:** Returns JSON with `success: true` and the deleted `restaurant` object, or `success: false` with an error.
 
-*   **`export async function GET({ params, request, cookies, url, locals, platform, fetch }) { ... }`**: Handles GET requests to fetch data.
-*   **`export async function POST({ params, request, ... }) { ... }`**: Handles POST requests, typically for creating new resources.
-*   **`export async function PUT({ params, request, ... }) { ... }`**: Handles PUT requests, usually for updating existing resources.
-*   **`export async function DELETE({ params, request, ... }) { ... }`**: Handles DELETE requests for removing resources.
+---
 
-### 3. Request Handling and Context
+## 3. `/api/restaurants/[restaurantId]/categories/+server.ts`
 
-Each of these exported HTTP method functions receives a `RequestEvent` object as its argument. This object provides crucial context and utilities for handling the incoming request, including:
+*   **URL:** `/api/restaurants/{restaurantId}/categories`
+*   **Purpose:** Manages the collection of categories within a specific restaurant.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the parent restaurant.
+*   **Methods:**
+    *   **`POST`**:
+        *   **Action:** Creates a new category (or finds an existing one by name) within the specified restaurant.
+        *   **Input:** Expects a JSON body with `{ "name": "Category Name" }`.
+        *   **Logic:**
+            1.  Validates `restaurantId` and `name`.
+            2.  Calculates the `order` for the new category (appending it to the end of the list for that restaurant).
+            3.  Checks if a category with the same `name` already exists in this `restaurantId`. If so, returns the existing one.
+            4.  If not, inserts a new category record associated with the `restaurantId`.
+        *   **Output:** Returns JSON with `success: true` and the created (or found) `category` object, or `success: false` with an error.
+    *   **`GET`**:
+        *   **Action:** Retrieves all categories for the specified restaurant.
+        *   **Logic:**
+            1.  Validates `restaurantId`.
+            2.  Fetches all categories from the database where `restaurantId` matches, ordered by their `order` field.
+        *   **Output:** Returns JSON with `success: true` and an array of `category` objects, or `success: false` with an error.
+    *   **`DELETE`**:
+        *   **Action:** *(Note: The `DELETE` handler in this specific file (`.../categories/+server.ts`) as provided in the codebase attempts to use `params.categoryId`. However, at this path, `params.categoryId` will be undefined. This makes this specific `DELETE` handler non-functional for deleting a specific category. Specific category deletion is handled by `.../[categoryId]/+server.ts`.)*
+        *   **Intended Action (if functional):** Would likely be to delete *all* categories for a restaurant or a specific category if an ID was passed differently (e.g., in the body).
+        *   **Current Behavior:** Likely to fail or not perform the intended specific deletion.
 
-*   `request`: The standard [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) object, allowing you to access headers, body (e.g., `await request.json()`, `await request.formData()`), etc.
-*   `params`: An object containing the values of any dynamic route segments. For example, in `/api/restaurants/[restaurantId]/+server.ts`, `params.restaurantId` would hold the actual ID from the URL.
-*   `url`: A [URL](https://developer.mozilla.org/en-US/docs/Web/API/URL) object representing the incoming request's URL, useful for query parameters.
-*   `cookies`: An API for getting and setting cookies.
-*   `locals`: An object to pass data between hooks and endpoint handlers (e.g., authenticated user data).
-*   `fetch`: A `fetch` API, augmented by SvelteKit, that can make requests to other internal or external endpoints.
+---
 
-### 4. Returning Responses
+## 4. `/api/restaurants/[restaurantId]/categories/order/+server.ts`
 
-The handler functions are expected to return a standard [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object. SvelteKit provides a convenient `json()` helper function from `@sveltejs/kit` to easily return JSON responses with appropriate headers and status codes.
+*   **URL:** `/api/restaurants/{restaurantId}/categories/order`
+*   **Purpose:** Updates the display order of categories within a specific restaurant.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the parent restaurant.
+*   **Methods:**
+    *   **`PUT`**:
+        *   **Action:** Reorders the categories for the given restaurant.
+        *   **Input:** Expects a JSON body with `{ "orderedCategoryIds": ["uuid1", "uuid2", ...] }`, where the array represents the new order of category IDs.
+        *   **Logic:**
+            1.  Authenticates the user and verifies ownership of the restaurant.
+            2.  Validates that `orderedCategoryIds` is an array of valid UUIDs.
+            3.  Verifies that all provided category IDs belong to the specified restaurant.
+            4.  Updates the `order` field for each category in the database based on its index in the `orderedCategoryIds` array.
+        *   **Output:** Returns JSON with `success: true` and a success message, or `success: false` with an error.
 
-```typescript
-import { json } from '@sveltejs/kit';
+---
 
-export async function GET({ params }) {
-  // ... logic to fetch data ...
-  const data = { id: params.someId, message: "Hello from the API" };
-  return json({ success: true, data: data }, { status: 200 });
-}
+## 5. `/api/restaurants/[restaurantId]/categories/[categoryId]/+server.ts`
+
+*   **URL:** `/api/restaurants/{restaurantId}/categories/{categoryId}`
+*   **Purpose:** Manages a specific category within a restaurant.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the parent restaurant.
+    *   `categoryId` (string): The UUID of the category.
+*   **Methods:**
+    *   **`PUT`**:
+        *   **Action:** Updates the details of a specific category (e.g., its name).
+        *   **Input:** Expects a JSON body with `{ "name": "New Category Name" }`.
+        *   **Logic:**
+            1.  Validates inputs.
+            2.  Checks if another category with the new `name` already exists within the same `restaurantId` (excluding the current `categoryId`) to prevent duplicates.
+            3.  Updates the category record in the database.
+        *   **Output:** Returns JSON with `success: true` and the updated `category` object, or `success: false` with an error.
+    *   **`DELETE`**:
+        *   **Action:** Deletes a specific category.
+        *   **Logic:**
+            1.  Validates `restaurantId` and `categoryId`.
+            2.  Deletes the category record from the database where `id` matches `categoryId` and `restaurantId` matches. (Associated dishes are expected to be cascade deleted).
+        *   **Output:** Returns JSON with `success: true` and the deleted `category` object, or `success: false` with an error.
+
+---
+
+## 6. `/api/restaurants/[restaurantId]/categories/[categoryId]/dishes/+server.ts`
+
+*   **URL:** `/api/restaurants/{restaurantId}/categories/{categoryId}/dishes`
+*   **Purpose:** Manages the collection of dishes within a specific category.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the parent restaurant.
+    *   `categoryId` (string): The UUID of the parent category.
+*   **Methods:**
+    *   **`POST`**:
+        *   **Action:** Creates a new dish within the specified category.
+        *   **Input:** Expects a JSON body with dish details (e.g., `title`, `price`, `description`, `imageUrl`).
+        *   **Logic:**
+            1.  Validates `title` and `categoryId`.
+            2.  Calculates the `order` for the new dish (appending it to the end of the list for that category).
+            3.  Inserts a new dish record associated with the `categoryId`.
+        *   **Output:** Returns JSON with `success: true` and the created `dish` object, or `success: false` with an error.
+    *   **`GET`**:
+        *   **Action:** Retrieves all dishes for the specified category.
+        *   **Logic:**
+            1.  Validates `restaurantId` and `categoryId`.
+            2.  Verifies the category belongs to the restaurant.
+            3.  Fetches all dishes from the database where `categoryId` matches, ordered by their `order` field.
+        *   **Output:** Returns JSON with `success: true` and an array of `dish` objects, or `success: false` with an error.
+    *   **`PUT`**:
+        *   **Action:** *(The provided code for this specific path only includes `POST` and `GET`. `PUT` for a specific dish is handled by `.../[dishId]/+server.ts`)*
+    *   **`DELETE`**:
+        *   **Action:** *(The provided code for this specific path only includes `POST` and `GET`. `DELETE` for a specific dish is handled by `.../[dishId]/+server.ts`)*
+
+---
+
+## 7. `/api/restaurants/[restaurantId]/categories/[categoryId]/dishes/order/+server.ts`
+
+*   **URL:** `/api/restaurants/{restaurantId}/categories/{categoryId}/dishes/order`
+*   **Purpose:** Updates the display order of dishes within a specific category.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the parent restaurant.
+    *   `categoryId` (string): The UUID of the parent category.
+*   **Methods:**
+    *   **`PUT`**:
+        *   **Action:** Reorders the dishes for the given category.
+        *   **Input:** Expects a JSON body with `{ "orderedDishIds": ["uuid1", "uuid2", ...] }`, where the array represents the new order of dish IDs.
+        *   **Logic:**
+            1.  Authenticates the user and verifies ownership of the restaurant/category.
+            2.  Validates that `orderedDishIds` is an array.
+            3.  Verifies that all provided dish IDs belong to the specified category.
+            4.  Updates the `order` field for each dish in the database based on its index in the `orderedDishIds` array.
+        *   **Output:** Returns JSON with `success: true` and a success message, or `success: false` with an error.
+
+---
+
+## 8. `/api/restaurants/[restaurantId]/categories/[categoryId]/dishes/[dishId]/+server.ts`
+
+*   **URL:** `/api/restaurants/{restaurantId}/categories/{categoryId}/dishes/{dishId}`
+*   **Purpose:** Manages a specific dish within a category.
+*   **Parameters:**
+    *   `restaurantId` (string): The UUID of the parent restaurant.
+    *   `categoryId` (string): The UUID of the parent category.
+    *   `dishId` (string): The UUID of the dish.
+*   **Methods:**
+    *   **`PUT`**:
+        *   **Action:** Updates the details of a specific dish.
+        *   **Input:** Expects a JSON body with fields to update (e.g., `title`, `price`, `description`, `imageUrl`).
+        *   **Logic:**
+            1.  Verifies the dish exists and belongs to the specified `categoryId`.
+            2.  Updates the dish record in the database.
+        *   **Output:** Returns JSON with `success: true` and an object containing the updated `dish` and its `category` (with all its dishes), or `success: false` with an error.
+    *   **`DELETE`**:
+        *   **Action:** Deletes a specific dish.
+        *   **Logic:**
+            1.  Verifies the dish exists and belongs to the specified `categoryId`.
+            2.  Deletes the dish record from the database.
+        *   **Output:** Returns JSON with `success: true` and an object containing the deleted `dish` and its `category` (with remaining dishes), or `success: false` with an error.
