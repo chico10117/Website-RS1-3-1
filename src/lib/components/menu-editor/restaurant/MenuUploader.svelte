@@ -15,8 +15,8 @@
   // Configuration constants (optimizations)
   const MAX_FILE_SIZE_MB = 20; // Maximum file size in MB
   const MAX_PDF_PAGES = 10; // Maximum number of PDF pages to process
-  const IMAGE_QUALITY = 1; // PNG quality (0-1)
-  const MAX_IMAGE_DIMENSION = 1800; // Maximum width/height for images
+  const IMAGE_QUALITY = 0.9; // PNG quality (0-1) - Reduced for better performance
+  const MAX_IMAGE_DIMENSION = 1800; // Maximum width/height for images. May need further adjustment for mobile.
   const PDF_SCALE_FACTOR = 1.5; // Scale factor for PDF rendering (lower = smaller)
 
   const dispatch = createEventDispatcher<{
@@ -158,6 +158,7 @@
   async function processFiles(files: FileList) {
     try {
       images = [];
+      let fileProcessingFailures = 0;
       totalUploadSizeMB = 0;
       uploaderStore.setLoading(true, t('processingFiles'), 0);
 
@@ -179,16 +180,37 @@
         if (!validateFileSize(file)) continue;
 
         if (file.type === 'application/pdf') {
-          await processPDF(file);
+          try {
+            await processPDF(file);
+          } catch (pdfProcessingError) {
+            console.error('Error processing PDF file in processFiles:', pdfProcessingError);
+            fileProcessingFailures++;
+            // No toast here, processPDF or its sub-functions should have shown one.
+          }
         } else if (file.type.startsWith('image/')) {
           const progress = Math.round((processedFiles / validFiles) * 40);
           uploaderStore.updateProgress(`${t('processingImage')} ${file.name}`, progress);
-          await processImage(file);
+          try {
+            await processImage(file);
+          } catch (imageProcessingError) {
+            console.error('Error processing image file in processFiles:', imageProcessingError);
+            fileProcessingFailures++;
+            // Toast is already shown by processImage's original catch
+          }
         } else {
           toasts.error(t('error') + ': ' + t('invalidFileType'));
+          fileProcessingFailures++; // Also count this as a file processing failure
           continue;
         }
         processedFiles++;
+      }
+
+      if (validFiles > 0 && fileProcessingFailures === validFiles) {
+        console.error('All files failed to process.');
+        toasts.error(translations['allFilesFailedProcessing']?.[currentLanguage] || 'All files failed to process. Please try again.');
+        uploaderStore.reset();
+        // No need to dispatch('error') here as individual errors would have been dispatched or toasted
+        return; // Explicitly return to prevent calling generateRestaurantData
       }
 
       if (images.length > 0) {
@@ -196,6 +218,13 @@
         uploaderStore.updateProgress(t('preparingToUpload'), 50);
         await generateRestaurantData();
       } else {
+        // If images array is empty, it implies all processing failed or produced no valid images
+        console.log('No images were produced from the uploaded files.');
+        // Ensure uploader is reset if we are not proceeding to generateRestaurantData
+        // and it wasn't reset by the allFilesFailedProcessing block
+        if (!(validFiles > 0 && fileProcessingFailures === validFiles)) {
+             toasts.error(translations['noImagesProcessed']?.[currentLanguage] || 'No images could be processed from the uploaded files.');
+        }
         uploaderStore.reset();
       }
     } catch (error) {
@@ -209,6 +238,7 @@
   }
 
   async function processPDF(file: File) {
+    let failedPages = 0;
     try {
       console.log(`Processing PDF: ${file.name}, Size: ${file.size} bytes`);
       const arrayBuffer = await file.arrayBuffer();
@@ -234,10 +264,15 @@
           
           // Optimize viewport scale based on target dimensions
           const viewport = page.getViewport({ scale: 1 });
+          let currentPdfScaleFactor = PDF_SCALE_FACTOR;
+          if (isMobile) {
+            currentPdfScaleFactor = 1.2; // Use a slightly smaller scale factor for mobile devices
+            console.log(`Using mobile PDF scale factor: ${currentPdfScaleFactor}`);
+          }
           const scaleFactor = Math.min(
             MAX_IMAGE_DIMENSION / viewport.width,
             MAX_IMAGE_DIMENSION / viewport.height,
-            PDF_SCALE_FACTOR // Cap at the maximum scale factor (quality vs. size tradeoff)
+            currentPdfScaleFactor // Cap at the maximum scale factor (quality vs. size tradeoff)
           );
           
           const scaledViewport = page.getViewport({ scale: scaleFactor });
@@ -254,14 +289,33 @@
 
           // Use PNG for better text quality
           const dataURL = canvas.toDataURL('image/png', IMAGE_QUALITY);
-          const compressedDataURL = await compressImage(dataURL);
+
+          // Add check for dataURL length and validity
+          if (!dataURL || dataURL.length < 100) {
+            console.error(`Error generating dataURL for PDF page ${pageNum}. Output was too short or null.`);
+            toasts.error((translations['errorGeneratingImageDataForPage']?.[currentLanguage] || 'Error generating image data for page') + ` ${pageNum}`);
+            failedPages++;
+            continue;
+          }
           
-          console.log(`Page ${pageNum}: Original size: ${dataURL.length}, Compressed: ${compressedDataURL.length}`);
+          console.log(`PDF Page ${pageNum} original dataURL length: ${dataURL.length}`);
+          const compressedDataURL = await compressImage(dataURL);
+          console.log(`PDF Page ${pageNum} compressed dataURL length: ${compressedDataURL.length}`);
+          
           images.push({ page: pageNum, dataURL: compressedDataURL });
         } catch (pageError) {
           console.error(`Error rendering page ${pageNum}:`, pageError);
           toasts.error(t('errorProcessingPage') + ` ${pageNum}`);
+          failedPages++;
         }
+      }
+
+      if (pagesToProcess > 0 && failedPages >= Math.max(1, pagesToProcess / 2)) {
+        console.error(`More than half of PDF pages failed to process (${failedPages}/${pagesToProcess}). Aborting.`);
+        toasts.error(translations['tooManyPdfPageErrors']?.[currentLanguage] || 'Too many PDF pages failed to process. Please check the file.');
+        // Potentially throw an error here to be caught by processFiles, or ensure uploaderStore is reset
+        uploaderStore.reset(); // Resetting here as processPDF itself is failing significantly
+        throw new Error(translations['tooManyPdfPageErrors']?.[currentLanguage] || 'Too many PDF pages failed to process. Please check the file.'); // This will be caught by processFiles
       }
     } catch (pdfError) {
       console.error('Error processing PDF file:', pdfError);
@@ -280,12 +334,14 @@
   async function processImage(file: File) {
     try {
       const dataURL = await convertToBase64(file);
+      console.log(`Image ${file.name} original dataURL length: ${dataURL.length}`);
       const compressedDataURL = await compressImage(dataURL);
-      console.log(`Image ${file.name}: Original size: ${dataURL.length}, Compressed: ${compressedDataURL.length}`);
+      console.log(`Image ${file.name} compressed dataURL length: ${compressedDataURL.length}`);
       images.push({ page: images.length + 1, dataURL: compressedDataURL });
     } catch (error) {
       console.error(`Error processing image ${file.name}:`, error);
       toasts.error(`${t('error')}: ${t('errorProcessingImage')} ${file.name}`);
+      throw error; // Re-throw to be caught by processFiles
     }
   }
 
@@ -360,10 +416,40 @@
         credentials: 'include'
       });
 
-      if (!response.body) {
-        clearInterval(progressTimer);
-        throw new Error('No response body');
+      // DO NOT clearInterval(progressTimer) here yet. It should continue if response is ok and has a body.
+
+      if (!response.ok) {
+        clearInterval(progressTimer); // Stop timer as we are aborting.
+        let errorMsg = t('aiProcessingError'); // Default error message
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          // Ignore if error response is not JSON or empty
+          console.warn('Could not parse error response from server:', e);
+        }
+        console.error(`Error from /api/process-images: ${response.status} ${response.statusText}`, errorMsg);
+        toasts.error(`${t('error')}: ${errorMsg}`);
+        uploaderStore.reset();
+        dispatch('error', `Server error: ${errorMsg}`); // Dispatch an error event
+        return; // Stop further processing
       }
+
+      if (!response.body) {
+        clearInterval(progressTimer); // Stop timer as we are aborting.
+        // This case should be less likely if !response.ok is handled,
+        // but keep as a safeguard for unexpected scenarios.
+        console.error('No response body from /api/process-images, but response was OK.');
+        toasts.error(t('error') + ': ' + (translations['emptyResponseBody']?.[currentLanguage] || 'Received empty response from server.')); 
+        uploaderStore.reset();
+        dispatch('error', 'Empty response body from server');
+        return; // Stop further processing
+      }
+
+      // If response.ok and response.body exists, the progressTimer continues.
+      // It will be cleared later by stream event handlers ([DONE], [ERROR]) or the main catch block.
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();

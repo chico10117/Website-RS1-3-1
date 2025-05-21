@@ -166,6 +166,10 @@ export const translations: Translation = {
     es: "No se ha subido ningún archivo",
     en: "No file uploaded"
   },
+  noImagesProcessed: {
+    es: "No se pudieron procesar imágenes de los archivos subidos.",
+    en: "No images could be processed from the uploaded files."
+  },
   fileUploadSuccess: {
     es: "Archivo subido exitosamente",
     en: "File uploaded successfully"
@@ -225,6 +229,10 @@ export const translations: Translation = {
   edit: {
     es: "Editar",
     en: "Edit"
+  },
+  emptyResponseBody: {
+    es: "Respuesta vacía recibida del servidor.",
+    en: "Received empty response from server."
   },
   dragAndDrop: {
     es: "o arrastrar y soltar",
@@ -470,6 +478,10 @@ export const translations: Translation = {
     en: 'Error during AI processing',
     es: 'Error durante el procesamiento de IA'
   },
+  allFilesFailedProcessing: {
+    es: "Todos los archivos fallaron al procesar. Por favor, inténtalo de nuevo.",
+    en: "All files failed to process. Please try again."
+  },
   errorProcessingImage: {
     en: 'Error processing image',
     es: 'Error al procesar la imagen'
@@ -481,6 +493,10 @@ export const translations: Translation = {
   errorProcessingPdf: {
     en: 'Error processing PDF file',
     es: 'Error al procesar el archivo PDF'
+  },
+  errorGeneratingImageDataForPage: {
+    es: "Error al generar imagen para la página",
+    en: "Error generating image data for page"
   },
   warning: {
     en: 'Warning',
@@ -518,5 +534,9 @@ export const translations: Translation = {
   takePhotoOnMobile: {
     es: "Toma una foto",
     en: "Take a picture!"
+  },
+  tooManyPdfPageErrors: {
+    es: "Demasiadas páginas del PDF fallaron al procesar. Por favor, revisa el archivo.",
+    en: "Too many PDF pages failed to process. Please check the file."
   }
 }; 
