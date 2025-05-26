@@ -5,7 +5,7 @@
   import { language } from '$lib/stores/language';
   import { toasts } from '$lib/stores/toast';
   import { uploaderStore } from '$lib/stores/uploaderStore';
-
+//
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
   export let restaurantName: string;
