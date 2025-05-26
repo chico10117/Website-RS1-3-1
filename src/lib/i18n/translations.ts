@@ -518,5 +518,13 @@ export const translations: Translation = {
   takePhotoOnMobile: {
     es: "Toma una foto",
     en: "Take a picture!"
+  },
+  payloadTooLarge: {
+    es: "El tamaño total de las imágenes es demasiado grande",
+    en: "Total image size is too large"
+  },
+  optimizingImages: {
+    es: "Optimizando imágenes para reducir tamaño",
+    en: "Optimizing images to reduce size"
   }
 }; 

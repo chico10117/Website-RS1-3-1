@@ -15,9 +15,10 @@
   // Configuration constants (optimizations)
   const MAX_FILE_SIZE_MB = 20; // Maximum file size in MB
   const MAX_PDF_PAGES = 10; // Maximum number of PDF pages to process
-  const IMAGE_QUALITY = 1; // PNG quality (0-1)
-  const MAX_IMAGE_DIMENSION = 1800; // Maximum width/height for images
-  const PDF_SCALE_FACTOR = 1.5; // Scale factor for PDF rendering (lower = smaller)
+  const IMAGE_QUALITY = 0.7; // JPEG quality (0-1) - reduced for smaller files
+  const MAX_IMAGE_DIMENSION = 1200; // Maximum width/height for images - reduced from 1800
+  const PDF_SCALE_FACTOR = 1.2; // Scale factor for PDF rendering (lower = smaller)
+  const MAX_TOTAL_PAYLOAD_MB = 3.5; // Maximum total payload size in MB (Vercel limit is ~4.5MB)
 
   const dispatch = createEventDispatcher<{
     success: { restaurantData: any;};
@@ -146,8 +147,9 @@
         
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Always use PNG for better text quality
-        resolve(canvas.toDataURL('image/png', quality));
+        // Use JPEG for better compression, PNG only for very small images
+        const format = (width * height < 500000) ? 'image/png' : 'image/jpeg';
+        resolve(canvas.toDataURL(format, quality));
       };
       
       img.onerror = () => reject(new Error('Failed to load image'));
@@ -194,6 +196,9 @@
       if (images.length > 0) {
         console.log('Images ready for upload:', images.length);
         uploaderStore.updateProgress(t('preparingToUpload'), 50);
+        
+        // Check if we need to compress further
+        await optimizeImagesForUpload();
         await generateRestaurantData();
       } else {
         uploaderStore.reset();
@@ -252,8 +257,9 @@
           canvas.height = scaledViewport.height;
           await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
 
-          // Use PNG for better text quality
-          const dataURL = canvas.toDataURL('image/png', IMAGE_QUALITY);
+          // Use JPEG for better compression on larger images
+          const format = (scaledViewport.width * scaledViewport.height < 500000) ? 'image/png' : 'image/jpeg';
+          const dataURL = canvas.toDataURL(format, IMAGE_QUALITY);
           const compressedDataURL = await compressImage(dataURL);
           
           console.log(`Page ${pageNum}: Original size: ${dataURL.length}, Compressed: ${compressedDataURL.length}`);
@@ -298,6 +304,42 @@
     });
   }
 
+  // Optimize images if the total payload is too large
+  async function optimizeImagesForUpload() {
+    let totalSize = images.reduce((sum, img) => sum + img.dataURL.length, 0) / (1024 * 1024);
+    
+    if (totalSize <= MAX_TOTAL_PAYLOAD_MB) {
+      return; // Already within limits
+    }
+
+    console.log(`Payload too large (${totalSize.toFixed(2)}MB), applying additional compression...`);
+    uploaderStore.updateProgress(t('optimizingImages'), 55);
+
+    // Apply more aggressive compression
+    const optimizedImages = [];
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      
+      // Try progressively lower quality until we get a reasonable size
+      let quality = 0.5; // Start with lower quality
+      let optimizedDataURL = await compressImage(img.dataURL, quality);
+      
+      // If still too large, try even lower quality
+      if (optimizedDataURL.length > img.dataURL.length * 0.7) {
+        quality = 0.3;
+        optimizedDataURL = await compressImage(img.dataURL, quality);
+      }
+      
+      console.log(`Image ${i + 1}: ${(img.dataURL.length / 1024).toFixed(0)}KB -> ${(optimizedDataURL.length / 1024).toFixed(0)}KB`);
+      optimizedImages.push({ ...img, dataURL: optimizedDataURL });
+    }
+
+    images = optimizedImages;
+    
+    const newTotalSize = images.reduce((sum, img) => sum + img.dataURL.length, 0) / (1024 * 1024);
+    console.log(`After optimization: ${newTotalSize.toFixed(2)}MB`);
+  }
+
   async function generateRestaurantData() {
     try {
       uploaderStore.updateProgress(t('uploadingImages'), 60);
@@ -307,7 +349,17 @@
       for (const img of images) {
         totalBase64Length += img.dataURL.length;
       }
-      console.log(`Uploading ${images.length} images, total size: ${(totalBase64Length / (1024 * 1024)).toFixed(2)}MB`);
+      const totalSizeMB = totalBase64Length / (1024 * 1024);
+      console.log(`Uploading ${images.length} images, total size: ${totalSizeMB.toFixed(2)}MB`);
+
+      // Check if payload exceeds size limit
+      if (totalSizeMB > MAX_TOTAL_PAYLOAD_MB) {
+        const errorMsg = `${t('error')}: ${t('payloadTooLarge')} (${totalSizeMB.toFixed(1)}MB > ${MAX_TOTAL_PAYLOAD_MB}MB)`;
+        toasts.error(errorMsg);
+        uploaderStore.reset();
+        dispatch('error', errorMsg);
+        return;
+      }
 
       // Prepare the images for the API
       const payload = {
