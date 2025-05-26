@@ -3,6 +3,9 @@ import OpenAI from "openai";
 import type {ChatCompletionContentPart} from 'openai/resources/chat/completions';
 import type { RequestEvent } from '@sveltejs/kit';
 
+// Configure maximum duration for this function (5 minutes for Pro plan)
+export const maxDuration = 300;
+
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
